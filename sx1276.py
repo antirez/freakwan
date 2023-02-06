@@ -7,7 +7,7 @@
 
 from machine import Pin, SPI, SoftSPI, SoftI2C
 import ssd1306
-import time, struct
+import time, struct, urandom
 
 # SX1276 constants
 
@@ -235,6 +235,7 @@ class SX1276:
         self.spi_write(RegOpMode, ModeContRx)
         
     def send(self, data): 
+        self.spi_write(RegDioMapping1, Dio0TxDone)
         self.spi_write(RegFifoAddrPtr, 0) # Write data starting from FIFO byte 0
         self.spi_write(RegFifo, data)     # Populate FIFO with message
         self.spi_write(RegPayloadLength, len(data))  # Store len of message
@@ -267,4 +268,14 @@ if __name__ == "__main__":
     lora = SX1276(LYLIGO_216_pinconfig,receive_callback)
     lora.begin()
     lora.configure(869500000,500000,8,12)
-    lora.receive()
+
+    if False:
+        lora.receive()
+    else:
+        while True:
+            payload = "Test "+str(urandom.randint(0,1000000))
+            display.fill(0)
+            display.text(payload, 0, 0, 1)
+            display.show()
+            lora.send(payload)
+            time.sleep(5) 
