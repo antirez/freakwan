@@ -60,6 +60,7 @@ IRQCadDetected = 1<<0
 
 class SX1276:
     def __init__(self, pinset, received_callback):
+        self.receiving = False
         self.msg_sent = 0
         self.received_callback = received_callback
         self.reset_pin = Pin(pinset['reset'],Pin.OUT)
@@ -75,6 +76,7 @@ class SX1276:
         time.sleep_us(500)
         self.reset_pin.on()
         time.sleep_us(500)
+        self.receiving = False
 
     # Note: the CS pin logic is inverted. It requires to be set to low
     # when the chip is NOT selected for data transfer.
@@ -223,7 +225,12 @@ class SX1276:
             if self.received_callback:
                 self.received_callback(self, packet, rssi)
         elif event & IRQTxDone:
+            print("TX done")
             self.msg_sent += 1
+            # After sending a message, the chip will return in
+            # standby mode. However if we were receiving we
+            # need to return back to such state.
+            if self.receiving: self.receive()
         else: 
             print("Not handled event IRQ flags "+str(event))
                     
@@ -232,6 +239,7 @@ class SX1276:
         self.spi_write(RegDioMapping1, Dio0RxDone)
         # Go in continuous receiving mode.
         self.spi_write(RegOpMode, ModeContRx)
+        self.receiving = True
         
     def send(self, data): 
         self.spi_write(RegDioMapping1, Dio0TxDone)
@@ -239,5 +247,4 @@ class SX1276:
         self.spi_write(RegFifo, data)     # Populate FIFO with message
         self.spi_write(RegPayloadLength, len(data))  # Store len of message
         self.spi_write(RegOpMode, ModeTx) # Switch to TX mode
-        # TODO: after TX, in the IRQ handler, restore RX mode if it was set.
 
