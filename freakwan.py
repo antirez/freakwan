@@ -1,3 +1,10 @@
+# SX1276 driver for MicroPython
+# Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com>
+# All Rights Reserved
+#
+# This code is released under the BSD 2 clause license.
+# See the LICENSE file for more information
+
 import machine
 import ssd1306, sx1276, time, urandom, struct
 from machine import Pin, SoftI2C
