@@ -5,8 +5,7 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-from machine import Pin, SPI, SoftSPI, SoftI2C
-import ssd1306
+from machine import Pin, SoftSPI
 import time, struct, urandom
 
 # SX1276 constants
@@ -241,41 +240,4 @@ class SX1276:
         self.spi_write(RegPayloadLength, len(data))  # Store len of message
         self.spi_write(RegOpMode, ModeTx) # Switch to TX mode
         # TODO: after TX, in the IRQ handler, restore RX mode if it was set.
- 
-def receive_callback(lora_instance,packet,RSSI):
-    display.fill(0)
-    display.text(packet, 0, 0, 1)
-    display.text(str(RSSI), 0, 15, 1)
-    display.show()
 
-if __name__ == "__main__":
-    LYLIGO_216_pinconfig = {
-        'miso': 19,
-        'mosi': 27,
-        'clock': 5,
-        'chipselect': 18,
-        'reset': 23,
-        'dio0': 26
-    }
-
-    # Init display
-    i2c = SoftI2C(sda=Pin(21), scl=Pin(22))
-    display = ssd1306.SSD1306_I2C(128, 64, i2c)
-    display.poweron()
-    display.text('Receiving...', 0, 0, 1)
-    display.show()
-
-    lora = SX1276(LYLIGO_216_pinconfig,receive_callback)
-    lora.begin()
-    lora.configure(869500000,500000,8,12)
-
-    if False:
-        lora.receive()
-    else:
-        while True:
-            payload = "Test "+str(urandom.randint(0,1000000))
-            display.fill(0)
-            display.text(payload, 0, 0, 1)
-            display.show()
-            lora.send(payload)
-            time.sleep(5) 
