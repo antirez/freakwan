@@ -10,12 +10,14 @@ import ssd1306, sx1276, time, urandom, struct
 from machine import Pin, SoftI2C
 
 MessageTypeData = 0
-MessageTypeACK = 1
+MessageTypeAck = 1
 MessageTypeHello = 2
 MessageTypeBulkStart = 3
 MessageTypeBulkData = 4
 MessageTypeBulkEND = 5
 MessageTypeBulkReply = 6
+
+MessageFlagsRepeat = 1<<0
 
 # This class implements an IRC-alike view for the ssd1306 display.
 # it is possible to push new lines of text, and only the latest N will
@@ -44,13 +46,15 @@ class Scroller:
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
 class Message:
-    def __init__(self, nick, text, uid=False, ttl=3, mtype=MessageTypeData, sender=False):
+    def __init__(self, nick, text, uid=False, ttl=3, mtype=MessageTypeData, sender=False, flags=0):
         self.type = mtype
+        self.flags = flags
         self.nick = nick
         self.text = text
         self.uid = uid if uid != False else self.gen_uid()
         self.sender = sender if sender != False else self.get_this_sender()
         self.ttl = ttl
+        self.acks = {} # IDs of devices that acknowledged this message
 
     def gen_uid(self):
         return urandom.getrandbits(32)
@@ -70,14 +74,15 @@ class Message:
 
     def encode(self):
         if self.type == MessageTypeData:
-            return struct.pack("<BLB",self.type,self.uid,self.ttl)+self.sender+self.nick+":"+self.text
+            return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.sender+self.nick+":"+self.text
 
     def decode(self,msg):
         try:
-            type = struct.unpack("<B",msg)
-            if self.type == MessageTypeData:
-                self.type,self.uid,self.ttl,self.sender = struct.unpack("<BLB6s",msg)
-                self.nick,self.text = msg[12:].decode("utf-8").split(":")
+            mtype = struct.unpack("<B",msg)[0]
+            print("mtype",mtype)
+            if mtype == MessageTypeData:
+                self.type,self.flags,self.uid,self.ttl,self.sender = struct.unpack("<BBLB6s",msg)
+                self.nick,self.text = msg[13:].decode("utf-8").split(":")
                 return True
             else:
                 return False

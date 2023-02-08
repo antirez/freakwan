@@ -14,20 +14,29 @@ The low level (layer 2) format is the one with the explicit header selected, so 
 The first byte is the message byte. The following message types are defined:
 
 * MessageTypeData = 0
-* MessageTypeACK = 1
+* MessageTypeAck = 1
 * MessageTypeHello = 2
 * MessageTypeBulkStart = 3
 * MessageTypeBulkData = 4
 * MessageTypeBulkEND = 5
 * MessageTypeBulkReply = 6
 
-However so far only data messages are implemented. This is the data message
-format:
+The second byte of messages of all the message types is the flag byte.
+Bits have the following meaning:
+
+* Bit 0: Repeat. Set if the message was repeated by some node that is not the originator of the message. Repeat messages are not acknowledged.
+* Bit 1-7: Reserved for future uses. Should be 0.
+
+Currently not all the message types are implemented.
+
+## Data message
+
+Format:
 
 ```
-+-------------+--------------------+-----------+---------------+---------//
-| 8 bits type | 32 bits message ID | 8 bit TTL | 48 bit sender | Message string
-+-------------+--------------------+-----------+---------------+---------//
++--------+---------+---------------+-------+-----------+------------------//
+| type:8 | flags:8 | message ID:32 | TTL:8 | sender:48 | Message string:...
++--------+---------+---------------+-------+-----------+------------------//
 ```
 
 Note that there is no message length, as it is implicitly encoded in the
@@ -46,3 +55,27 @@ the scope of reaaching the whole network, the message sender remains set
 to the *same sender of the original message*, that is, the device that
 created the message the first time. So there is no way to tell who
 sent a given retransmission of a given message.
+
+## Ack message
+
+The Ack message is used to acknowledge the sender that some nearby device
+actually received the message sent. Acks are sent only when receiving
+messages of type data, and only if the `repeat` flag is not set. The idea
+is that the originator of a message wants to understand if at least
+*some* device received it, of the ones it is directly connected. The the
+message can be repeated multiple times and reach very far nodes, but
+we don't want all those nodes to waste channel time sending Acks.
+
+Format:
+
+```
++--------+---------+---------------+-----------------+---------------+
+| type:8 | flags:8 | message ID:32 | 8 bits ack type | 46 bit sender |
++--------+---------+---------------+-----------------+---------------+
+```
+
+Where:
+* The type id is MessageTypeAck
+* Flags are set to 0. Ack messages should never be repeated.
+* The 32 bit message ID is the ID of the acknowledged message. ACKs don't have a message ID for the ACK itself, as they are *fire and forget* and it would not be useful.
+* Sender is the sender node, the one that is acknowledged the message, so this is NOT the sender of the original massage. The sender field is used so that who sent the acknowledged message can know which node acknowledged it.
