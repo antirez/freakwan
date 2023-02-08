@@ -133,8 +133,8 @@ class FreakWAN:
 
         # Messages we should send ASAP. We append stuff here, so they
         # should be sent in reverse order, from index 0.
-        self.sendqueue = []
-        self.sendqueue_max = 100 # Don't accumulate too many messages
+        self.send_queue = []
+        self.send_queue_max = 100 # Don't accumulate too many messages
 
         # The 'seen' dictionary contains messages IDs of messages already
         # received/processed. We save the ID and the associated message
@@ -159,17 +159,29 @@ class FreakWAN:
             nick += vowels [y%len(vowels)]
         return nick
 
+    # Put a packet in the send queue. Will be delivered ASAP.
     def put_in_send_queue(self,m):
-        # TODO: implement it.
+        if len(self.send_queue) >= self.send_queue_max: return
+        self.send_queue.append(m)
         return
+
+    # Send packets waiting in the send queue. This function, right now,
+    # will just send every packet in the queue. But later it should
+    # implement percentage of channel usage to be able to send only
+    # a given percentage of the time.
+    def send_messages_in_queue(self):
+        while len(self.send_queue):
+            m = self.send_queue.pop(0)
+            self.lora.send(m.encode())
+            time.sleep_us(1000)
 
     # Called upon reception of some message. It triggers sending an ACK
     # if certain conditions are met. This method does not check the
     # message type: it is assumed that the method is called only for
     # message type where this makes sense.
     def send_ack_if_needed(self,m):
-        if m.type != MessageTypeData: return
-        if m.flags & MessageFlagsRepeat: return
+        if m.type != MessageTypeData: return    # Acknowledge only data
+        if m.flags & MessageFlagsRepeat: return # Don't acknowledge repeated
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type,sender=m.sender)
         self.put_in_send_queue(ack)
 
@@ -195,6 +207,7 @@ class FreakWAN:
             self.lora.send(msg.encode())
             self.scroller.print("you> "+msg.text)
             self.scroller.refresh()
+            self.send_messages_in_queue()
             time.sleep(5) 
             counter += 1
 
