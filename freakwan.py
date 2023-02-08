@@ -46,7 +46,7 @@ class Scroller:
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
 class Message:
-    def __init__(self, nick, text, uid=False, ttl=3, mtype=MessageTypeData, sender=False, flags=0, rssi=0):
+    def __init__(self, nick="", text="", uid=False, ttl=3, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type = 0):
         self.age = time.ticks_ms() # To evict old messages
         self.type = mtype
         self.flags = flags
@@ -55,6 +55,8 @@ class Message:
         self.uid = uid if uid != False else self.gen_uid()
         self.sender = sender if sender != False else self.get_this_sender()
         self.ttl = ttl
+        self.ack_type = ack_type
+
         self.acks = {} # IDs of devices that acknowledged this message
         self.rssi = rssi
 
@@ -77,6 +79,8 @@ class Message:
     def encode(self):
         if self.type == MessageTypeData:
             return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.sender+self.nick+":"+self.text
+        elif self.type == MessageTypeAck:
+            return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ack_type)+self.sender
 
     def decode(self,msg):
         try:
@@ -85,6 +89,9 @@ class Message:
                 self.type,self.flags,self.uid,self.ttl,self.sender = struct.unpack("<BBLB6s",msg)
                 self.nick,self.text = msg[13:].decode("utf-8").split(":")
                 return True
+            elif mtype == MessageTypeAck:
+                self.type,self.flags,self.uid,self.ack_type,self.sender = struct.unpack("<BBLB6s",msg)
+                return True
             else:
                 return False
         except Exception as e:
@@ -92,9 +99,11 @@ class Message:
             return False
 
     def from_encoded(encoded):
-        m = Message("_nick_","_txt_")
-        m.decode(encoded)
-        return m
+        m = Message()
+        if m.decode(encoded):
+            return m
+        else:
+            return False
 
 class FreakWAN:
     def __init__(self):
@@ -150,12 +159,30 @@ class FreakWAN:
             nick += vowels [y%len(vowels)]
         return nick
 
+    def put_in_send_queue(self,m):
+        # TODO: implement it.
+        return
+
+    # Called upon reception of some message. It triggers sending an ACK
+    # if certain conditions are met. This method does not check the
+    # message type: it is assumed that the method is called only for
+    # message type where this makes sense.
+    def send_ack_if_needed(self,m):
+        if m.type != MessageTypeData: return
+        if m.flags & MessageFlagsRepeat: return
+        ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type,sender=m.sender)
+        self.put_in_send_queue(ack)
+
     def receive_callback(self,lora_instance,packet,rssi):
         m = Message.from_encoded(packet)
         if m:
             m.rssi = rssi
+            self.send_ack_if_needed(m)
             if m.type == MessageTypeData:
                 self.scroller.print(m.nick+"> "+m.text)
+                self.scroller.refresh()
+            elif m.type == MessageTypeAck:
+                self.scroller.print(m.nick+"ACK received")
                 self.scroller.refresh()
             else:
                 print("Unknown message type received: "+str(m.type))
