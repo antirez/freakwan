@@ -46,7 +46,8 @@ class Scroller:
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
 class Message:
-    def __init__(self, nick, text, uid=False, ttl=3, mtype=MessageTypeData, sender=False, flags=0):
+    def __init__(self, nick, text, uid=False, ttl=3, mtype=MessageTypeData, sender=False, flags=0, rssi=0):
+        self.age = time.ticks_ms() # To evict old messages
         self.type = mtype
         self.flags = flags
         self.nick = nick
@@ -55,6 +56,7 @@ class Message:
         self.sender = sender if sender != False else self.get_this_sender()
         self.ttl = ttl
         self.acks = {} # IDs of devices that acknowledged this message
+        self.rssi = rssi
 
     def gen_uid(self):
         return urandom.getrandbits(32)
@@ -79,7 +81,6 @@ class Message:
     def decode(self,msg):
         try:
             mtype = struct.unpack("<B",msg)[0]
-            print("mtype",mtype)
             if mtype == MessageTypeData:
                 self.type,self.flags,self.uid,self.ttl,self.sender = struct.unpack("<BBLB6s",msg)
                 self.nick,self.text = msg[13:].decode("utf-8").split(":")
@@ -119,6 +120,20 @@ class FreakWAN:
         self.lora.begin()
         self.lora.configure(869500000,500000,8,12)
 
+        # Initialize data structures...
+
+        # Messages we should send ASAP. We append stuff here, so they
+        # should be sent in reverse order, from index 0.
+        self.sendqueue = []
+        self.sendqueue_max = 100 # Don't accumulate too many messages
+
+        # The 'seen' dictionary contains messages IDs of messages already
+        # received/processed. We save the ID and the associated message
+        # in case we are the originators (in order to collect acks). The
+        # message has also a timestamp, this way we can evict old messages
+        # from this list, to avoid a memory usage explosion.
+        self.seen = {}
+
         # Start receiving. This will just install the IRQ
         # handler, without blocking the program.
         self.lora.receive()
@@ -135,9 +150,10 @@ class FreakWAN:
             nick += vowels [y%len(vowels)]
         return nick
 
-    def receive_callback(self,lora_instance,packet,RSSI):
+    def receive_callback(self,lora_instance,packet,rssi):
         m = Message.from_encoded(packet)
         if m:
+            m.rssi = rssi
             if m.type == MessageTypeData:
                 self.scroller.print(m.nick+"> "+m.text)
                 self.scroller.refresh()
