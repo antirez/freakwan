@@ -171,9 +171,11 @@ class FreakWAN:
     # a given percentage of the time.
     def send_messages_in_queue(self):
         while len(self.send_queue):
+            while(self.lora.tx_in_progress):
+                time.sleep_ms(1)
             m = self.send_queue.pop(0)
             self.lora.send(m.encode())
-            time.sleep_us(1000)
+            time.sleep_ms(1)
 
     # Called upon reception of some message. It triggers sending an ACK
     # if certain conditions are met. This method does not check the
@@ -186,6 +188,7 @@ class FreakWAN:
         self.put_in_send_queue(ack)
 
     def receive_callback(self,lora_instance,packet,rssi):
+        print("receive_callback()")
         m = Message.from_encoded(packet)
         if m:
             m.rssi = rssi
@@ -208,7 +211,7 @@ class FreakWAN:
             self.scroller.print("you> "+msg.text)
             self.scroller.refresh()
             self.send_messages_in_queue()
-            time.sleep(5) 
+            time.sleep_ms(urandom.randint(3000,5000)) 
             counter += 1
 
 fw = FreakWAN()
