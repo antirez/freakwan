@@ -94,6 +94,8 @@ class SX1276:
         self.spi_write(RegOpMode,ModeSleep) # Put in sleep
         self.spi_write(RegOpMode,ModeSleep | 1<<7) # Enable LoRa radio
 
+    # Set the radio parameters. Allowed spreadings are from 6 to 12.
+    # Bandwidth and coding rate are listeed below in the dictionaries.
     def configure(self, freq, bandwidth, rate, spreading):
         Bw = {   7800: 0b0000,
                 10400: 0b0001,
