@@ -285,8 +285,9 @@ class FreakWAN:
     def send_ack_if_needed(self,m):
         if m.type != MessageTypeData: return    # Acknowledge only data
         if m.flags & MessageFlagsRepeat: return # Don't acknowledge repeated
-        ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type,sender=m.sender)
+        ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type)
         self.send_asynchronously(ack)
+        print("[>> net] Sent ACK about "+("%08x"%m.uid))
 
     # Return the message if it was already marked as processed, otherwise
     # None is returned.
@@ -298,7 +299,7 @@ class FreakWAN:
         return None
 
     # Mark a message received as processed. Not useful for all the kind
-    # of messages. Only the once that may be resent by the network
+    # of messages. Only the ones that may be resent by the network
     # relays or retransmission mechanism, and we want to handle only
     # once. If the message was already processed, and thus is not added
     # again to the list of messages, True is returned, and the caller knows
@@ -348,8 +349,7 @@ class FreakWAN:
                 about = self.get_processed_message(m.uid)
                 if about != None:
                     about.acks += 1
-                    self.scroller.print(m.nick+"<< ACK"+("%08x"%m.uid)+":"+m.sender_to_str()+":"+str(about.acks))
-                    self.scroller.refresh()
+                    print("[<< net] Got ACK about "+("%08x"%m.uid)+" by "+m.sender_to_str())
             else:
                 print("Unknown message type received: "+str(m.type))
 
@@ -368,6 +368,17 @@ class FreakWAN:
             await asyncio.sleep(urandom.randint(15000,20000)/1000) 
             counter += 1
 
+    # This shows some information about the process in the debug console.
+    def show_status_log(self):
+        sent = self.lora.msg_sent
+        cached_total = len(self.processed_a)+len(self.processed_b)
+        msg = "~"
+        msg += " Sent:"+str(sent)
+        msg += " SendQueue:"+str(len(self.send_queue))
+        msg += " CacheLen:"+str(cached_total)
+        msg += " FreeMem:"+str(gc.mem_free())
+        print(msg)
+
     # This is the main event loop of the application, where we perform
     # periodic tasks, like sending messages in the queue. Other tasks
     # are handled by sub-tasks.
@@ -375,11 +386,12 @@ class FreakWAN:
         asyncio.create_task(self.send_periodic_message())
         tick = 0
         while True:
-            tick += 1
             if tick % 10 == 0: gc.collect()
+            if tick % 50 == 0: self.show_status_log()
             self.send_messages_in_queue()
             self.evict_processed_cache()
             await asyncio.sleep(0.1)
+            tick += 1
 
 if __name__ == "__main__":
     fw = FreakWAN()

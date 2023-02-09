@@ -79,7 +79,7 @@ Where:
 * Flags are set to 0. Ack messages should never be repeated.
 * The 32 bit message ID is the ID of the acknowledged message. ACKs don't have a message ID for the ACK itself, as they are *fire and forget* and it would not be useful.
 * The ACK type is the message type of the original message we are acknowledging.
-* Sender is the sender node, the one that is acknowledged the message, so this is NOT the sender of the original massage. The sender field is used so that who sent the acknowledged message can know which node acknowledged it.
+* Sender is the sender node, the one that is acknowledging the message, so this is NOT the sender of the original massage. The sender field is used so that who sent the acknowledged message can know which node acknowledged it.
 
 ## Hello message
 
