@@ -5,8 +5,7 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-import machine
-import ssd1306, sx1276, time, urandom, struct
+import machine, ssd1306, sx1276, time, urandom, struct, gc
 from machine import Pin, SoftI2C
 import uasyncio as asyncio
 from wan_config import *
@@ -315,8 +314,28 @@ class FreakWAN:
         else:
             return False
 
+    # Remove old items from the processed cache
+    def evict_processed_cache(self):
+        count = 10 # Items to scan
+        maxage = 60000 # Max cached message age in milliseconds
+        while count and len(self.processed_a):
+            count -= 1
+            uid,m = self.processed_a.popitem()
+            # Yet not expired? Move in the other dictionary, so we
+            # know that the dictionary 'a' only has the items yet to
+            # check for eviction.
+            age = time.ticks_diff(time.ticks_ms(),m.ctime)
+            if age <= maxage:
+                self.processed_b[uid] = m
+            else:
+                print("Evicted: "+"%08x"%uid)
+
+        # If we processed all the items of the 'a' dictionary, start again.
+        if len(self.processed_a) == 0 and len(self.processed_b) != 0:
+            self.processed_a = self.processed_b
+            self.processed_b = {}
+
     def receive_callback(self,lora_instance,packet,rssi):
-        print("receive_callback()")
         m = Message.from_encoded(packet)
         if m:
             m.rssi = rssi
@@ -357,7 +376,9 @@ class FreakWAN:
         tick = 0
         while True:
             tick += 1
+            if tick % 10 == 0: gc.collect()
             self.send_messages_in_queue()
+            self.evict_processed_cache()
             await asyncio.sleep(0.1)
 
 if __name__ == "__main__":

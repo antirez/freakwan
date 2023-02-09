@@ -230,7 +230,6 @@ class SX1276:
             if self.received_callback:
                 self.received_callback(self, packet, rssi)
         elif event & IRQTxDone:
-            print("TX done")
             self.msg_sent += 1
             # After sending a message, the chip will return in
             # standby mode. However if we were receiving we
