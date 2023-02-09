@@ -182,7 +182,18 @@ class FreakWAN:
         # in case we are the originators (in order to collect acks). The
         # message has also a timestamp, this way we can evict old messages
         # from this list, to avoid a memory usage explosion.
-        self.processed = {}
+        #
+        # Note that we have two processed dict: a and b. Together, they
+        # hold all the recently processed messages, however we need two
+        # since we slowly analyze all the elements of dict a and put them
+        # into dict b only if it is not expired (otherwise we would retain
+        # all the messages seen, for a long time, running out of memory).
+        #
+        # Follow these rules:
+        # 1. To see if a message was processed, check both dicts.
+        # 2. When adding new messages, always add in 'a'.
+        self.processed_a = {}
+        self.processed_b = {}
 
         # The 'neighbors' dictionary contains the IDs of devices we seen
         # (only updated when receiving Hello messages), and the corresponding
