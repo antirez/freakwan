@@ -351,18 +351,14 @@ class FreakWAN:
     # are handled by sub-tasks.
     async def run(self):
         asyncio.create_task(self.send_periodic_message())
+        asyncio.create_task(self.receive_from_ble())
         tick = 0
         while True:
             tick += 1
             self.send_messages_in_queue()
             await asyncio.sleep(0.1)
 
-    async def main(self):
-        await asyncio.gather(
-            self.run(),
-            self.receive_from_ble()
-        )
 
 if __name__ == "__main__":
     fw = FreakWAN()
-    asyncio.run(fw.main())
+    asyncio.run(fw.run())
