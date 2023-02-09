@@ -48,7 +48,16 @@ class Scroller:
 # of the decoding and encoding of the messages to be sent to the "wire".
 class Message:
     def __init__(self, nick="", text="", uid=False, ttl=3, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type = 0):
-        self.age = time.ticks_ms() # To evict old messages
+        self.ctime = time.ticks_ms() # To evict old messages
+
+        # send_time is only useful for sending, to introduce a random delay.
+        self.send_time = self.ctime
+
+        # Number of times to transmit this message. Each time the message
+        # is transmitted, this value is reduced by one. When it reaches
+        # zero, the message is removed from the send queue.
+        self.num_tx = 1
+
         self.type = mtype
         self.flags = flags
         self.nick = nick
@@ -127,8 +136,7 @@ class FreakWAN:
 
         # Init LoRa chip
         self.lora = sx1276.SX1276(LYLIGO_216_pinconfig,self.receive_callback)
-        self.lora.begin()
-        self.lora.configure(869500000,500000,8,12)
+        self.lora_reset_and_configure()
 
         # Initialize data structures...
 
@@ -148,6 +156,14 @@ class FreakWAN:
         # handler, without blocking the program.
         self.lora.receive()
 
+    # Reset the chip and configure with the required paramenters.
+    # Used during initialization and also in the TX watchdog if
+    # the radio is stuck transmitting the current frame for some
+    # reason.
+    def lora_reset_and_configure(self):
+        self.lora.begin()
+        self.lora.configure(869500000,500000,8,12)
+
     # Return a human readable nickname for the device, composed
     # using the device unique ID.
     def device_hw_nick(self):
@@ -161,22 +177,31 @@ class FreakWAN:
         return nick
 
     # Put a packet in the send queue. Will be delivered ASAP.
-    def send_asynchronously(self,m):
-        if len(self.send_queue) >= self.send_queue_max: return
+    # The delay is in milliseconds, and is selected randomly
+    # between 0 and the specified amount.
+    def send_asynchronously(self,m,max_delay=2000,num_tx=1):
+        if len(self.send_queue) >= self.send_queue_max: return False
+        m.send_time = time.ticks_add(time.ticks_ms(),urandom.randint(0,max_delay))
+        m.num_tx = num_tx
         self.send_queue.append(m)
-        return
+        return True
 
     # Send packets waiting in the send queue. This function, right now,
     # will just send every packet in the queue. But later it should
     # implement percentage of channel usage to be able to send only
     # a given percentage of the time.
     def send_messages_in_queue(self):
+        send_later = [] # List of messages we can't send, yet.
         while len(self.send_queue):
-            while(self.lora.tx_in_progress):
-                time.sleep_ms(1)
             m = self.send_queue.pop(0)
-            self.lora.send(m.encode())
-            time.sleep_ms(1)
+            if (time.ticks_diff(time.ticks_ms(),m.send_time) > 0):
+                while(self.lora.tx_in_progress):
+                    time.sleep_ms(1)
+                self.lora.send(m.encode())
+                time.sleep_ms(1)
+            else:
+                send_later.append(m)
+        self.send_queue = send_later
 
     # Called upon reception of some message. It triggers sending an ACK
     # if certain conditions are met. This method does not check the
@@ -194,10 +219,10 @@ class FreakWAN:
         m = Message.from_encoded(packet)
         if m:
             m.rssi = rssi
-            self.send_ack_if_needed(m)
             if m.type == MessageTypeData:
                 self.scroller.print(m.nick+"> "+m.text)
                 self.scroller.refresh()
+                self.send_ack_if_needed(m)
             elif m.type == MessageTypeAck:
                 self.scroller.print(m.nick+"<< ACK received")
                 self.scroller.refresh()
@@ -209,7 +234,7 @@ class FreakWAN:
         while True:
             msg = Message(nick=self.device_hw_nick(),
                         text="Hi "+str(counter))
-            self.send_asynchronously(msg)
+            self.send_asynchronously(msg,max_delay=0,num_tx=3)
             self.scroller.print("you> "+msg.text)
             self.scroller.refresh()
             await asyncio.sleep(urandom.randint(3000,5000)/1000) 

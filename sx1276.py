@@ -61,7 +61,7 @@ IRQCadDetected = 1<<0
 class SX1276:
     def __init__(self, pinset, received_callback):
         self.receiving = False
-        self.tx_in_progress = True
+        self.tx_in_progress = False
         self.msg_sent = 0
         self.received_callback = received_callback
         self.reset_pin = Pin(pinset['reset'],Pin.OUT)
