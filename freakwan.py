@@ -10,16 +10,8 @@ import ssd1306, sx1276, time, urandom, struct
 from machine import Pin, SoftI2C
 import uasyncio as asyncio
 from wan_config import *
-
-# Using bluetooth low energy is optional so if the required modules to use it
-# are missing we handle it not enabling BLE support.
-try:
-    import bluetooth
-    from ble_uart_peripheral import BLEUART
-
-    IS_BLUETOOTH_MODULES_AVAILABLE = True
-except ImportError:
-    IS_BLUETOOTH_MODULES_AVAILABLE = False
+import bluetooth
+from bt import BLEUART
 
 MessageTypeData = 0
 MessageTypeAck = 1
@@ -178,10 +170,9 @@ class FreakWAN:
         self.lora = sx1276.SX1276(LYLIGO_216_pinconfig,self.receive_callback)
         self.lora_reset_and_configure()
 
-        # Init BLE chip if dependency modules are available.
-        if IS_BLUETOOTH_MODULES_AVAILABLE:
-            ble = bluetooth.BLE()
-            self.uart = BLEUART(ble, name="FreakWAN_%s" % self.device_hw_nick())
+        # Init BLE chip
+        ble = bluetooth.BLE()
+        self.uart = BLEUART(ble, name="FreakWAN_%s" % self.device_hw_nick())
 
         # Initialize data structures...
         self.nick = UserConfig.nick if UserConfig.nick else self.device_hw_nick()
@@ -349,10 +340,9 @@ class FreakWAN:
     # If the callback is not defined we use the class provided one:
     # self.ble_receive_callback.
     async def receive_from_ble(self, callback=None):
-        if IS_BLUETOOTH_MODULES_AVAILABLE:
-            if callback is None:
-                callback = self.ble_receive_callback
-            self.uart.irq(handler=callback)
+        if callback is None:
+            callback = self.ble_receive_callback
+        self.uart.irq(handler=callback)
         while True:
             await asyncio.sleep(0.1)
 
