@@ -80,3 +80,36 @@ Where:
 * The 32 bit message ID is the ID of the acknowledged message. ACKs don't have a message ID for the ACK itself, as they are *fire and forget* and it would not be useful.
 * The ACK type is the message type of the original message we are acknowledging.
 * Sender is the sender node, the one that is acknowledged the message, so this is NOT the sender of the original massage. The sender field is used so that who sent the acknowledged message can know which node acknowledged it.
+
+## Hello message
+
+This message has the unique goal of advertising our presence to other
+devices in the network. This way, when a new device, part of the WAN,
+is powered on, it can tell if it is alone or surrounded by one or more
+other participants that are near enough to be received.
+
+Hello messages are sent periodically, with a random period between
+60000 and 120000 milliseconds (one to two minutes).
+
+Devices receiving hello messages will compile a list of neighbors. A
+device is removed from the list if we don't receive an hello message
+fro it for 5 minutes (this means we need to miss at least two successive
+hello messages, in order to remove a device).
+
+Format:
+
+```
++--------+---------+---------------+--------+------------\\
+| type:8 | flags:8 | 46 bit sender | seen:8 | status message
++--------+---------+---------------+--------+------------\\
+```
+
+* The type id is set to the hello message type.
+* Flags are currently unused for the hello message.
+* The sender is the device ID of the sender.
+* Seen is the number of devices this device is currently sensing, that is, the length of its neighbors list.
+* The status message is a string composed of the nickname of the owner, then a semicolon, and a message that the user can set. Like:
+
+    antirez:Hi there! I'm part of FreakWAN.
+
+

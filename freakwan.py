@@ -9,6 +9,7 @@ import machine
 import ssd1306, sx1276, time, urandom, struct
 from machine import Pin, SoftI2C
 import uasyncio as asyncio
+from wan_config import *
 
 MessageTypeData = 0
 MessageTypeAck = 1
@@ -168,18 +169,26 @@ class FreakWAN:
         self.lora_reset_and_configure()
 
         # Initialize data structures...
+        self.nick = UserConfig.nick if UserConfig.nick else self.device_hw_nick()
+        self.status = UserConfig.status if UserConfig.status else "."
 
-        # Messages we should send ASAP. We append stuff here, so they
+        # Queue of messages we should send ASAP. We append stuff here, so they
         # should be sent in reverse order, from index 0.
         self.send_queue = []
         self.send_queue_max = 100 # Don't accumulate too many messages
 
-        # The 'seen' dictionary contains messages IDs of messages already
+        # The 'processed' dictionary contains messages IDs of messages already
         # received/processed. We save the ID and the associated message
         # in case we are the originators (in order to collect acks). The
         # message has also a timestamp, this way we can evict old messages
         # from this list, to avoid a memory usage explosion.
-        self.seen = {}
+        self.processed = {}
+
+        # The 'neighbors' dictionary contains the IDs of devices we seen
+        # (only updated when receiving Hello messages), and the corresponding
+        # unix time of the last time we received a Hello message from
+        # them.
+        self.neighbors = {}
 
         # Start receiving. This will just install the IRQ
         # handler, without blocking the program.
@@ -242,6 +251,16 @@ class FreakWAN:
                     time.sleep_ms(1)
                 self.lora.send(m.encode())
                 time.sleep_ms(1)
+
+                # This message may be scheduled for multiple
+                # retransmissions. In this case decrement the count
+                # of transmissions and queue it back again.
+                if m.num_tx > 1:
+                    m.num_tx -= 1
+                    next_tx_min_delay = 3000
+                    next_tx_max_delay = 8000
+                    m.send_time = time.ticks_add(time.ticks_ms(),urandom.randint(next_tx_min_delay,next_tx_max_delay))
+                    send_later.append(m)
             else:
                 send_later.append(m)
         self.send_queue = send_later
@@ -283,7 +302,7 @@ class FreakWAN:
             self.send_asynchronously(msg,max_delay=0,num_tx=3)
             self.scroller.print("you> "+msg.text)
             self.scroller.refresh()
-            await asyncio.sleep(urandom.randint(3000,5000)/1000) 
+            await asyncio.sleep(urandom.randint(15000,20000)/1000) 
             counter += 1
 
     # This is the main event loop of the application, where we perform
