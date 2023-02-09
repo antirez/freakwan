@@ -11,12 +11,15 @@ from machine import Pin, SoftI2C
 import uasyncio as asyncio
 from wan_config import *
 
+# Using bluetooth low energy is optional so if the required modules to use it
+# are missing we handle it not enabling BLE support.
 try:
     import bluetooth
     from ble_uart_peripheral import BLEUART
-    IS_BLUETOOTH_AVAILABLE = True
+
+    IS_BLUETOOTH_MODULES_AVAILABLE = True
 except ImportError:
-    IS_BLUETOOTH_AVAILABLE = False
+    IS_BLUETOOTH_MODULES_AVAILABLE = False
 
 MessageTypeData = 0
 MessageTypeAck = 1
@@ -176,7 +179,7 @@ class FreakWAN:
         self.lora_reset_and_configure()
 
         # Init BLE chip if dependency modules are available.
-        if IS_BLUETOOTH_AVAILABLE:
+        if IS_BLUETOOTH_MODULES_AVAILABLE:
             ble = bluetooth.BLE()
             self.uart = BLEUART(ble, name="FreakWAN_%s" % self.device_hw_nick())
 
@@ -328,7 +331,12 @@ class FreakWAN:
             await asyncio.sleep(urandom.randint(15000,20000)/1000) 
             counter += 1
 
-    def _ble_receive_callback(self):
+    # This is the default callback that handle a message received from BLE.
+    # It will:
+    # 1. get the text from BLE message;
+    # 2. create a our Message with the received text;
+    # 3. send asynchronously the message and display it.
+    def ble_receive_callback(self):
         text = self.uart.read().decode().strip()
         msg = Message(nick=self.device_hw_nick(), text=text)
         print("Message from BLE received: ", msg.text)
@@ -336,9 +344,15 @@ class FreakWAN:
         self.scroller.print("you> "+msg.text)
         self.scroller.refresh()
 
-    async def receive_from_ble(self):
-        if IS_BLUETOOTH_AVAILABLE:
-            self.uart.irq(handler=self._ble_receive_callback)
+    # This is the event loop of the application where we handle messages
+    # received from BLE using the specified callback.
+    # If the callback is not defined we use the class provided one:
+    # self.ble_receive_callback.
+    async def receive_from_ble(self, callback=None):
+        if IS_BLUETOOTH_MODULES_AVAILABLE:
+            if callback is None:
+                callback = self.ble_receive_callback
+            self.uart.irq(handler=callback)
         while True:
             await asyncio.sleep(0.1)
 
