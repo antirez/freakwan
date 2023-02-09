@@ -205,8 +205,8 @@ class FreakWAN:
                 print("Unknown message type received: "+str(m.type))
 
     async def send_periodic_message(self):
+        counter = 0
         while True:
-            counter = 0
             msg = Message(nick=self.device_hw_nick(),
                         text="Hi "+str(counter))
             self.send_asynchronously(msg)
