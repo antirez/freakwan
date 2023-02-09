@@ -195,7 +195,21 @@ class FreakWAN:
         while len(self.send_queue):
             m = self.send_queue.pop(0)
             if (time.ticks_diff(time.ticks_ms(),m.send_time) > 0):
+
+                # If the radio is busy sending. We wait here.
+                # However it was sperimentally observed that sometimes
+                # it can get stuck (maybe because of some race condition
+                # in this code?). So if a given amount of time has elapsed
+                # without progresses, we reset the radio and return.
+                wait_ms_counter = 0
+                wait_ms_counter_max = 5000 # 5 seconds
                 while(self.lora.tx_in_progress):
+                    wait_ms_counter += 1
+                    if wait_ms_counter == 5000:
+                        print("WARNING: TX watchdog radio reset")
+                        self.lora_reset_and_configure()
+                        self.lora.receive()
+                        return
                     time.sleep_ms(1)
                 self.lora.send(m.encode())
                 time.sleep_ms(1)
