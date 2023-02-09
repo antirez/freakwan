@@ -81,7 +81,7 @@ class Message:
         # is transmitted, this value is reduced by one. When it reaches
         # zero, the message is removed from the send queue.
         self.num_tx = 1
-
+        self.acks = 0       # Number of received ACKs for this message
         self.type = mtype
         self.flags = flags
         self.nick = nick
@@ -90,8 +90,6 @@ class Message:
         self.sender = sender if sender != False else self.get_this_sender()
         self.ttl = ttl
         self.ack_type = ack_type
-
-        self.acks = {} # IDs of devices that acknowledged this message
         self.rssi = rssi
 
     # Generate a 32 bit unique message ID.
@@ -233,6 +231,11 @@ class FreakWAN:
         m.send_time = time.ticks_add(time.ticks_ms(),urandom.randint(0,max_delay))
         m.num_tx = num_tx
         self.send_queue.append(m)
+
+        # Since we generated this message, if applicable by type we
+        # add it to the list of messages we know about. This way we will
+        # be able to resolve ACKs received and so forth.
+        self.mark_as_processed(m)
         return True
 
     # Send packets waiting in the send queue. This function, right now,
@@ -286,18 +289,48 @@ class FreakWAN:
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type,sender=m.sender)
         self.send_asynchronously(ack)
 
+    # Return the message if it was already marked as processed, otherwise
+    # None is returned.
+    def get_processed_message(self,uid):
+        m = self.processed_a.get(uid)
+        if m: return m
+        m = self.processed_b.get(uid)
+        if m: return m
+        return None
+
+    # Mark a message received as processed. Not useful for all the kind
+    # of messages. Only the once that may be resent by the network
+    # relays or retransmission mechanism, and we want to handle only
+    # once. If the message was already processed, and thus is not added
+    # again to the list of messages, True is returned, and the caller knows
+    # it can discard the message. Otherwise we return False and add it
+    # if needed.
+    def mark_as_processed(self,m):
+        if m.type == MessageTypeData:
+            if self.get_processed_message(m.uid):
+                return True
+            else:
+                self.processed_a[m.uid] = m
+                return False
+        else:
+            return False
+
     def receive_callback(self,lora_instance,packet,rssi):
         print("receive_callback()")
         m = Message.from_encoded(packet)
         if m:
             m.rssi = rssi
             if m.type == MessageTypeData:
+                if self.mark_as_processed(m): return
                 self.scroller.print(m.nick+"> "+m.text)
                 self.scroller.refresh()
                 self.send_ack_if_needed(m)
             elif m.type == MessageTypeAck:
-                self.scroller.print(m.nick+"<< ACK"+("%08x"%m.uid)+":"+m.sender_to_str())
-                self.scroller.refresh()
+                about = self.get_processed_message(m.uid)
+                if about != None:
+                    about.acks += 1
+                    self.scroller.print(m.nick+"<< ACK"+("%08x"%m.uid)+":"+m.sender_to_str()+":"+str(about.acks))
+                    self.scroller.refresh()
             else:
                 print("Unknown message type received: "+str(m.type))
 
