@@ -70,6 +70,7 @@ class Message:
         self.acks = {} # IDs of devices that acknowledged this message
         self.rssi = rssi
 
+    # Generate a 32 bit unique message ID.
     def gen_uid(self):
         return urandom.getrandbits(32)
 
@@ -86,12 +87,15 @@ class Message:
         else:
             return "ffffffffffff"
 
+    # Turn the message into its binary representation.
     def encode(self):
         if self.type == MessageTypeData:
             return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.sender+self.nick+":"+self.text
         elif self.type == MessageTypeAck:
             return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ack_type)+self.sender
 
+    # Fill the message with the data found in the binary representation
+    # provided in 'msg'.
     def decode(self,msg):
         try:
             mtype = struct.unpack("<B",msg)[0]
@@ -108,6 +112,7 @@ class Message:
             print("msg decode error "+str(e))
             return False
 
+    # Create a message object from the binary representation of a message.
     def from_encoded(encoded):
         m = Message()
         if m.decode(encoded):
@@ -115,6 +120,7 @@ class Message:
         else:
             return False
 
+# The application itself, including all the WAN routing logic.
 class FreakWAN:
     def __init__(self):
         LYLIGO_216_pinconfig = {
@@ -227,6 +233,7 @@ class FreakWAN:
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type,sender=m.sender)
         self.send_asynchronously(ack)
         self.scroller.print(">> ACK sent")
+        self.scroller.refresh()
 
     def receive_callback(self,lora_instance,packet,rssi):
         print("receive_callback()")
@@ -243,6 +250,10 @@ class FreakWAN:
             else:
                 print("Unknown message type received: "+str(m.type))
 
+    # This function will likely go away... for now it is useful to
+    # send messages periodically. Likely this will become the function
+    # sending the "HELLO" messages to advertise our presence in the
+    # network.
     async def send_periodic_message(self):
         counter = 0
         while True:
@@ -254,6 +265,9 @@ class FreakWAN:
             await asyncio.sleep(urandom.randint(3000,5000)/1000) 
             counter += 1
 
+    # This is the main event loop of the application, where we perform
+    # periodic tasks, like sending messages in the queue. Other tasks
+    # are handled by sub-tasks.
     async def run(self):
         asyncio.create_task(self.send_periodic_message())
         tick = 0
