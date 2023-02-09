@@ -223,5 +223,6 @@ class FreakWAN:
             self.send_messages_in_queue()
             await asyncio.sleep(0.1)
 
-fw = FreakWAN()
-asyncio.run(fw.run())
+if __name__ == "__main__":
+    fw = FreakWAN()
+    asyncio.run(fw.run())
