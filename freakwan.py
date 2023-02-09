@@ -83,7 +83,7 @@ class Message:
     def sender_to_str(self):
         if self.sender:
             s = self.sender
-            return "%02x%02x%02x%02x%02x%02x" % s[0],s[1],s[2],s[3],s[4],s[5]
+            return "%02x%02x%02x%02x%02x%02x" % (s[0],s[1],s[2],s[3],s[4],s[5])
         else:
             return "ffffffffffff"
 
@@ -232,8 +232,6 @@ class FreakWAN:
         if m.flags & MessageFlagsRepeat: return # Don't acknowledge repeated
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type,sender=m.sender)
         self.send_asynchronously(ack)
-        self.scroller.print(">> ACK sent")
-        self.scroller.refresh()
 
     def receive_callback(self,lora_instance,packet,rssi):
         print("receive_callback()")
@@ -245,7 +243,7 @@ class FreakWAN:
                 self.scroller.refresh()
                 self.send_ack_if_needed(m)
             elif m.type == MessageTypeAck:
-                self.scroller.print(m.nick+"<< ACK received")
+                self.scroller.print(m.nick+"<< ACK"+("%08x"%m.uid)+":"+m.sender_to_str())
                 self.scroller.refresh()
             else:
                 print("Unknown message type received: "+str(m.type))
