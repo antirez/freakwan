@@ -386,7 +386,6 @@ class FreakWAN:
         msg += " FreeMem:"+str(gc.mem_free())
         print(msg)
     
-    def _ble_receive_callback(self):
     # This is the default callback that handle a message received from BLE.
     # It will:
     # 1. get the text from BLE message;
