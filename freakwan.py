@@ -214,5 +214,6 @@ class FreakWAN:
             time.sleep_ms(urandom.randint(3000,5000)) 
             counter += 1
 
-fw = FreakWAN()
-fw.run()
+if __name__ == "__main__":
+    fw = FreakWAN()
+    fw.run()
