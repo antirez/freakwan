@@ -308,6 +308,7 @@ class FreakWAN:
     def mark_as_processed(self,m):
         if m.type == MessageTypeData:
             if self.get_processed_message(m.uid):
+                print("[<< net] Ignore duplicated message "+("%08x"%m.uid)+" <"+m.nick+"> "+m.text)
                 return True
             else:
                 self.processed_a[m.uid] = m
@@ -329,7 +330,7 @@ class FreakWAN:
             if age <= maxage:
                 self.processed_b[uid] = m
             else:
-                print("Evicted: "+"%08x"%uid)
+                print("[cache] Evicted: "+"%08x"%uid)
 
         # If we processed all the items of the 'a' dictionary, start again.
         if len(self.processed_a) == 0 and len(self.processed_b) != 0:
