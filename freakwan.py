@@ -8,6 +8,7 @@
 import machine
 import ssd1306, sx1276, time, urandom, struct
 from machine import Pin, SoftI2C
+import uasyncio as asyncio
 
 MessageTypeData = 0
 MessageTypeAck = 1
@@ -160,7 +161,7 @@ class FreakWAN:
         return nick
 
     # Put a packet in the send queue. Will be delivered ASAP.
-    def put_in_send_queue(self,m):
+    def send_asynchronously(self,m):
         if len(self.send_queue) >= self.send_queue_max: return
         self.send_queue.append(m)
         return
@@ -185,7 +186,8 @@ class FreakWAN:
         if m.type != MessageTypeData: return    # Acknowledge only data
         if m.flags & MessageFlagsRepeat: return # Don't acknowledge repeated
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type,sender=m.sender)
-        self.put_in_send_queue(ack)
+        self.send_asynchronously(ack)
+        self.scroller.print(">> ACK sent")
 
     def receive_callback(self,lora_instance,packet,rssi):
         print("receive_callback()")
@@ -197,22 +199,29 @@ class FreakWAN:
                 self.scroller.print(m.nick+"> "+m.text)
                 self.scroller.refresh()
             elif m.type == MessageTypeAck:
-                self.scroller.print(m.nick+"ACK received")
+                self.scroller.print(m.nick+"<< ACK received")
                 self.scroller.refresh()
             else:
                 print("Unknown message type received: "+str(m.type))
 
-    def run(self):
-        counter = 0
+    async def send_periodic_message(self):
         while True:
+            counter = 0
             msg = Message(nick=self.device_hw_nick(),
-                         text="Hi "+str(counter))
-            self.lora.send(msg.encode())
+                        text="Hi "+str(counter))
+            self.send_asynchronously(msg)
             self.scroller.print("you> "+msg.text)
             self.scroller.refresh()
-            self.send_messages_in_queue()
-            time.sleep_ms(urandom.randint(3000,5000)) 
+            await asyncio.sleep(urandom.randint(3000,5000)/1000) 
             counter += 1
 
+    async def run(self):
+        asyncio.create_task(self.send_periodic_message())
+        tick = 0
+        while True:
+            tick += 1
+            self.send_messages_in_queue()
+            await asyncio.sleep(0.1)
+
 fw = FreakWAN()
-fw.run()
+asyncio.run(fw.run())
