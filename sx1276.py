@@ -114,7 +114,6 @@ class SX1276:
         # explicit header is selected.
         self.spi_write(RegModemConfig1, Bw[bandwidth] << 4 | CodingRate[rate] << 1)
 
-        SpreadingFactor  = {7:0x7, 9:0x9, 12:0xC}
         RxPayloadCrcOn   = 1
         # Set spreading, CRC ON, TX mode normal
         self.spi_write(RegModemConfig2, spreading << 4 | RxPayloadCrcOn << 2)
