@@ -2,10 +2,24 @@
 
 This repository is a work in progress for the following two projects that are going to live in the same place:
 
-* An SX1276 driver written in MicroPython, for devices like the LYLIGO TTGO LoRa v2 1.6 and similar.
+* An SX1276 driver written in MicroPython, for devices like the LYLIGO TTGO LoRa (TM) v2 1.6 and similar.
 * A simple WAN system using LoRa devices, called FreakWAN, part of the [FreakNet](https://www.freaknet.org/) project.
 
-The driver itself is already usable, and the `example.py` file shows how to work with it. Soon this README will be populated with all the documentation both for the driver and for the FreakWAN, but for now all is in its initial stage.
+The driver itself is already usable, and the `example.py` file shows how to work with it, just copy it inside your project and you are done. The rest of this README is about FreakWAN, the project that uses this driver to create a distributed messaging system over LoRa.
+
+# FreakWAN
+
+FreakWAN is an effort to create a LoRa based, open WAN network over LoRa.
+Our goal is to cover parts of the Sicily which such network. However the code
+will be freely be available for anyone wanting to build their own LoRa
+WANs on top of this work.
+
+This code is currently NOT COMPLETE and designed to work with the
+LYLOGO TTGO ESP32 LoRa module. To install the project:
+
+* Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device.
+* Transfer the files `sx1276.py`, `main.py`, `bt.py`, `wan_config.py` in your device.
+* Restart your device.
 
 ## Message formats
 
