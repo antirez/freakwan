@@ -11,7 +11,7 @@ The driver itself is already usable, and the `example.py` file shows how to work
 
 FreakWAN is an effort to create a LoRa based, open WAN network over LoRa.
 Our goal is to cover parts of the Sicily which such network. However the code
-will be freely be available for anyone wanting to build their own LoRa
+will be freely available for anyone wanting to build their own LoRa
 WANs on top of this work.
 
 This code is currently NOT COMPLETE and designed to work with the
@@ -134,7 +134,7 @@ Data messages with the `PleaseRelay` flag set are retransmitted by the nodes rec
 
     A <------ 10 km -------> B <----- 10km -----> C
 
-For a message sent by A to reach B, if we imagine a range of, for instance,
+For a message sent by A to reach C, if we imagine a range of, for instance,
 12 km, When B receives the messages created by A it must repeat the messages, so that C can also receive them.
 
 To do so, FreakWAN uses the following mechanism:
