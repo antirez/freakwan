@@ -404,12 +404,14 @@ class FreakWAN:
     # received from BLE using the specified callback.
     # If the callback is not defined we use the class provided one:
     # self.ble_receive_callback.
-    async def receive_from_ble(self, callback=None):
-        if callback is None:
-            callback = self.ble_receive_callback
-        self.uart.irq(handler=callback)
-        while True:
-            await asyncio.sleep(0.1)
+    async def receive_from_ble(self):
+        self.uart.set_callback(self.ble_receive_callback)
+        # Our callback will be called by the IRQ only when
+        # some BT event happens. We could return, without
+        # staying here in this co-routine, but we'll likely soon
+        # have certain periodic things to do related to the
+        # BT connection. For now, just wait in a loop.
+        while True: await asyncio.sleep(1)
 
     # This is the main event loop of the application, where we perform
     # periodic tasks, like sending messages in the queue. Other tasks
@@ -425,7 +427,6 @@ class FreakWAN:
             self.evict_processed_cache()
             await asyncio.sleep(0.1)
             tick += 1
-
 
 if __name__ == "__main__":
     fw = FreakWAN()
