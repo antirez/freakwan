@@ -397,8 +397,9 @@ class FreakWAN:
             if m.type == MessageTypeData:
                 if self.mark_as_processed(m): return
                 user_msg = m.nick+"> "+m.text
+                msg_info = "(rssi: "+str(m.rssi)+")"
                 self.scroller.print(user_msg)
-                self.uart.write(user_msg)
+                self.uart.write(user_msg+" "+msg_info)
                 self.scroller.refresh()
                 self.send_ack_if_needed(m)
             elif m.type == MessageTypeAck:
