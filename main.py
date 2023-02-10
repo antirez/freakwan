@@ -208,7 +208,10 @@ class FreakWAN:
 
         # Init battery voltage pin
         self.battery_adc = ADC(Pin(35))
-        self.battery_adc.atten(ADC.ATTN_11DB) # Full 3.3 volts range
+        # Voltage is divided by 2 befor reaching PID 32. Since normally
+        # a 3.7V battery is used, to sample it we need the full 3.3
+        # volts range.
+        self.battery_adc.atten(ADC.ATTN_11DB)
 
         # Initialize data structures...
         self.nick = UserConfig.nick if UserConfig.nick else self.device_hw_nick()
