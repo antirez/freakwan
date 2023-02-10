@@ -7,6 +7,7 @@ from micropython import const
 # license: ble_uart_peripheral.py and ble_advertising.py.
 
 # Copyright (c) 2013-2022 Damien P. George
+# Copyright (c) 2023 Salvatore Sanfilippo <antirez@gmail.com>
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -62,40 +63,34 @@ _UART_SERVICE = (
     (_UART_TX, _UART_RX),
 )
 
-# org.bluetooth.characteristic.gap.appearance.xml
-_ADV_APPEARANCE_GENERIC_COMPUTER = const(128)
+def pack_adv_data(adv_type, value):
+    return struct.pack("BB", len(value) + 1, adv_type) + value
 
-# Generate a payload to be passed to gap_advertise(adv_data=...).
-def advertising_payload(limited_disc=False, br_edr=False, name=None, services=None, appearance=0):
+def pack_adv_service(uuid):
+    b = bytes(uuid)
+    if len(b) == 2:
+        return pack_adv_data(_ADV_TYPE_UUID16_COMPLETE, b)
+    elif len(b) == 4:
+        return pack_adv_data(_ADV_TYPE_UUID32_COMPLETE, b)
+    elif len(b) == 16:
+        return pack_adv_data(_ADV_TYPE_UUID128_COMPLETE, b)
+
+# Generate a payload to advertise as primary payload
+def gen_advertising_payload(name=None):
     payload = bytearray()
 
-    def _append(adv_type, value):
-        nonlocal payload
-        payload += struct.pack("BB", len(value) + 1, adv_type) + value
+    # General discoverable + BR/EDR not supported.
+    payload += pack_adv_data(_ADV_TYPE_FLAGS, struct.pack("B", 0x06))
+    if name: payload += pack_adv_data(_ADV_TYPE_NAME, name)
 
-    _append(
-        _ADV_TYPE_FLAGS,
-        struct.pack("B", (0x01 if limited_disc else 0x02) + (0x18 if br_edr else 0x04)),
-    )
-
-    if name:
-        _append(_ADV_TYPE_NAME, name)
-
-    if services:
-        for uuid in services:
-            b = bytes(uuid)
-            if len(b) == 2:
-                _append(_ADV_TYPE_UUID16_COMPLETE, b)
-            elif len(b) == 4:
-                _append(_ADV_TYPE_UUID32_COMPLETE, b)
-            elif len(b) == 16:
-                _append(_ADV_TYPE_UUID128_COMPLETE, b)
-
-    # See org.bluetooth.characteristic.gap.appearance.xml
-    if appearance:
-        _append(_ADV_TYPE_APPEARANCE, struct.pack("<h", appearance))
-
+    # Apparence: generic computer (128)
+    payload += pack_adv_data(_ADV_TYPE_APPEARANCE, struct.pack("<h", 128))
     return payload
+
+# Generate a response payload with further information to
+# return to the scanning device.
+def gen_resp_payload():
+    return pack_adv_service(_UART_UUID)
 
 class BLEUART:
     def __init__(self, ble, name="mpy-uart", rxbuf=100):
@@ -108,8 +103,8 @@ class BLEUART:
         self._connections = set()
         self._rx_buffer = bytearray()
         self._handler = None
-        # Optionally add services=[_UART_UUID], but this is likely to make the payload too large.
-        self._payload = advertising_payload(name=name, appearance=_ADV_APPEARANCE_GENERIC_COMPUTER)
+        self._payload = gen_advertising_payload(name=name)
+        self._resp = gen_resp_payload()
         self._advertise()
 
     def irq(self, handler):
@@ -153,4 +148,4 @@ class BLEUART:
         self._connections.clear()
 
     def _advertise(self, interval_us=500000):
-        self._ble.gap_advertise(interval_us, adv_data=self._payload)
+        self._ble.gap_advertise(interval_us, adv_data=self._payload, resp_data=self._resp)
