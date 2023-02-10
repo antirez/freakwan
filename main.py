@@ -350,7 +350,9 @@ class FreakWAN:
             m.rssi = rssi
             if m.type == MessageTypeData:
                 if self.mark_as_processed(m): return
-                self.scroller.print(m.nick+"> "+m.text)
+                user_msg = m.nick+"> "+m.text
+                self.scroller.print(user_msg)
+                self.uart.write(user_msg)
                 self.scroller.refresh()
                 self.send_ack_if_needed(m)
             elif m.type == MessageTypeAck:
@@ -396,7 +398,7 @@ class FreakWAN:
         text = self.uart.read().decode().strip()
         msg = Message(nick=self.nick, text=text)
         print("Message from BLE received: ", msg.text)
-        self.send_asynchronously(msg)
+        self.send_asynchronously(msg,max_delay=0,num_tx=3)
         self.scroller.print("you> "+msg.text)
         self.scroller.refresh()
 
