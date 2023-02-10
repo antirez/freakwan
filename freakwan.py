@@ -10,6 +10,13 @@ from machine import Pin, SoftI2C
 import uasyncio as asyncio
 from wan_config import *
 
+try:
+    import bluetooth
+    from ble_uart_peripheral import BLEUART
+    IS_BLUETOOTH_AVAILABLE = True
+except ImportError:
+    IS_BLUETOOTH_AVAILABLE = False
+
 MessageTypeData = 0
 MessageTypeAck = 1
 MessageTypeHello = 2
@@ -164,6 +171,11 @@ class FreakWAN:
         # Init LoRa chip
         self.lora = sx1276.SX1276(LYLIGO_216_pinconfig,self.receive_callback)
         self.lora_reset_and_configure()
+
+        # Init BLE chip if dependency modules are available.
+        if IS_BLUETOOTH_AVAILABLE:
+            ble = bluetooth.BLE()
+            self.uart = BLEUART(ble, name="FreakWAN_%s" % self.device_hw_nick())
 
         # Initialize data structures...
         self.nick = UserConfig.nick if UserConfig.nick else self.device_hw_nick()
@@ -379,6 +391,20 @@ class FreakWAN:
         msg += " CacheLen:"+str(cached_total)
         msg += " FreeMem:"+str(gc.mem_free())
         print(msg)
+    
+    def _ble_receive_callback(self):
+        text = self.uart.read().decode().strip()
+        msg = Message(nick=self.device_hw_nick(), text=text)
+        print("Message from BLE received: ", msg.text)
+        self.send_asynchronously(msg)
+        self.scroller.print("you> "+msg.text)
+        self.scroller.refresh()
+
+    async def receive_from_ble(self):
+        if IS_BLUETOOTH_AVAILABLE:
+            self.uart.irq(handler=self._ble_receive_callback)
+        while True:
+            await asyncio.sleep(0.1)
 
     # This is the main event loop of the application, where we perform
     # periodic tasks, like sending messages in the queue. Other tasks
@@ -394,6 +420,12 @@ class FreakWAN:
             await asyncio.sleep(0.1)
             tick += 1
 
+    async def main(self):
+        await asyncio.gather(
+            self.run(),
+            self.receive_from_ble()
+        )
+
 if __name__ == "__main__":
     fw = FreakWAN()
-    asyncio.run(fw.run())
+    asyncio.run(fw.main())
