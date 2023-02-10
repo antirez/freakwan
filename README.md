@@ -18,6 +18,7 @@ This code is currently NOT COMPLETE and designed to work with the
 LYLOGO TTGO ESP32 LoRa module. To install the project:
 
 * Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device.
+* Optional: edit `wan_config.py` if you want to set your nickname and status message. This file will later contain more configuration parameters that are currently hard-coded inside the code, since for now all is alpha stage.
 * Transfer the files `sx1276.py`, `main.py`, `bt.py`, `wan_config.py` in your device.
 * Restart your device.
 
