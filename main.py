@@ -6,7 +6,7 @@
 # See the LICENSE file for more information
 
 import machine, ssd1306, sx1276, time, urandom, struct, gc
-from machine import Pin, SoftI2C
+from machine import Pin, SoftI2C, ADC
 import uasyncio as asyncio
 from wan_config import *
 import bluetooth
@@ -166,6 +166,9 @@ class BTCommandsController:
             if argv[0] == "!automsg" and argc == 2:
                 fw.config['automsg'] = argv[1] == '1' or argv[1] == 'on'
                 fw.uart.write("automsg set to "+str(fw.config['automsg']))
+            elif argv[0] == "!bat" and argc == 1:
+                volts = fw.get_battery_microvolts()/1000000
+                fw.uart.write("battery volts: "+str(volts))
             else:
                 fw.uart.write("Unknown command or num of args: "+argv[0])
         else:
@@ -202,6 +205,10 @@ class FreakWAN:
         ble = bluetooth.BLE()
         self.uart = BLEUART(ble, name="FreakWAN_%s" % self.device_hw_nick())
         self.cmdctrl = BTCommandsController()
+
+        # Init battery voltage pin
+        self.battery_adc = ADC(Pin(35))
+        self.battery_adc.atten(ADC.ATTN_11DB) # Full 3.3 volts range
 
         # Initialize data structures...
         self.nick = UserConfig.nick if UserConfig.nick else self.device_hw_nick()
@@ -250,6 +257,11 @@ class FreakWAN:
     def lora_reset_and_configure(self):
         self.lora.begin()
         self.lora.configure(869500000,500000,8,12)
+
+    # Return the battery voltage. The battery voltage is divided
+    # by two and fed into the ADC at pin 35.
+    def get_battery_microvolts(self):
+        return self.battery_adc.read_uv() * 2
 
     # Return a human readable nickname for the device, composed
     # using the device unique ID.
