@@ -20,7 +20,8 @@ MessageTypeBulkData = 4
 MessageTypeBulkEND = 5
 MessageTypeBulkReply = 6
 
-MessageFlagsRepeat = 1<<0
+MessageFlagsRelayed = 1<<0
+MessageFlagsPleaseRelay = 1<<1
 
 # This class implements an IRC-alike view for the ssd1306 display.
 # it is possible to push new lines of text, and only the latest N will
@@ -289,8 +290,8 @@ class FreakWAN:
     # message type: it is assumed that the method is called only for
     # message type where this makes sense.
     def send_ack_if_needed(self,m):
-        if m.type != MessageTypeData: return    # Acknowledge only data
-        if m.flags & MessageFlagsRepeat: return # Don't acknowledge repeated
+        if m.type != MessageTypeData: return     # Acknowledge only data
+        if m.flags & MessageFlagsRelayed: return # Don't acknowledge relayed
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type)
         self.send_asynchronously(ack)
         print("[>> net] Sent ACK about "+("%08x"%m.uid))
@@ -367,7 +368,7 @@ class FreakWAN:
     async def send_periodic_message(self):
         counter = 0
         while True:
-            msg = Message(nick=self.device_hw_nick(),
+            msg = Message(nick=self.nick,
                         text="Hi "+str(counter))
             self.send_asynchronously(msg,max_delay=0,num_tx=3)
             self.scroller.print("you> "+msg.text)
@@ -393,7 +394,7 @@ class FreakWAN:
     # 3. send asynchronously the message and display it.
     def ble_receive_callback(self):
         text = self.uart.read().decode().strip()
-        msg = Message(nick=self.device_hw_nick(), text=text)
+        msg = Message(nick=self.nick, text=text)
         print("Message from BLE received: ", msg.text)
         self.send_asynchronously(msg)
         self.scroller.print("you> "+msg.text)

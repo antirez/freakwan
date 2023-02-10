@@ -39,7 +39,8 @@ The first byte is the message byte. The following message types are defined:
 The second byte of messages of all the message types is the flag byte.
 Bits have the following meaning:
 
-* Bit 0: Repeat. Set if the message was repeated by some node that is not the originator of the message. Repeat messages are not acknowledged.
+* Bit 0: `Ralayed`. Set if the message was repeated by some node that is not the originator of the message. Relayed messages are not acknowledged.
+* Bit 1: `PleaseRelay`. If this flag is set, other receivers of the message will try to repeat the message, so that it can travel further in the WAN.
 * Bit 1-7: Reserved for future uses. Should be 0.
 
 Currently not all the message types are implemented.
@@ -127,4 +128,18 @@ Format:
 
     antirez:Hi there! I'm part of FreakWAN.
 
+# Messages relay
+
+Data messages with the `PleaseRelay` flag set are retransmitted by the nodes receiving them. The retransmission is the fundamental way in which the WAN is built. Imagine the following FreakWAN set of devices:
+
+    A <------ 10 km -------> B <----- 10km -----> C
+
+For a message sent by A to reach B, if we imagine a range of, for instance,
+12 km, When B receives the messages created by A it must repeat the messages, so that C can also receive them.
+
+To do so, FreakWAN uses the following mechanism:
+
+1. A data message that has the `PleaseRelay` bit set, when received gets retransmitted, assuming its TTL is still greater than 1. The TTL of the message is decremented by one, the `Relayed` flag is set in the message, finally the message is send again *as it is*, without changing the sender address, but maintaining the original one.
+2. Devices may chose to avoid retransmitting messages with a too high RSSI, in order to avoid using precious channel time without a good reason. It is of little interest that two very nearby devices retransmit their messages.
+3. Retransmitted messages have the `Relayed` flag set, so ACKs are not transmitted by the receivers of those messages. FreakWAN ACKs only serve to inform the originator of the message that some neighbor device received the message, but are not used in order to notify of the final destinations of the message, as this would require a lot of channel time and is quite useless: for direct messages, that can be created on top of the public ones, it is possible for the receiver to send back an explicit acknowledge of some kind.
 
