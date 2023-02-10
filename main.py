@@ -144,6 +144,36 @@ class Message:
         else:
             return False
 
+# This class is used by the FreakWAN class in order to execute
+# commands received from the user via Bluetooth. Actually here we
+# receive just command strings, so this can be used to execute
+# the same commands arriving by other means.
+class BTCommandsController:
+    # 'command' is the command string to execute, while 'fw' is
+    # our FreaWAN application class, used by the CommandsController
+    # in order to do anything the application can do.
+    #
+    # Commands starting with "!" are special commands to perform
+    # special operations or change settings of the device.
+    #
+    # Otherwise what we get from Bluetooth UART, we just send as
+    # a message.
+    def exec_user_command(self,fw,cmd):
+        print("Command from BLE received: ", cmd)
+        if cmd[0] == '!':
+            argv = cmd.split()
+            argc = len(argv)
+            if argv[0] == "!automsg" and argc == 2:
+                fw.config['automsg'] = argv[1] == '1' or argv[1] == 'on'
+                fw.uart.write("automsg set to "+str(fw.config['automsg']))
+            else:
+                fw.uart.write("Unknown command or num of args: "+argv[0])
+        else:
+            msg = Message(nick=fw.nick, text=cmd)
+            fw.send_asynchronously(msg,max_delay=0,num_tx=3)
+            fw.scroller.print("you> "+msg.text)
+            fw.scroller.refresh()
+
 # The application itself, including all the WAN routing logic.
 class FreakWAN:
     def __init__(self):
@@ -171,10 +201,14 @@ class FreakWAN:
         # Init BLE chip
         ble = bluetooth.BLE()
         self.uart = BLEUART(ble, name="FreakWAN_%s" % self.device_hw_nick())
+        self.cmdctrl = BTCommandsController()
 
         # Initialize data structures...
         self.nick = UserConfig.nick if UserConfig.nick else self.device_hw_nick()
         self.status = UserConfig.status if UserConfig.status else "."
+        self.config = {
+            'automsg': True,
+        }
 
         # Queue of messages we should send ASAP. We append stuff here, so they
         # should be sent in reverse order, from index 0.
@@ -370,13 +404,14 @@ class FreakWAN:
     async def send_periodic_message(self):
         counter = 0
         while True:
-            msg = Message(nick=self.nick,
-                        text="Hi "+str(counter))
-            self.send_asynchronously(msg,max_delay=0,num_tx=3)
-            self.scroller.print("you> "+msg.text)
-            self.scroller.refresh()
+            if self.config['automsg']:
+                msg = Message(nick=self.nick,
+                            text="Hi "+str(counter))
+                self.send_asynchronously(msg,max_delay=0,num_tx=3)
+                self.scroller.print("you> "+msg.text)
+                self.scroller.refresh()
+                counter += 1
             await asyncio.sleep(urandom.randint(15000,20000)/1000) 
-            counter += 1
 
     # This shows some information about the process in the debug console.
     def show_status_log(self):
@@ -395,12 +430,8 @@ class FreakWAN:
     # 2. create a our Message with the received text;
     # 3. send asynchronously the message and display it.
     def ble_receive_callback(self):
-        text = self.uart.read().decode().strip()
-        msg = Message(nick=self.nick, text=text)
-        print("Message from BLE received: ", msg.text)
-        self.send_asynchronously(msg,max_delay=0,num_tx=3)
-        self.scroller.print("you> "+msg.text)
-        self.scroller.refresh()
+        cmd = self.uart.read().decode().strip()
+        self.cmdctrl.exec_user_command(self,cmd)
 
     # This is the event loop of the application where we handle messages
     # received from BLE using the specified callback.
