@@ -15,12 +15,26 @@ will be freely available for anyone wanting to build their own LoRa
 WANs on top of this work.
 
 This code is currently NOT COMPLETE and designed to work with the
-LYLOGO TTGO ESP32 LoRa module. To install the project:
+LYLOGO TTGO ESP32 LoRa module.
+
+# Installation
 
 * Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device.
 * Optional: edit `wan_config.py` if you want to set your nickname and status message. This file will later contain more configuration parameters that are currently hard-coded inside the code, since for now all is alpha stage.
 * Transfer the files `sx1276.py`, `main.py`, `bt.py`, `wan_config.py` in your device.
 * Restart your device.
+
+# Usage
+
+It is possible to use the device via Bluetooth, using one of the following applications:
+* Mobile: install the [nRF Toolbox](https://www.nordicsemi.com/Products/Development-tools/nrf-toolbox) application, select the UART utility service.
+* Desktup: install [Freakble](https://github.com/eriol/freakble) following the project README.
+
+Using one of the above, you can talk with the device sending CLI commands.
+If you just send some text, it will be sent as message in the network.
+If you send a valid command starting with the `!` character, it will be executed. For now you can use:
+* `!automsg` [on/off] to disable enable automatic messages used for testing.
+* `!bat` to show the battery level.
 
 ## Message formats
 
