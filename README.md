@@ -27,7 +27,7 @@ LYLOGO TTGO ESP32 LoRa module.
 # Usage
 
 It is possible to use the device via Bluetooth, using one of the following applications:
-* Mobile: install the [nRF Toolbox](https://www.nordicsemi.com/Products/Development-tools/nrf-toolbox) application, select the UART utility service.
+* Mobile: install one of the many BLE UART apps in your phone. For instance, if you use [nRF Toolbox](https://www.nordicsemi.com/Products/Development-tools/nrf-toolbox), select the UART utility service, connect to the device and send a text message or just `!help`. On Android, we recommend the [Serial Bluetooth Terminal app](https://play.google.com/store/apps/details?id=de.kai_morich.serial_bluetooth_terminal&hl=en&gl=US). It works great out of the box, but for the best experience go to Settings, *Send* tab, and select *clear input on send*.
 * Desktup: install [Freakble](https://github.com/eriol/freakble) following the project README.
 
 Using one of the above, you can talk with the device sending CLI commands.
