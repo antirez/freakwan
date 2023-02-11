@@ -73,7 +73,7 @@ class Scroller:
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
 class Message:
-    def __init__(self, nick="", text="", uid=False, ttl=3, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type = 0):
+    def __init__(self, nick="", text="", uid=False, ttl=15, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type = 0):
         self.ctime = time.ticks_ms() # To evict old messages
 
         # send_time is only useful for sending, to introduce a random delay.
@@ -173,7 +173,7 @@ class BTCommandsController:
                 fw.uart.write("Unknown command or num of args: "+argv[0])
         else:
             msg = Message(nick=fw.nick, text=cmd)
-            fw.send_asynchronously(msg,max_delay=0,num_tx=3)
+            fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
             fw.scroller.print("you> "+msg.text)
             fw.scroller.refresh()
 
@@ -198,7 +198,7 @@ class FreakWAN:
         self.scroller = Scroller(self.display)
 
         # Init LoRa chip
-        self.lora = sx1276.SX1276(LYLIGO_216_pinconfig,self.receive_callback)
+        self.lora = sx1276.SX1276(LYLIGO_216_pinconfig,self.process_message)
         self.lora_reset_and_configure()
 
         # Init BLE chip
@@ -218,6 +218,8 @@ class FreakWAN:
         self.status = UserConfig.status if UserConfig.status else "."
         self.config = {
             'automsg': True,
+            'relay_num_tx': 3,
+            'relay_max_delay': 10000,
         }
 
         # Queue of messages we should send ASAP. We append stuff here, so they
@@ -281,15 +283,17 @@ class FreakWAN:
     # Put a packet in the send queue. Will be delivered ASAP.
     # The delay is in milliseconds, and is selected randomly
     # between 0 and the specified amount.
-    def send_asynchronously(self,m,max_delay=2000,num_tx=1):
+    def send_asynchronously(self,m,max_delay=2000,num_tx=1,relay=False):
         if len(self.send_queue) >= self.send_queue_max: return False
         m.send_time = time.ticks_add(time.ticks_ms(),urandom.randint(0,max_delay))
         m.num_tx = num_tx
+        if relay: m.flags |= MessageFlagsPleaseRelay
         self.send_queue.append(m)
 
         # Since we generated this message, if applicable by type we
         # add it to the list of messages we know about. This way we will
-        # be able to resolve ACKs received and so forth.
+        # be able to resolve ACKs received, avoiding sending relays for
+        # messages we originated and so forth.
         self.mark_as_processed(m)
         return True
 
@@ -339,11 +343,23 @@ class FreakWAN:
     # message type: it is assumed that the method is called only for
     # message type where this makes sense.
     def send_ack_if_needed(self,m):
-        if m.type != MessageTypeData: return     # Acknowledge only data
-        if m.flags & MessageFlagsRelayed: return # Don't acknowledge relayed
+        if m.type != MessageTypeData: return     # Acknowledge only data.
+        if m.flags & MessageFlagsRelayed: return # Don't acknowledge relayed.
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type)
         self.send_asynchronously(ack)
-        print("[>> net] Sent ACK about "+("%08x"%m.uid))
+        print("[>> net] Sending ACK about "+("%08x"%m.uid))
+
+    # Called for data messages we see for the first time. If the
+    # originator asked for relay, we schedule a retransmission of
+    # this packet, so that other peers can receive it.
+    def relay_if_needed(self,m):
+        if m.type != MessageTypeData: return     # Relay only data messages.
+        if not m.flags & MessageFlagsPleaseRelay: return # No relay needed.
+        if m.ttl <= 1: return # Packet reached relay limit.
+        m.ttl -= 1
+        m.flags |= MessageFlagsRelayed  # This is a relay. No ACKs, please.
+        self.send_asynchronously(m,num_tx=self.config['relay_num_tx'],max_delay=self.config['relay_max_delay'])
+        print("[>> net] Relaying "+("%08x"%m.uid)+" from "+m.nick)
 
     # Return the message if it was already marked as processed, otherwise
     # None is returned.
@@ -364,7 +380,6 @@ class FreakWAN:
     def mark_as_processed(self,m):
         if m.type == MessageTypeData:
             if self.get_processed_message(m.uid):
-                print("[<< net] Ignore duplicated message "+("%08x"%m.uid)+" <"+m.nick+"> "+m.text)
                 return True
             else:
                 self.processed_a[m.uid] = m
@@ -393,18 +408,30 @@ class FreakWAN:
             self.processed_a = self.processed_b
             self.processed_b = {}
 
-    def receive_callback(self,lora_instance,packet,rssi):
+    # Called by the LoRa radio IRQ upon new packet reception.
+    def process_message(self,lora_instance,packet,rssi):
         m = Message.from_encoded(packet)
         if m:
             m.rssi = rssi
             if m.type == MessageTypeData:
-                if self.mark_as_processed(m): return
+                # Already processed? Return ASAP.
+                if self.mark_as_processed(m):
+                    print("[<< net] Ignore duplicated message "+("%08x"%m.uid)+" <"+m.nick+"> "+m.text)
+                    return
+
+                # Report messsage to the user.
                 user_msg = m.nick+"> "+m.text
                 msg_info = "(rssi: "+str(m.rssi)+")"
                 self.scroller.print(user_msg)
                 self.uart.write(user_msg+" "+msg_info)
+                print("*** "+user_msg+" "+msg_info)
                 self.scroller.refresh()
+
+                # Reply with ACK if needed.
                 self.send_ack_if_needed(m)
+
+                # Relay if needed.
+                self.relay_if_needed(m)
             elif m.type == MessageTypeAck:
                 about = self.get_processed_message(m.uid)
                 if about != None:
