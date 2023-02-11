@@ -163,9 +163,22 @@ class BTCommandsController:
         if cmd[0] == '!':
             argv = cmd.split()
             argc = len(argv)
-            if argv[0] == "!automsg" and argc == 2:
-                fw.config['automsg'] = argv[1] == '1' or argv[1] == 'on'
+            if argv[0] == "!automsg":
+                if argc == 2:
+                    fw.config['automsg'] = argv[1] == '1' or argv[1] == 'on'
                 fw.uart.write("automsg set to "+str(fw.config['automsg']))
+            elif argv[0] == "!sp":
+                if argc == 2:
+                    try:
+                        spreading = int(argv[1])
+                    except:
+                        spreading = 0
+                    if spreading < 6 or spreading > 12:
+                        fw.uart.write("Invalid spreading")
+                    else:
+                        fw.config['lora_sp'] = spreading
+                        fw.lora_reset_and_configure()
+                fw.uart.write("spreading set to "+str(fw.config['lora_sp']))
             elif argv[0] == "!bat" and argc == 1:
                 volts = fw.get_battery_microvolts()/1000000
                 fw.uart.write("battery volts: "+str(volts))
@@ -180,6 +193,18 @@ class BTCommandsController:
 # The application itself, including all the WAN routing logic.
 class FreakWAN:
     def __init__(self):
+
+        # Initialize data structures...
+        self.config = {
+            'nick': self.device_hw_nick(),
+            'automsg': True,
+            'relay_num_tx': 3,
+            'relay_max_delay': 10000,
+            'relay_rssi_limit': -60,
+            'status': "Hi there!",
+        }
+        self.config.update(UserConfig.config)
+
         LYLIGO_216_pinconfig = {
             'miso': 19,
             'mosi': 27,
@@ -203,7 +228,7 @@ class FreakWAN:
 
         # Init BLE chip
         ble = bluetooth.BLE()
-        self.uart = BLEUART(ble, name="FreakWAN_%s" % self.device_hw_nick())
+        self.uart = BLEUART(ble, name="FreakWAN_%s" % self.config['nick'])
         self.cmdctrl = BTCommandsController()
 
         # Init battery voltage pin
@@ -212,17 +237,6 @@ class FreakWAN:
         # a 3.7V battery is used, to sample it we need the full 3.3
         # volts range.
         self.battery_adc.atten(ADC.ATTN_11DB)
-
-        # Initialize data structures...
-        self.config = {
-            'nick': self.device_hw_nick(),
-            'automsg': True,
-            'relay_num_tx': 3,
-            'relay_max_delay': 10000,
-            'relay_rssi_limit': -60,
-            'status': "Hi there!",
-        }
-        self.config.update(UserConfig.config)
 
         # Queue of messages we should send ASAP. We append stuff here, so they
         # should be sent in reverse order, from index 0.
@@ -262,8 +276,10 @@ class FreakWAN:
     # the radio is stuck transmitting the current frame for some
     # reason.
     def lora_reset_and_configure(self):
+        was_receiving = self.lora.receiving
         self.lora.begin()
-        self.lora.configure(869500000,500000,8,12)
+        self.lora.configure(self.config['lora_fr'],self.config['lora_bw'],self.config['lora_cr'],self.config['lora_sp'])
+        if was_receiving: self.lora.receive()
 
     # Return the battery voltage. The battery voltage is divided
     # by two and fed into the ADC at pin 35.

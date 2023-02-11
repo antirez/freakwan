@@ -10,3 +10,9 @@ class UserConfig:
     # others aware of our presence. Other folks will see this message
     # when listing active nodes.
     config['status']="Hi There!"
+
+    # LoRa configuration
+    config['lora_sp']=12            # Spreading
+    config['lora_bw']=250000        # Bandwidth
+    config['lora_cr']=8             # Coding rate
+    config['lora_fr']=869500000     # Frequency
