@@ -172,7 +172,7 @@ class BTCommandsController:
             else:
                 fw.uart.write("Unknown command or num of args: "+argv[0])
         else:
-            msg = Message(nick=fw.nick, text=cmd)
+            msg = Message(nick=fw.config['nick'], text=cmd)
             fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
             fw.scroller.print("you> "+msg.text)
             fw.scroller.refresh()
@@ -214,13 +214,14 @@ class FreakWAN:
         self.battery_adc.atten(ADC.ATTN_11DB)
 
         # Initialize data structures...
-        self.nick = UserConfig.nick if UserConfig.nick else self.device_hw_nick()
-        self.status = UserConfig.status if UserConfig.status else "."
         self.config = {
+            'nick': self.device_hw_nick(),
             'automsg': True,
             'relay_num_tx': 3,
             'relay_max_delay': 10000,
+            'status': "Hi there!",
         }
+        self.config.update(UserConfig.config)
 
         # Queue of messages we should send ASAP. We append stuff here, so they
         # should be sent in reverse order, from index 0.
@@ -448,7 +449,7 @@ class FreakWAN:
         counter = 0
         while True:
             if self.config['automsg']:
-                msg = Message(nick=self.nick,
+                msg = Message(nick=self.config['nick'],
                             text="Hi "+str(counter))
                 self.send_asynchronously(msg,max_delay=0,num_tx=3)
                 self.scroller.print("you> "+msg.text)
