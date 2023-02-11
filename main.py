@@ -219,6 +219,7 @@ class FreakWAN:
             'automsg': True,
             'relay_num_tx': 3,
             'relay_max_delay': 10000,
+            'relay_rssi_limit': -60,
             'status': "Hi there!",
         }
         self.config.update(UserConfig.config)
@@ -356,7 +357,14 @@ class FreakWAN:
     def relay_if_needed(self,m):
         if m.type != MessageTypeData: return     # Relay only data messages.
         if not m.flags & MessageFlagsPleaseRelay: return # No relay needed.
+        # We also avoid relaying messages that are too strong: if the
+        # originator of this message (or some other device that relayed it
+        # already) is too near to us, it is unlikely that we will help
+        # by transmitting it again. Actually we could just waste channel time.
+        if m.rssi > self.config['relay_rssi_limit']: return
         if m.ttl <= 1: return # Packet reached relay limit.
+
+        # Ok, we can relay it. Let's update the message.
         m.ttl -= 1
         m.flags |= MessageFlagsRelayed  # This is a relay. No ACKs, please.
         self.send_asynchronously(m,num_tx=self.config['relay_num_tx'],max_delay=self.config['relay_max_delay'])
