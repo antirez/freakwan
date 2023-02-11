@@ -166,7 +166,7 @@ class BTCommandsController:
             if argv[0] == "!automsg":
                 if argc == 2:
                     fw.config['automsg'] = argv[1] == '1' or argv[1] == 'on'
-                fw.uart.write("automsg set to "+str(fw.config['automsg']))
+                fw.uart.print("automsg set to "+str(fw.config['automsg']))
             elif argv[0] == "!sp":
                 if argc == 2:
                     try:
@@ -174,11 +174,11 @@ class BTCommandsController:
                     except:
                         spreading = 0
                     if spreading < 6 or spreading > 12:
-                        fw.uart.write("Invalid spreading. Use 6-12.")
+                        fw.uart.print("Invalid spreading. Use 6-12.")
                     else:
                         fw.config['lora_sp'] = spreading
                         fw.lora_reset_and_configure()
-                fw.uart.write("spreading set to "+str(fw.config['lora_sp']))
+                fw.uart.print("spreading set to "+str(fw.config['lora_sp']))
             elif argv[0] == "!cr":
                 if argc == 2:
                     try:
@@ -186,11 +186,11 @@ class BTCommandsController:
                     except:
                         cr = 0
                     if cr < 5 or cr > 8:
-                        fw.uart.write("Invalid coding rate. Use 5-8.")
+                        fw.uart.print("Invalid coding rate. Use 5-8.")
                     else:
                         fw.config['lora_cr'] = cr 
                         fw.lora_reset_and_configure()
-                fw.uart.write("coding rate set to "+str(fw.config['lora_cr']))
+                fw.uart.print("coding rate set to "+str(fw.config['lora_cr']))
             elif argv[0] == "!bw":
                 if argc == 2:
                     valid_bw_values = [7800,10400,15600,20800,31250,41700,
@@ -200,19 +200,19 @@ class BTCommandsController:
                     except:
                         bw  = 0
                     if not bw in valid_bw_values:
-                        fw.uart.write("Invalid bandwidth. Use: "+
+                        fw.uart.print("Invalid bandwidth. Use: "+
                                     ", ".join(str(x) for x in valid_bw_values))
                     else:
                         fw.config['lora_bw'] = bw
                         fw.lora_reset_and_configure()
-                fw.uart.write("bandwidth set to "+str(fw.config['lora_bw']))
+                fw.uart.print("bandwidth set to "+str(fw.config['lora_bw']))
             elif argv[0] == "!help":
-                fw.uart.write("Commands: !automsg !sp !cr !bw !freq")
+                fw.uart.print("Commands: !automsg !sp !cr !bw !freq")
             elif argv[0] == "!bat" and argc == 1:
                 volts = fw.get_battery_microvolts()/1000000
-                fw.uart.write("battery volts: "+str(volts))
+                fw.uart.print("battery volts: "+str(volts))
             else:
-                fw.uart.write("Unknown command or num of args: "+argv[0])
+                fw.uart.print("Unknown command or num of args: "+argv[0])
         else:
             msg = Message(nick=fw.config['nick'], text=cmd)
             fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
@@ -477,7 +477,7 @@ class FreakWAN:
                 user_msg = m.nick+"> "+m.text
                 msg_info = "(rssi: "+str(m.rssi)+")"
                 self.scroller.print(user_msg)
-                self.uart.write(user_msg+" "+msg_info)
+                self.uart.print(user_msg+" "+msg_info)
                 print("*** "+user_msg+" "+msg_info)
                 self.scroller.refresh()
 

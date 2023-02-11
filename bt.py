@@ -142,6 +142,10 @@ class BLEUART:
         for conn_handle in self._connections:
             self._ble.gatts_notify(conn_handle, self._tx_handle, data)
 
+    # Like write() but adds a newline at the end.
+    def print(self, value):
+        self.write(str(value)+"\n")
+
     def close(self):
         for conn_handle in self._connections:
             self._ble.gap_disconnect(conn_handle)
