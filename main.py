@@ -174,11 +174,40 @@ class BTCommandsController:
                     except:
                         spreading = 0
                     if spreading < 6 or spreading > 12:
-                        fw.uart.write("Invalid spreading")
+                        fw.uart.write("Invalid spreading. Use 6-12.")
                     else:
                         fw.config['lora_sp'] = spreading
                         fw.lora_reset_and_configure()
                 fw.uart.write("spreading set to "+str(fw.config['lora_sp']))
+            elif argv[0] == "!cr":
+                if argc == 2:
+                    try:
+                        cr = int(argv[1])
+                    except:
+                        cr = 0
+                    if cr < 5 or cr > 8:
+                        fw.uart.write("Invalid coding rate. Use 5-8.")
+                    else:
+                        fw.config['lora_cr'] = cr 
+                        fw.lora_reset_and_configure()
+                fw.uart.write("coding rate set to "+str(fw.config['lora_cr']))
+            elif argv[0] == "!bw":
+                if argc == 2:
+                    valid_bw_values = [7800,10400,15600,20800,31250,41700,
+                                       62500,62500,125000,250000,500000]
+                    try:
+                        bw = int(argv[1])
+                    except:
+                        bw  = 0
+                    if not bw in valid_bw_values:
+                        fw.uart.write("Invalid bandwidth. Use: "+
+                                    ", ".join(str(x) for x in valid_bw_values))
+                    else:
+                        fw.config['lora_bw'] = bw
+                        fw.lora_reset_and_configure()
+                fw.uart.write("bandwidth set to "+str(fw.config['lora_bw']))
+            elif argv[0] == "!help":
+                fw.uart.write("Commands: !automsg !sp !cr !bw !freq")
             elif argv[0] == "!bat" and argc == 1:
                 volts = fw.get_battery_microvolts()/1000000
                 fw.uart.write("battery volts: "+str(volts))
