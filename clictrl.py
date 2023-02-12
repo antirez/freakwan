@@ -26,6 +26,8 @@ class CommandsController:
     # Otherwise what we get from Bluetooth UART, we just send as
     # a message.
     def exec_user_command(self,fw,cmd,send_reply):
+        if len(cmd) == 0:
+            return
         print("Command from BLE received: ", cmd)
         if cmd[0] == '!':
             argv = cmd.split()
