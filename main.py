@@ -23,6 +23,44 @@ MessageTypeBulkReply = 6
 MessageFlagsRelayed = 1<<0
 MessageFlagsPleaseRelay = 1<<1
 
+LoRaPresets = {
+    'superfast': {
+        'lora_sp': 7,
+        'lora_cr': 5,
+        'lora_bw': 500000
+    },
+    'veryfast': {
+        'lora_sp': 8,
+        'lora_cr': 6,
+        'lora_bw': 250000
+    },
+    'fast': {
+        'lora_sp': 9,
+        'lora_cr': 8,
+        'lora_bw': 250000
+    },
+    'mid': {
+        'lora_sp': 10,
+        'lora_cr': 8,
+        'lora_bw': 250000
+    },
+    'far': {
+        'lora_sp': 11,
+        'lora_cr': 8,
+        'lora_bw': 125000
+    },
+    'veryfar': {
+        'lora_sp': 12,
+        'lora_cr': 8,
+        'lora_bw': 125000
+    },
+    'superfar': {
+        'lora_sp': 12,
+        'lora_cr': 8,
+        'lora_bw': 62500
+    }
+}
+
 # This class implements an IRC-alike view for the ssd1306 display.
 # it is possible to push new lines of text, and only the latest N will
 # be shown, handling also text wrapping if a line is longer than
@@ -146,19 +184,22 @@ class Message:
 
 # This class is used by the FreakWAN class in order to execute
 # commands received from the user via Bluetooth. Actually here we
-# receive just command strings, so this can be used to execute
-# the same commands arriving by other means.
+# receive just command strings and reply with the passed send_reply
+# method, so this can be used to execute the same commands arriving
+# by other means.
 class BTCommandsController:
     # 'command' is the command string to execute, while 'fw' is
     # our FreaWAN application class, used by the CommandsController
     # in order to do anything the application can do.
     #
+    # 'send_reply' is the method to call in order to reply to the
+    # user command.
+    #
     # Commands starting with "!" are special commands to perform
     # special operations or change settings of the device.
-    #
     # Otherwise what we get from Bluetooth UART, we just send as
     # a message.
-    def exec_user_command(self,fw,cmd):
+    def exec_user_command(self,fw,cmd,send_reply):
         print("Command from BLE received: ", cmd)
         if cmd[0] == '!':
             argv = cmd.split()
@@ -166,7 +207,17 @@ class BTCommandsController:
             if argv[0] == "!automsg":
                 if argc == 2:
                     fw.config['automsg'] = argv[1] == '1' or argv[1] == 'on'
-                fw.uart.print("automsg set to "+str(fw.config['automsg']))
+                send_reply("automsg set to "+str(fw.config['automsg']))
+            elif argv[0] == "!preset" and argc == 2:
+                if argv[1] in LoRaPresets:
+                    fw.config.update(LoRaPresets[argv[1]])
+                    send_reply("Setting bandwidth:"+str(fw.config['lora_bw'])+
+                                " coding rate:"+str(fw.config['lora_cr'])+
+                                " spreading:"+str(fw.config['lora_sp']))
+                    fw.lora_reset_and_configure()
+                else:
+                    send_reply("Wrong preset name: "+argv[1]+". Try: "+
+                        ", ".join(x for x in LoRaPresets))
             elif argv[0] == "!sp":
                 if argc == 2:
                     try:
@@ -174,11 +225,11 @@ class BTCommandsController:
                     except:
                         spreading = 0
                     if spreading < 6 or spreading > 12:
-                        fw.uart.print("Invalid spreading. Use 6-12.")
+                        send_reply("Invalid spreading. Use 6-12.")
                     else:
                         fw.config['lora_sp'] = spreading
                         fw.lora_reset_and_configure()
-                fw.uart.print("spreading set to "+str(fw.config['lora_sp']))
+                send_reply("spreading set to "+str(fw.config['lora_sp']))
             elif argv[0] == "!cr":
                 if argc == 2:
                     try:
@@ -186,11 +237,11 @@ class BTCommandsController:
                     except:
                         cr = 0
                     if cr < 5 or cr > 8:
-                        fw.uart.print("Invalid coding rate. Use 5-8.")
+                        send_reply("Invalid coding rate. Use 5-8.")
                     else:
                         fw.config['lora_cr'] = cr 
                         fw.lora_reset_and_configure()
-                fw.uart.print("coding rate set to "+str(fw.config['lora_cr']))
+                send_reply("coding rate set to "+str(fw.config['lora_cr']))
             elif argv[0] == "!bw":
                 if argc == 2:
                     valid_bw_values = [7800,10400,15600,20800,31250,41700,
@@ -200,19 +251,19 @@ class BTCommandsController:
                     except:
                         bw  = 0
                     if not bw in valid_bw_values:
-                        fw.uart.print("Invalid bandwidth. Use: "+
+                        send_reply("Invalid bandwidth. Use: "+
                                     ", ".join(str(x) for x in valid_bw_values))
                     else:
                         fw.config['lora_bw'] = bw
                         fw.lora_reset_and_configure()
-                fw.uart.print("bandwidth set to "+str(fw.config['lora_bw']))
+                send_reply("bandwidth set to "+str(fw.config['lora_bw']))
             elif argv[0] == "!help":
-                fw.uart.print("Commands: !automsg !sp !cr !bw !freq")
+                send_reply("Commands: !automsg !sp !cr !bw !freq")
             elif argv[0] == "!bat" and argc == 1:
                 volts = fw.get_battery_microvolts()/1000000
-                fw.uart.print("battery volts: "+str(volts))
+                send_reply("battery volts: "+str(volts))
             else:
-                fw.uart.print("Unknown command or num of args: "+argv[0])
+                send_reply("Unknown command or num of args: "+argv[0])
         else:
             msg = Message(nick=fw.config['nick'], text=cmd)
             fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
@@ -528,7 +579,7 @@ class FreakWAN:
     # 3. send asynchronously the message and display it.
     def ble_receive_callback(self):
         cmd = self.uart.read().decode().strip()
-        self.cmdctrl.exec_user_command(self,cmd)
+        self.cmdctrl.exec_user_command(self,cmd,fw.uart.print)
 
     # This is the event loop of the application where we handle messages
     # received from BLE using the specified callback.
