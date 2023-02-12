@@ -1,27 +1,18 @@
-# SX1276 driver for MicroPython
 # Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com>
 # All Rights Reserved
 #
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-import machine, ssd1306, sx1276, time, urandom, struct, gc
+import machine, ssd1306, sx1276, time, urandom, gc
 from machine import Pin, SoftI2C, ADC
 import uasyncio as asyncio
 from wan_config import *
+from scroller import Scroller
+from message import *
+from clictrl import CommandsController
 import bluetooth
 from bt import BLEUART
-
-MessageTypeData = 0
-MessageTypeAck = 1
-MessageTypeHello = 2
-MessageTypeBulkStart = 3
-MessageTypeBulkData = 4
-MessageTypeBulkEND = 5
-MessageTypeBulkReply = 6
-
-MessageFlagsRelayed = 1<<0
-MessageFlagsPleaseRelay = 1<<1
 
 LoRaPresets = {
     'superfast': {
@@ -60,235 +51,6 @@ LoRaPresets = {
         'lora_bw': 62500
     }
 }
-
-# This class implements an IRC-alike view for the ssd1306 display.
-# it is possible to push new lines of text, and only the latest N will
-# be shown, handling also text wrapping if a line is longer than
-# the screen width.
-class Scroller:
-    def __init__(self, display):
-        self.display = display # ssd1306 actual driver
-        self.lines = []
-        self.xres = 128
-        self.yres = 64
-        # The framebuffer of MicroPython only supports 8x8 fonts so far, so:
-        self.cols = int(self.xres/8)
-        self.rows = int(self.yres/8)
-
-    # Return the number of rows needed to display the current self.lines
-    # This number may be > self.rows.
-    def rows_needed(self):
-        needed = 0
-        for l in self.lines:
-            needed += int((len(l)+(self.cols-1))/self.cols)
-        return needed
-
-    # Update the screen content.
-    def refresh(self):
-        self.display.fill(0)
-        # We need to draw the lines backward starting from the last
-        # row and going backward. This makes handling line wraps simpler,
-        # as we consume from the end of the last line and so forth.
-        y = (min(self.rows,self.rows_needed())-1) * 8
-        lines = self.lines[:]
-        while y >= 0:
-            if len(lines[-1]) == 0:
-                lines.pop(-1)
-                if len(lines) == 0: return # Should not happen
-            to_consume = len(lines[-1]) % self.cols
-            if to_consume == 0: to_consume = self.cols
-            rowchars = lines[-1][-to_consume:] # Part to display from the end
-            lines[-1]=lines[-1][:-to_consume]  # Remaining part.
-            self.display.text(rowchars, 0, y, 1)
-            y -= 8
-        self.display.show()
-
-    # Add a new line, without refreshing the display.
-    def print(self,msg):
-        self.lines.append(msg)
-        self.lines = self.lines[-self.rows:]
-
-# The message object represents a FreakWAN message, and is also responsible
-# of the decoding and encoding of the messages to be sent to the "wire".
-class Message:
-    def __init__(self, nick="", text="", uid=False, ttl=15, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type=0, seen=0):
-        self.ctime = time.ticks_ms() # To evict old messages
-
-        # send_time is only useful for sending, to introduce a random delay.
-        self.send_time = self.ctime
-
-        # Number of times to transmit this message. Each time the message
-        # is transmitted, this value is reduced by one. When it reaches
-        # zero, the message is removed from the send queue.
-        self.num_tx = 1
-        self.acks = 0       # Number of received ACKs for this message
-        self.type = mtype
-        self.flags = flags
-        self.nick = nick
-        self.text = text
-        self.uid = uid if uid != False else self.gen_uid()
-        self.sender = sender if sender != False else self.get_this_sender()
-        self.ttl = ttl              # Only DATA
-        self.ack_type = ack_type    # Only ACK
-        self.seen = seen            # Only HELLO
-        self.rssi = rssi
-
-    # Generate a 32 bit unique message ID.
-    def gen_uid(self):
-        return urandom.getrandbits(32)
-
-    # Get the sender address for this device. We just take 6 bytes
-    # of the device unique ID.
-    def get_this_sender(self):
-        return machine.unique_id()[-6:]
-
-    # Return the sender as a printable hex string.
-    def sender_to_str(self):
-        if self.sender:
-            s = self.sender
-            return "%02x%02x%02x%02x%02x%02x" % (s[0],s[1],s[2],s[3],s[4],s[5])
-        else:
-            return "ffffffffffff"
-
-    # Turn the message into its binary representation.
-    def encode(self):
-        if self.type == MessageTypeData:
-            return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.sender+self.nick+":"+self.text
-        elif self.type == MessageTypeAck:
-            return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ack_type)+self.sender
-        elif self.type == MessageTypeHello:
-            return struct.pack("<BB6sB",self.type,self.flags,self.sender,self.seen)+self.nick+":"+self.text
-
-    # Fill the message with the data found in the binary representation
-    # provided in 'msg'.
-    def decode(self,msg):
-        try:
-            mtype = struct.unpack("<B",msg)[0]
-            if mtype == MessageTypeData:
-                self.type,self.flags,self.uid,self.ttl,self.sender = struct.unpack("<BBLB6s",msg)
-                self.nick,self.text = msg[13:].decode("utf-8").split(":")
-                return True
-            elif mtype == MessageTypeAck:
-                self.type,self.flags,self.uid,self.ack_type,self.sender = struct.unpack("<BBLB6s",msg)
-                return True
-            elif mtype == MessageTypeHello:
-                self.type,self.flags,self.sender,self.seen = struct.unpack("<BB6sB",msg)
-                self.nick,self.text = msg[9:].decode("utf-8").split(":")
-                return True
-            else:
-                return False
-        except Exception as e:
-            print("msg decode error "+str(e))
-            return False
-
-    # Create a message object from the binary representation of a message.
-    def from_encoded(encoded):
-        m = Message()
-        if m.decode(encoded):
-            return m
-        else:
-            return False
-
-# This class is used by the FreakWAN class in order to execute
-# commands received from the user via Bluetooth. Actually here we
-# receive just command strings and reply with the passed send_reply
-# method, so this can be used to execute the same commands arriving
-# by other means.
-class BTCommandsController:
-    # 'command' is the command string to execute, while 'fw' is
-    # our FreaWAN application class, used by the CommandsController
-    # in order to do anything the application can do.
-    #
-    # 'send_reply' is the method to call in order to reply to the
-    # user command.
-    #
-    # Commands starting with "!" are special commands to perform
-    # special operations or change settings of the device.
-    # Otherwise what we get from Bluetooth UART, we just send as
-    # a message.
-    def exec_user_command(self,fw,cmd,send_reply):
-        print("Command from BLE received: ", cmd)
-        if cmd[0] == '!':
-            argv = cmd.split()
-            argc = len(argv)
-            if argv[0] == "!automsg":
-                if argc == 2:
-                    fw.config['automsg'] = argv[1] == '1' or argv[1] == 'on'
-                send_reply("automsg set to "+str(fw.config['automsg']))
-            elif argv[0] == "!preset" and argc == 2:
-                if argv[1] in LoRaPresets:
-                    fw.config.update(LoRaPresets[argv[1]])
-                    send_reply("Setting bandwidth:"+str(fw.config['lora_bw'])+
-                                " coding rate:"+str(fw.config['lora_cr'])+
-                                " spreading:"+str(fw.config['lora_sp']))
-                    fw.lora_reset_and_configure()
-                else:
-                    send_reply("Wrong preset name: "+argv[1]+". Try: "+
-                        ", ".join(x for x in LoRaPresets))
-            elif argv[0] == "!sp":
-                if argc == 2:
-                    try:
-                        spreading = int(argv[1])
-                    except:
-                        spreading = 0
-                    if spreading < 6 or spreading > 12:
-                        send_reply("Invalid spreading. Use 6-12.")
-                    else:
-                        fw.config['lora_sp'] = spreading
-                        fw.lora_reset_and_configure()
-                send_reply("spreading set to "+str(fw.config['lora_sp']))
-            elif argv[0] == "!cr":
-                if argc == 2:
-                    try:
-                        cr = int(argv[1])
-                    except:
-                        cr = 0
-                    if cr < 5 or cr > 8:
-                        send_reply("Invalid coding rate. Use 5-8.")
-                    else:
-                        fw.config['lora_cr'] = cr 
-                        fw.lora_reset_and_configure()
-                send_reply("coding rate set to "+str(fw.config['lora_cr']))
-            elif argv[0] == "!bw":
-                if argc == 2:
-                    valid_bw_values = [7800,10400,15600,20800,31250,41700,
-                                       62500,62500,125000,250000,500000]
-                    try:
-                        bw = int(argv[1])
-                    except:
-                        bw  = 0
-                    if not bw in valid_bw_values:
-                        send_reply("Invalid bandwidth. Use: "+
-                                    ", ".join(str(x) for x in valid_bw_values))
-                    else:
-                        fw.config['lora_bw'] = bw
-                        fw.lora_reset_and_configure()
-                send_reply("bandwidth set to "+str(fw.config['lora_bw']))
-            elif argv[0] == "!help":
-                send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls")
-            elif argv[0] == "!bat" and argc == 1:
-                volts = fw.get_battery_microvolts()/1000000
-                send_reply("battery volts: "+str(volts))
-            elif argv[0] == "!ls" and argc == 1:
-                list_item = 0
-                for node_id in fw.neighbors:
-                    m = fw.neighbors[node_id]
-                    age = time.ticks_diff(time.ticks_ms(),m.ctime) / 1000
-                    list_item += 1
-                    send_reply(str(list_item)+". "+
-                                m.sender_to_str()+
-                                " ("+m.nick+") "+
-                                ("%.1f" % age) + " sec ago. "+
-                                "Can see "+str(m.seen)+" nodes.")
-                if len(fw.neighbors) == 0:
-                    send_reply("Nobody around, apparently...")
-            else:
-                send_reply("Unknown command or num of args: "+argv[0])
-        else:
-            msg = Message(nick=fw.config['nick'], text=cmd)
-            fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
-            fw.scroller.print("you> "+msg.text)
-            fw.scroller.refresh()
 
 # The application itself, including all the WAN routing logic.
 class FreakWAN:
@@ -329,7 +91,7 @@ class FreakWAN:
         # Init BLE chip
         ble = bluetooth.BLE()
         self.uart = BLEUART(ble, name="FreakWAN_%s" % self.config['nick'])
-        self.cmdctrl = BTCommandsController()
+        self.cmdctrl = CommandsController()
 
         # Init battery voltage pin
         self.battery_adc = ADC(Pin(35))
