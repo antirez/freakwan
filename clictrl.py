@@ -6,6 +6,8 @@
 
 import time
 
+from message import Message
+
 # This class is used by the FreakWAN class in order to execute
 # commands received from the user via Bluetooth. Actually here we
 # receive just command strings and reply with the passed send_reply
