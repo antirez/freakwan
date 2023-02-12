@@ -343,7 +343,7 @@ class FreakWAN:
     async def send_hello_message(self):
         hello_msg_period_min = 60000        # 1 minute
         hello_msg_period_max = 120000       # 2 minutes
-        hello_msg_max_age = 300000          # 5 minutes
+        hello_msg_max_age = 600000          # 10 minutes
         while True:
             # Evict not refreshed nodes from neighbors.
             new = {}
@@ -358,6 +358,7 @@ class FreakWAN:
             self.neighbors = new
 
             # Send HELLO.
+            print("Sending HELLO")
             msg = Message(mtype=MessageTypeHello,
                         nick=self.config['nick'],
                         text=self.config['status'],

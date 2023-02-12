@@ -127,8 +127,10 @@ Hello messages are sent periodically, with a random period between
 
 Devices receiving hello messages will compile a list of neighbors. A
 device is removed from the list if we don't receive an hello message
-fro it for 5 minutes (this means we need to miss at least two successive
-hello messages, in order to remove a device).
+from it for 10 minutes (this means we need to miss many successive
+hello messages, in order to remove a device -- this is an important point
+since we need to account for the high probability of losing messages
+for being in TX mode while some other node broadcasts).
 
 Format:
 
