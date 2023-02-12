@@ -4,6 +4,8 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
+import time
+
 # This class is used by the FreakWAN class in order to execute
 # commands received from the user via Bluetooth. Actually here we
 # receive just command strings and reply with the passed send_reply
