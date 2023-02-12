@@ -59,7 +59,7 @@ Bits have the following meaning:
 
 Currently not all the message types are implemented.
 
-## Data message
+## DATA message
 
 Format:
 
@@ -115,7 +115,7 @@ Where:
 * The ACK type is the message type of the original message we are acknowledging.
 * Sender is the sender node, the one that is acknowledging the message, so this is NOT the sender of the original massage. The sender field is used so that who sent the acknowledged message can know which node acknowledged it.
 
-## Hello message
+## HELLO message
 
 This message has the unique goal of advertising our presence to other
 devices in the network. This way, when a new device, part of the WAN,

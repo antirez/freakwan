@@ -111,7 +111,7 @@ class Scroller:
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
 class Message:
-    def __init__(self, nick="", text="", uid=False, ttl=15, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type = 0):
+    def __init__(self, nick="", text="", uid=False, ttl=15, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type=0, seen=0):
         self.ctime = time.ticks_ms() # To evict old messages
 
         # send_time is only useful for sending, to introduce a random delay.
@@ -128,8 +128,9 @@ class Message:
         self.text = text
         self.uid = uid if uid != False else self.gen_uid()
         self.sender = sender if sender != False else self.get_this_sender()
-        self.ttl = ttl
-        self.ack_type = ack_type
+        self.ttl = ttl              # Only DATA
+        self.ack_type = ack_type    # Only ACK
+        self.seen = seen            # Only HELLO
         self.rssi = rssi
 
     # Generate a 32 bit unique message ID.
@@ -155,6 +156,8 @@ class Message:
             return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.sender+self.nick+":"+self.text
         elif self.type == MessageTypeAck:
             return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ack_type)+self.sender
+        elif self.type == MessageTypeHello:
+            return struct.pack("<BB6sB",self.type,self.flags,self.sender,self.seen)+self.nick+":"+self.text
 
     # Fill the message with the data found in the binary representation
     # provided in 'msg'.
@@ -167,6 +170,10 @@ class Message:
                 return True
             elif mtype == MessageTypeAck:
                 self.type,self.flags,self.uid,self.ack_type,self.sender = struct.unpack("<BBLB6s",msg)
+                return True
+            elif mtype == MessageTypeHello:
+                self.type,self.flags,self.sender,self.seen = struct.unpack("<BB6sB",msg)
+                self.nick,self.text = msg[9:].decode("utf-8").split(":")
                 return True
             else:
                 return False
@@ -258,10 +265,23 @@ class BTCommandsController:
                         fw.lora_reset_and_configure()
                 send_reply("bandwidth set to "+str(fw.config['lora_bw']))
             elif argv[0] == "!help":
-                send_reply("Commands: !automsg !sp !cr !bw !freq")
+                send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls")
             elif argv[0] == "!bat" and argc == 1:
                 volts = fw.get_battery_microvolts()/1000000
                 send_reply("battery volts: "+str(volts))
+            elif argv[0] == "!ls" and argc == 1:
+                list_item = 0
+                for node_id in fw.neighbors:
+                    m = fw.neighbors[node_id]
+                    age = time.ticks_diff(time.ticks_ms(),m.ctime) / 1000
+                    list_item += 1
+                    send_reply(str(list_item)+". "+
+                                m.sender_to_str()+
+                                " ("+m.nick+") "+
+                                ("%.1f" % age) + " sec ago. "+
+                                "Can see "+str(m.seen)+" nodes.")
+                if len(fw.neighbors) == 0:
+                    send_reply("Nobody around, apparently...")
             else:
                 send_reply("Unknown command or num of args: "+argv[0])
         else:
@@ -542,13 +562,53 @@ class FreakWAN:
                 if about != None:
                     about.acks += 1
                     print("[<< net] Got ACK about "+("%08x"%m.uid)+" by "+m.sender_to_str())
+            elif m.type == MessageTypeHello:
+                # Limit the number of neighbors to protect against OOM
+                # due to bugs or too many nodes near us.
+                max_neighbors = 32
+                if not m.sender in self.neighbors:
+                    msg = "[net] New node sensed: "+m.sender_to_str()
+                    print(msg)
+                    self.uart.print(msg)
+                self.neighbors[m.sender] = m
+                if len(self.neighbors) > max_neighbors:
+                    self.neighbors.popitem()
             else:
                 print("Unknown message type received: "+str(m.type))
 
-    # This function will likely go away... for now it is useful to
-    # send messages periodically. Likely this will become the function
-    # sending the "HELLO" messages to advertise our presence in the
-    # network.
+    # Send HELLO messages from time to time. Evict nodes not refreshed
+    # for some time from the neighbors list.
+    async def send_hello_message(self):
+        hello_msg_period_min = 60000        # 1 minute
+        hello_msg_period_max = 120000       # 2 minutes
+        hello_msg_max_age = 300000          # 5 minutes
+        while True:
+            # Evict not refreshed nodes from neighbors.
+            new = {}
+            while len(self.neighbors):
+                sender,m = self.neighbors.popitem()
+                age = time.ticks_diff(time.ticks_ms(),m.ctime)
+                if age <= hello_msg_max_age:
+                    new[sender] = m
+                else:
+                    print("[net] Flushing timedout neighbor: "+
+                        m.sender_to_str()+" ("+m.nick+")")
+            self.neighbors = new
+
+            # Send HELLO.
+            msg = Message(mtype=MessageTypeHello,
+                        nick=self.config['nick'],
+                        text=self.config['status'],
+                        seen=len(self.neighbors))
+            self.send_asynchronously(msg,max_delay=0)
+            await asyncio.sleep(
+                urandom.randint(hello_msg_period_min,hello_msg_period_max)
+                /1000)
+
+    # This function is used in order to send automatic messages.
+    # For now, automatic messages are turned on by default, but they will
+    # later be disabled and remain just a testing feature that is possible
+    # to turn on when needed. Very useful for range testing.
     async def send_periodic_message(self):
         counter = 0
         while True:
@@ -598,6 +658,7 @@ class FreakWAN:
     # periodic tasks, like sending messages in the queue. Other tasks
     # are handled by sub-tasks.
     async def run(self):
+        asyncio.create_task(self.send_hello_message())
         asyncio.create_task(self.send_periodic_message())
         asyncio.create_task(self.receive_from_ble())
         tick = 0
