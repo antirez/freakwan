@@ -86,10 +86,16 @@ class CommandsController:
                         fw.lora_reset_and_configure()
                 send_reply("bandwidth set to "+str(fw.config['lora_bw']))
             elif argv[0] == "!help":
-                send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls")
+                send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls !font")
             elif argv[0] == "!bat" and argc == 1:
                 volts = fw.get_battery_microvolts()/1000000
                 send_reply("battery volts: "+str(volts))
+            elif argv[0] == "!font" and argc == 2:
+                if argv[1] not in ["big","small"]:
+                    send_reply("Font name can be: big, small")
+                else:
+                    fw.scroller.select_font(argv[1])
+                    fw.scroller.refresh()
             elif argv[0] == "!ls" and argc == 1:
                 list_item = 0
                 for node_id in fw.neighbors:
