@@ -63,6 +63,7 @@ class Scroller:
 
     # Update the screen content.
     def refresh(self):
+        if not self.display: return
         self.display.fill(0)
         # We need to draw the lines backward starting from the last
         # row and going backward. This makes handling line wraps simpler,

@@ -68,12 +68,15 @@ class FreakWAN:
         self.config.update(UserConfig.config)
 
         # Init display
-        i2c = SoftI2C(sda=Pin(self.config['ssd1306']['sda_pin']),
-                      scl=Pin(self.config['ssd1306']['scl_pin']))
-        self.display = ssd1306.SSD1306_I2C(128, 64, i2c)
-        self.display.poweron()
-        self.display.text('Starting...', 0, 0, 1)
-        self.display.show()
+        if self.config['ssd1306']:
+            i2c = SoftI2C(sda=Pin(self.config['ssd1306']['sda_pin']),
+                          scl=Pin(self.config['ssd1306']['scl_pin']))
+            self.display = ssd1306.SSD1306_I2C(128, 64, i2c)
+            self.display.poweron()
+            self.display.text('Starting...', 0, 0, 1)
+            self.display.show()
+        else
+            self.display = None
         self.scroller = Scroller(self.display)
 
         # Init LoRa chip
