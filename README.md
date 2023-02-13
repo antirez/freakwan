@@ -5,7 +5,7 @@ This repository is a work in progress for the following two projects that are go
 * An SX1276 driver written in MicroPython, for devices like the LYLIGO TTGO LoRa (TM) v2 1.6 and similar.
 * A simple WAN system using LoRa devices, called FreakWAN, part of the [FreakNet](https://en.wikipedia.org/wiki/FreakNet)project.
 
-The driver itself is already usable, and the `example.py` file shows how to work with it, just copy it inside your project and you are done. The rest of this README is about FreakWAN, the project that uses this driver to create a distributed messaging system over LoRa.
+The driver itself is the single file `sx1276.py`, and the `example.py` file shows how to work with it: just copy the driver inside your project and you are done. The rest of this README is about FreakWAN, the project that uses this driver to create a distributed messaging system over LoRa.
 
 # FreakWAN
 
@@ -15,7 +15,12 @@ will be freely available for anyone wanting to build their own LoRa
 WANs on top of this work.
 
 This code is currently NOT COMPLETE and designed to work with the
-LYLOGO TTGO ESP32 LoRa module.
+following ESP32-based devices:
+
+1. LYLIGO TTGO T3 v2 1.6 LoRa module.
+2. LYLIGO TTGO T Beam LoRa module.
+
+However changing the pins setup to adapt it to other ESP32 modules that have an SX1276 LoRa chip and an SSD1306 display, should be very little work.
 
 # Installation
 
@@ -35,12 +40,26 @@ If you just send some text, it will be sent as message in the network.
 If you send a valid command starting with the `!` character, it will be executed. For now you can use:
 * `!automsg` [on/off] to disable enable automatic messages used for testing.
 * `!bat` to show the battery level.
+* `!preset <name>` to set a LoRa preset. Each preset is a specific spreading, bandiwidth and coding rate setup. To see all the available presets write `!preset help`.
+* !sp, !bw, !cr change the spreading, bandwidth and coding rate independently, if you wish.
+* !ls shows the list of nodes this node is sensing via HELLO messages.
+* !font `big|small` will change between an 8x8 and a 5x7 (4x6 usable area) font.
+
+# FreakWAN network specification
+
+The rest of this document is useful for anybody wanting to understand the internals of FreakWAN. The kind of messages it sends, how messages are relayed in order to reach far nodes, the retransmission and acknowledge logic, and so forth.
+
+The goals of the design is:
+
+1. Allow far nodes to communicate using intermediate nodes.
+2. To employ techniques to mitigate missed messages due to the fact the SX1276 is half-duplex, so can't hear messages when transmitting.
+3. Do 1 and 2 considering the available data rate, which is very low.
 
 ## Message formats
 
-The low level (layer 2) format is the one with the explicit header selected, so it is up to the chip to add a length, a CRC and so forth. This layer is not covered here, as from the SX1276 driver we directly get the *clean* bytes received. So this covers layer 3, that is the messages format implemented by FreakWan.
+The low level (layer 2) format is the one with the explicit header selected, so it is up to the chip to add a length, a CRC and so forth. This layer is not covered here, as from the SX1276 driver we directly get the *clean* bytes received. So this covers layer 3, that is the messages format implemented by FreakWAN.
 
-The first byte is the message byte. The following message types are defined:
+The first byte is the message type byte. The following message types are defined:
 
 * MessageTypeData = 0
 * MessageTypeAck = 1
@@ -90,15 +109,15 @@ sent a given retransmission of a given message.
 
 The ACK message is used to acknowledge the sender that some nearby device
 actually received the message sent. ACKs are sent only when receiving
-messages of type data, and only if the `Relayed` flag is not set. The idea
+messages of type: DATA, and only if the `Relayed` flag is not set. The idea
 is that the originator of a message wants to understand if at least
-*some* device received it, of the ones it is directly connected. The
+*some* device received it, among the ones it is directly connected. The
 message can be repeated multiple times and reach very far nodes, but
-we don't want all those nodes to waste channel time sending ACKs: basically
-in many cases we would waste more channel time by receiving ACKs to stop
-retransmission than by just repeating the message N times, especially if
-N is small and we have many neighbor nodes. More about this in the
-messages relay section of this document.
+we don't want all those nodes to waste channel time sending ACKs. Basically,
+in many cases we would waste more channel time by sending ACKs, in order
+to make the original node sending stop retransmission, than by repeating
+the message N times, especially if N is small and we have many neighbor nodes.
+More about this in the messages relay section of this document.
 
 Format:
 
@@ -125,10 +144,10 @@ other participants that are near enough to be received.
 Hello messages are sent periodically, with a random period between
 60000 and 120000 milliseconds (one to two minutes).
 
-Devices receiving hello messages will compile a list of neighbors. A
-device is removed from the list if we don't receive an hello message
+Devices receiving HELLO messages will compile a list of neighbors. A
+device is removed from the list if we don't receive a HELLO message
 from it for 10 minutes (this means we need to miss many successive
-hello messages, in order to remove a device -- this is an important point
+hello messages, in order to remove a device -- this is an important point,
 since we need to account for the high probability of losing messages
 for being in TX mode while some other node broadcasts).
 
@@ -140,8 +159,8 @@ Format:
 +--------+---------+---------------+--------+------------\\
 ```
 
-* The type id is set to the hello message type.
-* Flags are currently unused for the hello message.
+* The type id is set to the HELLO message type.
+* Flags are currently unused for the HELLO message.
 * The sender is the device ID of the sender.
 * Seen is the number of devices this device is currently sensing, that is, the length of its neighbors list.
 * The status message is a string composed of the nickname of the owner, then a semicolon, and a message that the user can set. Like:
@@ -159,7 +178,7 @@ For a message sent by A to reach C, if we imagine a range of, for instance,
 
 To do so, FreakWAN uses the following mechanism:
 
-1. A data message that has the `PleaseRelay` bit set, when received gets retransmitted, assuming its TTL is still greater than 1. The TTL of the message is decremented by one, the `Relayed` flag is set in the message, finally the message is send again *as it is*, without changing the sender address, but maintaining the original one.
+1. A data message that has the `PleaseRelay` bit set, when received, is retransmitted multiple times, assuming its TTL is still greater than 1. The TTL of the message is decremented by one, the `Relayed` flag is set in the message, finally the message is send again *as it is*, without changing the sender address, but maintaining the original one.
 2. Devices may chose to avoid retransmitting messages with a too high RSSI, in order to avoid using precious channel time without a good reason. It is of little interest that two very nearby devices retransmit their messages.
-3. Retransmitted messages have the `Relayed` flag set, so ACKs are not transmitted by the receivers of those messages. FreakWAN ACKs only serve to inform the originator of the message that some neighbor device received the message, but are not used in order to notify of the final destinations of the message, as this would require a lot of channel time and is quite useless: for direct messages, that can be created on top of the public ones, it is possible for the receiver to send back an explicit acknowledge of some kind.
+3. Retransmitted messages have the `Relayed` flag set, so ACKs are not transmitted by the receivers of those messages. FreakWAN ACKs only serve to inform the originator of the message that some neighbor device received the message, but are not used in order to notify of the final destinations of the message, as this would require a lot of channel time and is quite useless. For direct messages between users, when they will be implemented, the acknowledge of reception can be created on top of the messaging system itself, sending an explicit reply.
 4. Each message received and never seen before is relayed N times, with N being a configuration inside the program defaulting to 3. However users may change it, depending on the network nodes density and other parameters.
