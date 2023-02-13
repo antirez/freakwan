@@ -353,7 +353,7 @@ class FreakWAN:
             self.neighbors = new
 
             # Send HELLO.
-            print("Sending HELLO")
+            print("[net] Sending HELLO message")
             msg = Message(mtype=MessageTypeHello,
                         nick=self.config['nick'],
                         text=self.config['status'],
