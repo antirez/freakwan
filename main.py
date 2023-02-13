@@ -165,6 +165,13 @@ class FreakWAN:
     def get_battery_microvolts(self):
         return self.battery_adc.read_uv() * 2
 
+    # Return the battery percentage using the equation of the
+    # discharge curve of a typical lipo 3.7v battery.
+    def get_battery_perc(self):
+        volts = self.get_battery_microvolts()/1000000
+        perc = 123-(123/((1+((volts/3.7)**80))**0.165))
+        return max(min(100,int(perc)),0)
+
     # Return a human readable nickname for the device, composed
     # using the device unique ID.
     def device_hw_nick(self):

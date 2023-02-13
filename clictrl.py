@@ -89,7 +89,8 @@ class CommandsController:
                 send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls !font")
             elif argv[0] == "!bat" and argc == 1:
                 volts = fw.get_battery_microvolts()/1000000
-                send_reply("battery volts: "+str(volts))
+                perc = fw.get_battery_perc()
+                send_reply("battery %d%%, %.2f volts" % (perc,volts))
             elif argv[0] == "!font" and argc == 2:
                 if argv[1] not in ["big","small"]:
                     send_reply("Font name can be: big, small")
