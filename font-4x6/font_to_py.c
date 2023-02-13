@@ -61,6 +61,17 @@ int main(void) {
         }
     }
 
+    /* Now, for all the missing characters, use a checkboard pattern
+     * so that it is clear that something is missing. */
+    for (int j = 0; j < 128; j++) {
+        if (j == ' ') continue; // That's empty for a reason.
+        if (font[j*3] == 0 && font[j*3+1] == 0 && font[j*3+2] == 0) {
+            font [j*3] = 0x5a;
+            font [j*3+1] = 0x5a;
+            font [j*3+2] = 0x5a;
+        }
+    }
+
     printf("FontData4x6 = b'");
     for (int j = 0; j < 128*3; j++)
         printf("\\x%02x",font[j]);
