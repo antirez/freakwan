@@ -33,7 +33,12 @@ int main(void) {
             /* Len 1: we are at the start of a new font character. */
             cur_char = buf[0];
             if (cur_char < 0 || cur_char > 127) {
-                fprintf(stderr,"Out of bound char: %c\n", cur_char);
+                fprintf(stderr,"Out of bound char: %c in line %d\n",
+                    cur_char, line);
+                exit(1);
+            }
+            if (cur_scanline != 0 && cur_scanline != 6) {
+                fprintf(stderr,"Found new character but previous was not closed in line %d\n", line);
                 exit(1);
             }
             cur_scanline = 0;

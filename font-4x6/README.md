@@ -2,9 +2,7 @@
 
 # 4x6 font for FreakWAN
 
-Font originally from [here](https://github.com/filmote/Font4x6/blob/master/src/fonts/Font4x6.cpp), thanks to Simon Holmes for releasing it into the BSD license.The representation is now different, designed for easy adding of new characters and Python conversion. The scanline is now horizontal and not vertical, and each byte reprents two scalines (4 bits each), so every letter is just three bytes in memory. Certian characters were shifted so that all characters will fit in a
-6x4 grid. In order to be able to print them with just one pixel of vertical
-space if desired.
+I started from the font originally found [here](https://github.com/filmote/Font4x6/blob/master/src/fonts/Font4x6.cpp). Thanks to Simon Holmes for releasing it into the BSD license. Then I added the symbols, that were almost completely missing. The representation of the font is now different, designed for easy adding of new characters and Python conversion. The scanline is now horizontal, and not vertical, and each byte reprents two scalines (4 bits each), so every letter is just three bytes in memory. Certian characters were shifted so that all characters will fit in a 6x4 grid, in order to be able to print them with just one pixel of vertical space if desired.
 
 # How to modify the font
 
