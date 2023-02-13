@@ -16,3 +16,20 @@ class UserConfig:
     config['lora_bw']=250000        # Bandwidth
     config['lora_cr']=8             # Coding rate
     config['lora_fr']=869500000     # Frequency
+
+    # Pin configuration for the SSD1306 display.
+    # For headless display, set it to NULL
+    config['ssd1306']= {
+        'sda_pin': 21,
+        'scl_pin': 22
+    }
+
+    # Pin configuration for the SX1276.
+    config['sx1276'] = {
+        'miso': 19,
+        'mosi': 27,
+        'clock': 5,
+        'chipselect': 18,
+        'reset': 23,
+        'dio0': 26
+    }

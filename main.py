@@ -67,17 +67,9 @@ class FreakWAN:
         }
         self.config.update(UserConfig.config)
 
-        LYLIGO_216_pinconfig = {
-            'miso': 19,
-            'mosi': 27,
-            'clock': 5,
-            'chipselect': 18,
-            'reset': 23,
-            'dio0': 26
-        }
-
         # Init display
-        i2c = SoftI2C(sda=Pin(21), scl=Pin(22))
+        i2c = SoftI2C(sda=Pin(self.config['ssd1306']['sda_pin']),
+                      scl=Pin(self.config['ssd1306']['scl_pin']))
         self.display = ssd1306.SSD1306_I2C(128, 64, i2c)
         self.display.poweron()
         self.display.text('Starting...', 0, 0, 1)
@@ -85,7 +77,7 @@ class FreakWAN:
         self.scroller = Scroller(self.display)
 
         # Init LoRa chip
-        self.lora = sx1276.SX1276(LYLIGO_216_pinconfig,self.process_message)
+        self.lora = sx1276.SX1276(self.config['sx1276'],self.process_message)
         self.lora_reset_and_configure()
 
         # Init BLE chip
