@@ -325,7 +325,11 @@ class FreakWAN:
 
                 # Report messsage to the user.
                 user_msg = m.nick+"> "+m.text
-                msg_info = "(rssi: "+str(m.rssi)+")"
+                msg_info = \
+                    "(rssi:%d, ttl:%d, flags:%s)" % \
+                    (m.rssi,m.ttl,"{0:b}".format(m.flags))
+
+                if m.flags & MessageFlagsRelayed: user_msg += " [R]"
                 self.scroller.print(user_msg)
                 self.uart.print(user_msg+" "+msg_info)
                 print("*** "+user_msg+" "+msg_info)
