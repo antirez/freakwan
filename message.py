@@ -89,7 +89,7 @@ class Message:
             else:
                 return False
         except Exception as e:
-            print("msg decode error "+str(e))
+            print("!!! Message decode error msg="+str(msg)+" err="+str(e))
             return False
 
     # Create a message object from the binary representation of a message.

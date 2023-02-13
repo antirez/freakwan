@@ -236,8 +236,10 @@ class SX1276:
             # need to return back to such state.
             if self.receiving: self.receive()
             self.tx_in_progress = False
+        elif (event & IRQRxDone) and (event & IRQPayloadCrcError):
+            print("SX1276: packet with bad CRC received")
         else: 
-            print("Not handled event IRQ flags "+str(event))
+            print("SX1276: not handled event IRQ flags "+str(event))
                     
     def receive(self):    
         # Raise IRQ when a packet is received.
