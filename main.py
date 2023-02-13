@@ -15,6 +15,8 @@ from clictrl import CommandsController
 import bluetooth
 from bt import BLEUART
 
+Version="0.11"
+
 LoRaPresets = {
     'superfast': {
         'lora_sp': 7,
@@ -439,14 +441,27 @@ class FreakWAN:
         asyncio.create_task(self.send_hello_message())
         asyncio.create_task(self.send_periodic_message())
         asyncio.create_task(self.receive_from_ble())
+
         tick = 0
+        animation_ticks = 10
+
         while True:
-            if tick == 1: self.switch_view(self.ScrollerView)
-            if tick % 1 == 0: gc.collect()
-            if tick % 5 == 0: self.show_status_log()
+            # Splash screen handling.
+            if tick <= animation_ticks:
+                self.splashscreen.next_frame()
+                self.refresh_view()
+                if tick == animation_ticks:
+                    self.switch_view(self.ScrollerView)
+                    self.scroller.print("FreakWAN v"+Version)
+                tick += 1
+                continue
+
+            # Normal loop.
+            if tick % 10 == 0: gc.collect()
+            if tick % 50 == 0: self.show_status_log()
             self.send_messages_in_queue()
             self.evict_processed_cache()
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
             tick += 1
 
 if __name__ == "__main__":
