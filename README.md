@@ -26,7 +26,7 @@ However changing the pins setup to adapt it to other ESP32 modules that have an 
 
 * Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device.
 * Optional: edit `wan_config.py` if you want to set your nickname and status message. This file will later contain more configuration parameters that are currently hard-coded inside the code, since for now all is alpha stage.
-* Transfer all the `.py` files in the root directory of this project (with the exception of `example.py`, that is not needed) in your device.
+* Transfer all the `.py` files in the root directory of this project (with the exception of `example.py`, that is not needed) in your device. To transfer the files, we recommend using [ampy](https://github.com/scientifichackers/ampy) (`pip3 install adafruit-ampy` should be enough).
 * Restart your device.
 
 # Usage
