@@ -75,7 +75,7 @@ class FreakWAN:
             self.display.poweron()
             self.display.text('Starting...', 0, 0, 1)
             self.display.show()
-        else
+        else:
             self.display = None
         self.scroller = Scroller(self.display)
 

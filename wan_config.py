@@ -18,11 +18,13 @@ class UserConfig:
     config['lora_fr']=869500000     # Frequency
 
     # Pin configuration for the SSD1306 display.
-    # For headless display, set it to None
     config['ssd1306']= {
         'sda_pin': 21,
         'scl_pin': 22
     }
+
+    # For headless display, set it to None
+    # config['ssd1306'] = None
 
     # Pin configuration for the SX1276.
     config['sx1276'] = {
