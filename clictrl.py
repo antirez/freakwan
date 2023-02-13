@@ -95,7 +95,7 @@ class CommandsController:
                     send_reply("Font name can be: big, small")
                 else:
                     fw.scroller.select_font(argv[1])
-                    fw.scroller.refresh()
+                    fw.refresh_view()
             elif argv[0] == "!ls" and argc == 1:
                 list_item = 0
                 for node_id in fw.neighbors:
@@ -115,6 +115,6 @@ class CommandsController:
             msg = Message(nick=fw.config['nick'], text=cmd)
             fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
             fw.scroller.print("you> "+msg.text)
-            fw.scroller.refresh()
+            fw.refresh_view()
 
 

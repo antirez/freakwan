@@ -9,6 +9,7 @@ from machine import Pin, SoftI2C, ADC
 import uasyncio as asyncio
 from wan_config import *
 from scroller import Scroller
+from splash import SplashScreen
 from message import *
 from clictrl import CommandsController
 import bluetooth
@@ -77,7 +78,13 @@ class FreakWAN:
             self.display.show()
         else:
             self.display = None
+
+        # Views
         self.scroller = Scroller(self.display)
+        self.splashscreen = SplashScreen(self.display)
+        self.SplashScreenView = 0
+        self.ScrollerView = 1
+        self.switch_view(self.SplashScreenView)
 
         # Init LoRa chip
         self.lora = sx1276.SX1276(self.config['sx1276'],self.process_message)
@@ -127,6 +134,19 @@ class FreakWAN:
         # Start receiving. This will just install the IRQ
         # handler, without blocking the program.
         self.lora.receive()
+
+    # Call the current view refresh method, in order to draw the
+    # representation of the view in the framebuffer.
+    def refresh_view(self):
+        if self.current_view == self.SplashScreenView:
+            self.splashscreen.refresh()
+        elif self.current_view == self.ScrollerView:
+            self.scroller.refresh()
+
+    # Switch to the specified view
+    def switch_view(self,view_id):
+        self.current_view = view_id
+        self.refresh_view()
 
     # Reset the chip and configure with the required paramenters.
     # Used during initialization and also in the TX watchdog if
@@ -307,7 +327,7 @@ class FreakWAN:
                 self.scroller.print(user_msg)
                 self.uart.print(user_msg+" "+msg_info)
                 print("*** "+user_msg+" "+msg_info)
-                self.scroller.refresh()
+                self.refresh_view()
 
                 # Reply with ACK if needed.
                 self.send_ack_if_needed(m)
@@ -375,7 +395,7 @@ class FreakWAN:
                             text="Hi "+str(counter))
                 self.send_asynchronously(msg,max_delay=0,num_tx=3)
                 self.scroller.print("you> "+msg.text)
-                self.scroller.refresh()
+                self.refresh_view()
                 counter += 1
             await asyncio.sleep(urandom.randint(15000,20000)/1000) 
 
@@ -421,11 +441,12 @@ class FreakWAN:
         asyncio.create_task(self.receive_from_ble())
         tick = 0
         while True:
-            if tick % 10 == 0: gc.collect()
-            if tick % 50 == 0: self.show_status_log()
+            if tick == 1: self.switch_view(self.ScrollerView)
+            if tick % 1 == 0: gc.collect()
+            if tick % 5 == 0: self.show_status_log()
             self.send_messages_in_queue()
             self.evict_processed_cache()
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(1)
             tick += 1
 
 if __name__ == "__main__":
