@@ -70,6 +70,13 @@ class FreakWAN:
         }
         self.config.update(UserConfig.config)
 
+        # Init battery voltage pin
+        self.battery_adc = ADC(Pin(35))
+        # Voltage is divided by 2 befor reaching PID 32. Since normally
+        # a 3.7V battery is used, to sample it we need the full 3.3
+        # volts range.
+        self.battery_adc.atten(ADC.ATTN_11DB)
+
         # Init display
         if self.config['ssd1306']:
             i2c = SoftI2C(sda=Pin(self.config['ssd1306']['sda_pin']),
@@ -82,7 +89,7 @@ class FreakWAN:
             self.display = None
 
         # Views
-        self.scroller = Scroller(self.display)
+        self.scroller = Scroller(self.display, get_batt_perc=self.get_battery_perc)
         self.splashscreen = SplashScreen(self.display)
         self.SplashScreenView = 0
         self.ScrollerView = 1
@@ -96,13 +103,6 @@ class FreakWAN:
         ble = bluetooth.BLE()
         self.uart = BLEUART(ble, name="FreakWAN_%s" % self.config['nick'])
         self.cmdctrl = CommandsController()
-
-        # Init battery voltage pin
-        self.battery_adc = ADC(Pin(35))
-        # Voltage is divided by 2 befor reaching PID 32. Since normally
-        # a 3.7V battery is used, to sample it we need the full 3.3
-        # volts range.
-        self.battery_adc.atten(ADC.ATTN_11DB)
 
         # Queue of messages we should send ASAP. We append stuff here, so they
         # should be sent in reverse order, from index 0.
