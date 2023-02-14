@@ -15,7 +15,7 @@ from clictrl import CommandsController
 import bluetooth
 from bt import BLEUART
 
-Version="0.11"
+Version="0.12"
 
 LoRaPresets = {
     'superfast': {
