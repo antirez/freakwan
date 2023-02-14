@@ -35,3 +35,9 @@ class UserConfig:
         'reset': 23,
         'dio0': 26
     }
+
+    # Pin configuration for the TX led. If missing, set it to None.
+    # config ['tx_led'] = None
+    config['tx_led'] = {
+        'pin': 25,
+    }

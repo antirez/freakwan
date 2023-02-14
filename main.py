@@ -77,6 +77,12 @@ class FreakWAN:
         # volts range.
         self.battery_adc.atten(ADC.ATTN_11DB)
 
+        # Init TX led
+        if self.config['tx_led']:
+            self.tx_led = Pin(self.config['tx_led']['pin'],Pin.OUT)
+        else:
+            self.tx_led = None
+
         # Init display
         if self.config['ssd1306']:
             i2c = SoftI2C(sda=Pin(self.config['ssd1306']['sda_pin']),
@@ -96,7 +102,8 @@ class FreakWAN:
         self.switch_view(self.SplashScreenView)
 
         # Init LoRa chip
-        self.lora = sx1276.SX1276(self.config['sx1276'],self.process_message)
+        self.lora = sx1276.SX1276(self.config['sx1276'],self.process_message,
+                                  self.lora_tx_done)
         self.lora_reset_and_configure()
 
         # Init BLE chip
@@ -201,6 +208,11 @@ class FreakWAN:
         self.mark_as_processed(m)
         return True
 
+    # Called when the packet was transmitted. Only useful to turn
+    # the TX led off.
+    def lora_tx_done(self):
+        if self.tx_led: self.tx_led.off()
+
     # Send packets waiting in the send queue. This function, right now,
     # will just send every packet in the queue. But later it should
     # implement percentage of channel usage to be able to send only
@@ -226,6 +238,7 @@ class FreakWAN:
                         self.lora.receive()
                         return
                     time.sleep_ms(1)
+                if self.tx_led: self.tx_led.on()
                 self.lora.send(m.encode())
                 time.sleep_ms(1)
 

@@ -59,11 +59,12 @@ IRQFhssChangeChannel = 1<<1
 IRQCadDetected = 1<<0
 
 class SX1276:
-    def __init__(self, pinset, received_callback):
+    def __init__(self, pinset, rx_callback, tx_callback = None):
         self.receiving = False
         self.tx_in_progress = False
         self.msg_sent = 0
-        self.received_callback = received_callback
+        self.received_callback = rx_callback
+        self.transmitted_callback = tx_callback
         self.reset_pin = Pin(pinset['reset'],Pin.OUT)
         self.chipselect_pin = Pin(pinset['chipselect'], Pin.OUT)
         self.clock_pin = Pin(pinset['clock'])
@@ -234,6 +235,7 @@ class SX1276:
             # After sending a message, the chip will return in
             # standby mode. However if we were receiving we
             # need to return back to such state.
+            if self.transmitted_callback: self.transmitted_callback()
             if self.receiving: self.receive()
             self.tx_in_progress = False
         elif (event & IRQRxDone) and (event & IRQPayloadCrcError):
