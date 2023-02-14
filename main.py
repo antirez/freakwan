@@ -406,7 +406,7 @@ class FreakWAN:
             if self.config['automsg']:
                 msg = Message(nick=self.config['nick'],
                             text="Hi "+str(counter))
-                self.send_asynchronously(msg,max_delay=0,num_tx=3)
+                self.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
                 self.scroller.print("you> "+msg.text)
                 self.refresh_view()
                 counter += 1
