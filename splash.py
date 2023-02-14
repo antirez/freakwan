@@ -43,6 +43,7 @@ class SplashScreen:
         self.display.line(dx+30,dy,dx+45,dy+50,1)
 
     def refresh(self):
+        if not self.display: return
         self.draw_logo()
         self.display.show()
 
