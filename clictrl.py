@@ -73,7 +73,7 @@ class CommandsController:
             elif argv[0] == "!bw":
                 if argc == 2:
                     valid_bw_values = [7800,10400,15600,20800,31250,41700,
-                                       62500,62500,125000,250000,500000]
+                                       62500,125000,250000,500000]
                     try:
                         bw = int(argv[1])
                     except:
