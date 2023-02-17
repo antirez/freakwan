@@ -239,20 +239,25 @@ class FreakWAN:
                         self.lora.receive()
                         return
                     time.sleep_ms(1)
-                if self.tx_led: self.tx_led.on()
-                self.lora.send(m.encode())
-                time.sleep_ms(1)
+
+                # Send the message and turn the green led on. This will
+                # be turned off later when the IRQ reports success.
+                if m.send_canceled == False:
+                    if self.tx_led: self.tx_led.on()
+                    self.lora.send(m.encode())
+                    time.sleep_ms(1)
 
                 # This message may be scheduled for multiple
                 # retransmissions. In this case decrement the count
                 # of transmissions and queue it back again.
-                if m.num_tx > 1:
+                if m.num_tx > 1 and m.send_canceled == False:
                     m.num_tx -= 1
                     next_tx_min_delay = 3000
                     next_tx_max_delay = 8000
                     m.send_time = time.ticks_add(time.ticks_ms(),urandom.randint(next_tx_min_delay,next_tx_max_delay))
                     send_later.append(m)
             else:
+                # Time to send this message yet not reached, send later.
                 send_later.append(m)
         self.send_queue = send_later
 
@@ -364,8 +369,13 @@ class FreakWAN:
             elif m.type == MessageTypeAck:
                 about = self.get_processed_message(m.uid)
                 if about != None:
-                    about.acks += 1
                     print("[<< net] Got ACK about "+("%08x"%m.uid)+" by "+m.sender_to_str())
+                    about.acks[m.sender] = True
+                    # If we received ACKs from all the nodes we know about,
+                    # stop retransmitting this message.
+                    if len(self.neighbors) and len(about.acks) == len(self.neighbors):
+                        about.send_canceled = True
+                        print("[<< net] ACKs received from all the %d known nodes. Suppress resending." % (len(self.neighbors)))
             elif m.type == MessageTypeHello:
                 # Limit the number of neighbors to protect against OOM
                 # due to bugs or too many nodes near us.

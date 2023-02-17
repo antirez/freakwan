@@ -32,7 +32,7 @@ class Message:
         # is transmitted, this value is reduced by one. When it reaches
         # zero, the message is removed from the send queue.
         self.num_tx = 1
-        self.acks = 0       # Number of received ACKs for this message
+        self.acks = {}  # Device IDs we received ACKs from
         self.type = mtype
         self.flags = flags
         self.nick = nick
@@ -43,6 +43,10 @@ class Message:
         self.ack_type = ack_type    # Only ACK
         self.seen = seen            # Only HELLO
         self.rssi = rssi
+        # Sometimes we want to supporess sending of packets that may
+        # already be inside the TX queue. Instead of scanning the queue
+        # to look for the message, we just set this flag to True.
+        self.send_canceled = False
 
     # Generate a 32 bit unique message ID.
     def gen_uid(self):
