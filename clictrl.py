@@ -106,8 +106,9 @@ class CommandsController:
                     send_reply(str(list_item)+". "+
                                 m.sender_to_str()+
                                 " ("+m.nick+") "+
-                                ("%.1f" % age) + " sec ago. "+
-                                "Can see "+str(m.seen)+" nodes.")
+                                ("%.1f" % age) + " sec ago "+
+                                (" with RSSI:%d " % (m.rssi))+
+                                "It can see "+str(m.seen)+" nodes.")
                 if len(fw.neighbors) == 0:
                     send_reply("Nobody around, apparently...")
             else:
