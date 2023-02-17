@@ -47,6 +47,8 @@ class Scroller:
 
     def render_4x6_char(self,c,px,py,color):
         idx = ord(c)
+        if idx > len(FontData4x6)/3:
+            idx = ord("?")
         for y in range(0,6):
             bits = FontData4x6[idx*3+(int(y/2))]
             if not y & 1: bits >>= 4
@@ -108,8 +110,16 @@ class Scroller:
         self.draw_battery()
         self.display.show()
 
+    # Convert certain unicode points to our 4x6 font characters.
+    def convert_from_utf8(self,msg):
+        msg = msg.replace("è","\x80")
+        msg = msg.replace("é","\x81")
+        msg = msg.replace("😀","\x96\x97")
+        return msg
+
     # Add a new line, without refreshing the display.
     def print(self,msg):
+        msg = self.convert_from_utf8(msg)
         self.lines.append(msg)
         self.lines = self.lines[-self.rows:]
 

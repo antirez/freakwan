@@ -16,7 +16,10 @@ int main(void) {
     }
 
     char buf[1024];
-    unsigned char font[128*3] = {0}; /* 128 font characters x 3 bytes each. */
+    /* Characters after 127, starting from 128, are used to represent
+     * certain selected unicode characters, like è, é, and a few more,
+     * for a total of 64 symbols. */
+    unsigned char font[(127+64)*3] = {0}; /* Each characters takes 3 bytes. */
     int cur_char = -1; /* -1 = No current character selected. */
     int cur_scanline = 0; /* Each character has 6 scanlines */
     int line = 0;   /* Current line number. */
@@ -29,10 +32,14 @@ int main(void) {
         }
         if (l == 0) continue; /* Skip empty lines. */
 
-        if (l == 1) {
-            /* Len 1: we are at the start of a new font character. */
-            cur_char = buf[0];
-            if (cur_char < 0 || cur_char > 127) {
+        if (l == 1 || (l > 5 && !memcmp(buf,"byte:",5))) {
+            /* Single letter or byte:<int>: we are at the start of a new
+             * font character. */
+            if (l == 1)
+                cur_char = buf[0];
+            else
+                cur_char = atoi(buf+5);
+            if (cur_char < 0 || cur_char > (int)sizeof(font)/3) {
                 fprintf(stderr,"Out of bound char: %c in line %d\n",
                     cur_char, line);
                 exit(1);
@@ -63,7 +70,7 @@ int main(void) {
 
     /* Now, for all the missing characters, use a checkboard pattern
      * so that it is clear that something is missing. */
-    for (int j = 0; j < 128; j++) {
+    for (int j = 0; j < (int)sizeof(font)/3; j++) {
         if (j == ' ') continue; // That's empty for a reason.
         if (font[j*3] == 0 && font[j*3+1] == 0 && font[j*3+2] == 0) {
             font [j*3] = 0x5a;
@@ -73,7 +80,7 @@ int main(void) {
     }
 
     printf("FontData4x6 = b'");
-    for (int j = 0; j < 128*3; j++)
+    for (int j = 0; j < (int)sizeof(font); j++)
         printf("\\x%02x",font[j]);
     printf("'\n");
 }

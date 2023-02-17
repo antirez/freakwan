@@ -96,6 +96,7 @@ class FreakWAN:
 
         # Views
         self.scroller = Scroller(self.display, get_batt_perc=self.get_battery_perc)
+        self.scroller.select_font("small")
         self.splashscreen = SplashScreen(self.display)
         self.SplashScreenView = 0
         self.ScrollerView = 1
