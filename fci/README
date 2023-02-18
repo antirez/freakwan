@@ -1,16 +1,20 @@
 # FreakWAN Compressed Image (.fci file format)
 
 This is the FreakWAN image format, designed for small 1 bit
-color images. The point is compressing obvious patterns in dithered
-black and white images, triyng to avoid any useless information such
-as the header, if not for the two byes of image size.
+color images. The point is compressing obvious patterns in
+black and white images, while resisting hard to compress images
+(especially dithered, as dithering is very random alike and difficult
+to compress), to avoid ending with a compressed images larger than the
+original ones. The header information is minimal for the same reason.
 
 Before arriving at this extremely simple algorithm I tried other two
 much complex ones, one of which dealt with images in 8x8 blocks
 encoding differences compared to known blocks. In the end, while
 more complex algorithms worked better with certain images, the trivial
 algorithm that follows was comparable, since it uses very little
-extra space in case of hard to compress images.
+extra space in case of hard to compress images. The more complex
+algorithms did better in images where there were more patterns
+to exploit.
 
 # Specification
 
