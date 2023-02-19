@@ -177,18 +177,66 @@ void compress(unsigned char *image, int width, int height) {
         }
         
         /* Use verbatim. */
-        unsigned char bits =
-            (image[idx+0] << 7) |
-            (image[idx+1] << 6) |
-            (image[idx+2] << 5) |
-            (image[idx+3] << 4) |
-            (image[idx+4] << 3) |
-            (image[idx+5] << 2) |
-            (image[idx+6] << 1) |
-            (image[idx+7] << 0);
-        fwrite(&bits,1,1,stdout);
-        idx += 8;
+        unsigned char verb = 0;
+        unsigned char thisbit = 7;
+        while (idx < bits) {
+            verb |= image[idx] << thisbit;
+            thisbit--;
+            idx++;
+        }
+        fwrite(&verb,1,1,stdout);
     }
+}
+
+/* Load and uncompress an FCI image. On error abort the program.
+ * On success an array of bytes, with white pixels set to 1, is returned.
+ * The width and height info are filled by reference in wptr,hptr. */
+unsigned char *load_fci(FILE *fp, int *wptr, int *hptr) {
+    unsigned char hdr[5];
+    if (fread(hdr,1,5,fp) != 5 || memcmp(hdr,"FC0",3)) {
+        fprintf(stderr, "Error loading FCI header.\n");
+        exit(1);
+    }
+    int width = hdr[3];
+    int height = hdr[4];
+    printf("FCI file, %dx%d\n", width, height);
+
+    int bits = width*height;
+    *wptr = width;
+    *hptr = height;
+    unsigned char *image = malloc(bits);
+    if (image == NULL) {
+        fprintf(stderr, "Out of memory loading FCI image.\n");
+        exit(1);
+    }
+
+    int idx = 0; // Index inside the image data.
+    while(!feof(fp) && idx < bits) {
+        unsigned char data[2];
+        fread(data,1,1,fp);
+
+        /* Escape? */
+        if (data[0] == 0xc3) {
+            fread(data+1,1,1,fp);
+            if (data[1] != 0) {
+                /* Run len decode. */
+                int runlen = (data[1]&0x7F)+16;
+                int bit = data[1]>>7;
+                while(runlen-- && idx < bits)
+                    image[idx++] = bit;
+                continue;
+            } else {
+                // Go to Verbatim code path.
+            }
+        }
+
+        /* Verbatim. */
+        for (int bit = 7; bit >= 0; bit--) {
+            if (idx < bits)
+                image[idx++] = (data[0] >> bit) & 1;
+        }
+    }
+    return image;
 }
 
 /* Show the image on the terminal. */
@@ -206,27 +254,34 @@ int main(int argc, char **argv)
 {
     FILE *fp;
     unsigned char *image;
-
-    if (argc != 2) {
-        fprintf(stderr,"Usage: %s <image.png>\n",argv[0]);
-        exit(1);
-    }
-
-    /* Load the PNG in memory. */
-    fp = fopen(argv[1],"rb");
-    if (!fp) {
-        perror("Opening PNG file");
-        exit(1);
-    }
-
     int width, height;
 
-    if ((image = load_png(fp,&width,&height)) == NULL) {
-        fprintf(stderr,"Invalid PNG image.\n");
+    if (argc != 3) {
+        fprintf(stderr,"Usage: %s compress image.png > image.fci\n",argv[0]);
+        fprintf(stderr,"       %s show image.fci\n",argv[0]);
         exit(1);
     }
 
-    compress(image,width,height);
+    /* Open FCI or PNG file. */
+    fp = fopen(argv[2],"rb");
+    if (!fp) {
+        perror("Opening input file");
+        exit(1);
+    }
+
+    if (!strcasecmp(argv[1],"compress")) {
+        if ((image = load_png(fp,&width,&height)) == NULL) {
+            fprintf(stderr,"Invalid PNG image.\n");
+            exit(1);
+        }
+        compress(image,width,height);
+    } else if (!strcasecmp(argv[1],"show")) {
+        image = load_fci(fp,&width,&height);
+        show_image_ascii(image,width,height);
+    } else {
+        fprintf(stderr,"Wrong command: %s", argv[1]);
+        exit(1);
+    }
 
     fclose(fp);
     return 0;
