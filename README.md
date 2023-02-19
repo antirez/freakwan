@@ -125,15 +125,15 @@ aware that the message contains an image.
 
 The ACK message is used to acknowledge the sender that some nearby device
 actually received the message sent. ACKs are sent only when receiving
-messages of type: DATA, and only if the `Relayed` flag is not set. The idea
-is that the originator of a message wants to understand if at least
-*some* device received it, among the ones it is directly connected. The
-message can be repeated multiple times and reach very far nodes, but
-we don't want all those nodes to waste channel time sending ACKs. Basically,
-in many cases we would waste more channel time by sending ACKs, in order
-to make the original node sending stop retransmission, than by repeating
-the message N times, especially if N is small and we have many neighbor nodes.
-More about this in the messages relay section of this document.
+messages of type: DATA, and only if the `Relayed` flag is not set.
+
+The goal of ACK messages are two:
+
+1. They inform the sender of the fact at least some *near* nodes (immediately connected hops) received the message. The sender can't know, just by ACKs, the total reach of the message, but it will now if the number of receivers is non-zero.
+2. Each sender takes a list of directly connected nodes, via the HELLO messages (see later in this document). When a sender transmits some data, it will resend it multiple times, in order to make delivery more likely. To save channel time, when a sender receives an ACK from all the known neighbor nodes, it must suppress further retransmissions of the message. In practice this often means that, out of 3 different transmission attempts, only one will be performed.
+
+The reason why nodes don't acknowledge with ACKs messages that are relayed (and thus have the `Relayed` flag set) is the following:
+* We can't waste channel time to make the sender aware of far nodes that received the message. For each message we would have to produce `N-1` ACKs (with N being the number of nodes), and even worse such ACKs would be relayed as well to reach the sender. This does not make sense, in practice: LoRa bandwidth is tiny. So the only point of sending ACKs to relayed messages would be to suppress retransmissions of relayed messages: this, however, is used in the first hop (as described before) only because we want to inform the original sender of the fact *somebody* received the message. However using this mechanism to just suppress retransmissions is futile: often the ACKs would waste more channel bandwidth than the time saved.
 
 Format:
 
