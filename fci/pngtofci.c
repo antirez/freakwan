@@ -178,12 +178,8 @@ void compress(unsigned char *image, int width, int height) {
         
         /* Use verbatim. */
         unsigned char verb = 0;
-        unsigned char thisbit = 7;
-        while (idx < bits) {
-            verb |= image[idx] << thisbit;
-            thisbit--;
-            idx++;
-        }
+        for (int b = 7; b >= 0 && idx < bits; b--)
+            verb |= image[idx++] << b;
         fwrite(&verb,1,1,stdout);
     }
 }
