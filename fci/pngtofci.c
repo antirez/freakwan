@@ -222,12 +222,7 @@ int main(int argc, char **argv)
     int width, height;
 
     if ((image = load_png(fp,&width,&height)) == NULL) {
-        fprintf(stderr,"Can't load the specified image: use PNG images up to 128x64, in RGB or GRAY color type.\n");
-        exit(1);
-    }
-
-    if (width & 7 || height & 7) {
-        fprintf(stderr,"Only images with width and height multiple of 8 are supported for now.");
+        fprintf(stderr,"Invalid PNG image.\n");
         exit(1);
     }
 
