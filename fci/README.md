@@ -27,12 +27,14 @@ format "0" is what is described in this document.
 
 All groups of 8 pixels (scanning from top-left to bottom-right) are sent
 verbatim as a single byte, with the exception of the following sequence
-of pixels, called the escape:
+of pixels, called the escapes:
 
-    11000011 (escape sequence)
+    11000011 (long run escape)
+    00111101 (short run white+black escape)
+    01100101 (short run black_white escape)
 
-When the escape occurs, it means the pixels verbatim if the next byte is 0,
-otherwise the next byte is as follows:
+When the long run escape occurs (0xc3), it means the pixels verbatim if the
+next byte is 0, otherwise the next byte is as follows:
 
     blllllll
 
@@ -44,8 +46,23 @@ length of the run of consecutive pixels. So this format is only used for
 runs >= 17 (since up to 16 it is just better to emit the verbatim bytes) and
 the maximum run it can represent is 16+127 = 143 pixels of the same color.
 
-The last byte may encode more pixels than the ones needed in order to
-finish the image. In such case the decoder should discard the extra bits.
+When short run escape byte is read (0x3d or 0x65), then if the following
+byte is 0 the decoder should just ouput the verbatim bits (3D or 65 in
+binary), otherwise the next byte is as follows:
+
+    wwwwbbbb (0x3d escape)
+    bbbbwwww (0x65 escape)
+
+In this case wwww and bbbb should be read as 4 bits unsigned integers
+plus 1, (so they can range from 1 to 16), and the decoder should output
+'w+1' white pixels followed by 'b+1' black pixels, or the other way around
+for the other escape. Note that this escape is emitted only when the
+sum of white and black pixels is > 16 (otherwise we would waste space
+compared to verbatim bytes), so the lengths byte will never be zero.
+
+At the end of the image, the last verbatim byte may encode more pixels than
+the ones needed in order to finish the image. In such case the decoder
+should discard the extra bits.
 
 ## Example
 

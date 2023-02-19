@@ -29,6 +29,8 @@
 #define PNG_DEBUG 3
 #include <png.h>
 
+int debug_msg = 0;
+
 /* Get the PNG data and return a 128x64 bytes array representing the
  * bitmap. The function converts the image into 1 bit of color,
  * using >= 128 as threshold. If the image is RGB, the average value
@@ -146,10 +148,20 @@ unsigned char *load_png(FILE *fp, int *wptr, int *hptr) {
 void compress(unsigned char *image, int width, int height) {
     int bits = width*height; // Total bits in the image.
     int idx = 0; // Current index, next pixels to compress.
-    unsigned char escape[8] = {1,1,0,0,0,0,1,1};
+    unsigned char escape1[8] = {1,1,0,0,0,0,1,1}; /* Long run length. */
+    unsigned char escape2[8] = {0,0,1,1,1,1,0,1}; /* Short W+B run. */
+    unsigned char escape3[8] = {0,1,1,0,0,1,0,1}; /* SHort B+W run. */
+
+    // Some compression stats to output.
+    int stats_verb = 0;     // Verbatim bytes emitted.
+    int stats_short = 0;    // Short runs emitted.
+    int stats_long = 0;     // Long runs emitted.
+    int stats_escape = 0;   // Verbatim needing zero byte.
+    int stats_bytes = 0;    // Total bytes
 
     unsigned char header[5] = {'F','C','0',width&0xff,height&0xff};
     fwrite(header,5,1,stdout);
+    stats_bytes += 5;
 
     while(idx < bits) {
         int left = bits-idx; // Left bits
@@ -162,26 +174,71 @@ void compress(unsigned char *image, int width, int height) {
 
         /* Let's try long form run length encoding. */
         if (j >= C2_RUNLEN_MIN) {
-            idx += j;
             unsigned char seq[2] = {0xc3, first<<7 | ((j-16) & 0x7f)};
+            if (debug_msg)
+                fprintf(stderr,"long run %02x%02x %d at %d\n",
+                    seq[0],seq[1],j,idx);
             fwrite(seq,2,1,stdout);
+            idx += j;
+            stats_long++;
+            stats_bytes += 2;
             continue;
         }
 
+        /* Let's try short form run length encoding, that is useful
+         * to encode, in a single byte, a run of black+white pixels
+         * (or the other way around) so that the sum of the runs
+         * is > 16, and each run is at max 16. */
+        if (j > 1) {
+            int j2; // Check next run
+            for (j2 = 1; j2 < 16 && j2 < left-j; j2++)
+                if (image[idx+j+j2] == first) break;
+
+            /* It is useful to use a short run encoding only if
+             * we actually save space. */
+            if (j+j2 > 16) {
+                unsigned char seq[2] = {
+                    first ? 0x3d : 0x65,
+                    ((j-1) << 4) | (j2-1)
+                };
+                if (debug_msg)
+                    fprintf(stderr,"short run %02x%02x %d,%d at %d\n",
+                        seq[0],seq[1],j,j2,idx);
+                fwrite(seq,2,1,stdout);
+                idx += j+j2;
+                stats_short++;
+                stats_bytes += 2;
+                continue;
+            }
+        }
+
         /* Use escaping of special byte. */
-        if (left >= 8 && !memcmp(image+idx,escape,8)) {
+        if (left >= 8 &&
+            (!memcmp(image+idx,escape1,8) ||
+             !memcmp(image+idx,escape2,8) ||
+             !memcmp(image+idx,escape3,8)))
+        {
             idx += 8;
             unsigned char seq[2] = {0xc3, 0};
             fwrite(seq,2,1,stdout);
+            stats_escape++;
+            stats_bytes += 2;
             continue;
         }
         
         /* Use verbatim. */
+        if (debug_msg) fprintf(stderr,"verb at %d\n",idx);
         unsigned char verb = 0;
         for (int b = 7; b >= 0 && idx < bits; b--)
             verb |= image[idx++] << b;
         fwrite(&verb,1,1,stdout);
+        stats_verb++;
+        stats_bytes++;
     }
+    fprintf(stderr,"Compressed to %d byte (%.2f%% orig size)\n", stats_bytes,
+                    (float)stats_bytes/(width*height/8)*100);
+    fprintf(stderr,"%d verbatim, %d short, %d long, %d escape\n",
+                    stats_verb, stats_short, stats_long, stats_escape);
 }
 
 /* Load and uncompress an FCI image. On error abort the program.
@@ -211,7 +268,7 @@ unsigned char *load_fci(FILE *fp, int *wptr, int *hptr) {
         unsigned char data[2];
         fread(data,1,1,fp);
 
-        /* Escape? */
+        /* Long run? */
         if (data[0] == 0xc3) {
             fread(data+1,1,1,fp);
             if (data[1] != 0) {
@@ -220,6 +277,24 @@ unsigned char *load_fci(FILE *fp, int *wptr, int *hptr) {
                 int bit = data[1]>>7;
                 while(runlen-- && idx < bits)
                     image[idx++] = bit;
+                continue;
+            } else {
+                // Go to Verbatim code path.
+            }
+        }
+
+        /* Short run? */
+        if (data[0] == 0x3d || data[0] == 0x65) {
+            fread(data+1,1,1,fp);
+            if (data[1] != 0) {
+                /* W+B or B+W decode. */
+                int runlen1 = ((data[1] & 0xf0)>>4)+1;
+                int runlen2 = (data[1] & 0x0f)+1;
+                int bit = data[0] == 0x3d;
+                while(runlen1-- && idx < bits)
+                    image[idx++] = bit;
+                while(runlen2-- && idx < bits)
+                    image[idx++] = !bit;
                 continue;
             } else {
                 // Go to Verbatim code path.
