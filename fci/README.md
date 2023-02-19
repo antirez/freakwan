@@ -26,9 +26,10 @@ is actually an FC file. The third byte is the format used. The
 format "0" is what is described in this document.
 
 All groups of 8 pixels (scanning from top-left to bottom-right) are sent
-verbatim as a single byte, with the exception of the following two sequences:
+verbatim as a single byte, with the exception of the following sequence
+of pixels, called the escape:
 
-    01101001 (escape)
+    11000011 (escape sequence)
 
 When the escape occurs, it means the pixels verbatim if the next byte is 0,
 otherwise the next byte is as follows:
@@ -92,8 +93,8 @@ like that:
 ..*..*..
 .******.
 ********
-.*.**.*.
-.*****..
+.***....
+******..
 ...**...
 ```
 
@@ -102,7 +103,7 @@ At some point we would have...
     10010001 (3 bytes)
     11111011 (4 bytes)
     11111101 (5 bytes)
-    01101001 (6 bytes: but it is the escape sequence!)
+    11000011 (6 bytes: but it is the escape sequence!)
 
 So to tell the decoder that we meant exactly that sequence of
 pixels, we emit a zero byte:
