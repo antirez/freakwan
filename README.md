@@ -74,6 +74,8 @@ Bits have the following meaning:
 
 * Bit 0: `Ralayed`. Set if the message was repeated by some node that is not the originator of the message. Relayed messages are not acknowledged.
 * Bit 1: `PleaseRelay`. If this flag is set, other receivers of the message will try to repeat the message, so that it can travel further in the WAN.
+* Bit 2: `Fragment`. This flag means that this message is a fragment of many, that should be reassembled in order to retrieve the full Data message. This specification does not yet cover fragmentation, it will be added later.
+* Bit 3: `Media`. For message of type 'Data' this flag means that the message is not text, but some kind of media. See the Data messages section for more information.
 * Bit 1-7: Reserved for future uses. Should be 0.
 
 Currently not all the message types are implemented.
@@ -104,6 +106,20 @@ the scope of reaaching the whole network, the message sender remains set
 to the *same sender of the original message*, that is, the device that
 created the message the first time. So there is no way to tell who
 sent a given retransmission of a given message.
+
+Data messages may contain media in case this flag is set in the header
+of the message:
+
+* Bit 3: `Media`.
+
+When this happens, the data inside the message is not some text in the form `nick:message`. Instead the first byte of the message is the media type ID, from 0 to 255. Right now only a media type is defined:
+
+* Media type 0: FreakWAN Compressed Image (FCI). Small 1 bit color image.
+
+Devices receiving this message should try to show the bitmap on the
+screen, if possible, or if the image is too big or they like any
+graphical display ability, some text should be produced to make the user
+aware that the message contains an image.
 
 ## ACK message
 

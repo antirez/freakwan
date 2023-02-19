@@ -18,6 +18,8 @@ MessageTypeBulkReply = 6
 # Message flags
 MessageFlagsRelayed = 1<<0          # Repeated message
 MessageFlagsPleaseRelay = 1<<1      # Please repeat this message
+MessageFlagsFragment = 1<<2         # One fragment of many
+MessageFlagsMedia = 1<<3            # Message contains some media
 
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
