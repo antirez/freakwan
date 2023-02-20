@@ -86,7 +86,7 @@ class CommandsController:
                         fw.lora_reset_and_configure()
                 send_reply("bandwidth set to "+str(fw.config['lora_bw']))
             elif argv[0] == "!help":
-                send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls !font")
+                send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls !font !last")
             elif argv[0] == "!bat" and argc == 1:
                 volts = fw.get_battery_microvolts()/1000000
                 perc = fw.get_battery_perc()
@@ -105,7 +105,7 @@ class CommandsController:
                     list_item += 1
                     send_reply(str(list_item)+". "+
                                 m.sender_to_str()+
-                                " ("+m.nick+") "+
+                                " ("+m.nick+"> "+m.text+") "+
                                 ("%.1f" % age) + " sec ago "+
                                 (" with RSSI:%d " % (m.rssi))+
                                 "It can see "+str(m.seen)+" nodes.")
