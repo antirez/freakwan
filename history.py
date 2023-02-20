@@ -160,7 +160,7 @@ class History:
         # Compute how many records we take from the first
         # and second file, and at which offset.
         seek = [index,max(index-lens[0],0)]
-        subcount = [min(lens[0]-index,count),0]
+        subcount = [max(min(lens[0]-index,count),0),0]
         subcount[1] = count - subcount[0]
 
         # Load results from one or both files.
