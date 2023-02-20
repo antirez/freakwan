@@ -111,6 +111,15 @@ class CommandsController:
                                 "It can see "+str(m.seen)+" nodes.")
                 if len(fw.neighbors) == 0:
                     send_reply("Nobody around, apparently...")
+            elif argv[0] == "!last" and (argc == 1 or argc == 2):
+                count = int(argv[1]) if argc == 2 else 10
+                if count < 1:
+                    send_reply("messages count must be positive")
+                else:
+                    msglist = fw.history.get_records(count-1,count)
+                    for enc in msglist:
+                        m = Message.from_encoded(enc)
+                        send_reply(m.nick+"> "+m.text)
             else:
                 send_reply("Unknown command or num of args: "+argv[0])
         else:

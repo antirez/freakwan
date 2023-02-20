@@ -10,6 +10,7 @@ import uasyncio as asyncio
 from wan_config import *
 from scroller import Scroller
 from splash import SplashScreen
+from history import History
 from message import *
 from clictrl import CommandsController
 import bluetooth
@@ -118,7 +119,7 @@ class FreakWAN:
         self.send_queue_max = 100 # Don't accumulate too many messages
 
         # We log received messages on persistent memory
-        self.history = History("history")
+        self.history = History("msg.db",histlen=100,recordsize=256)
 
         # The 'processed' dictionary contains messages IDs of messages already
         # received/processed. We save the ID and the associated message
@@ -352,7 +353,7 @@ class FreakWAN:
                     print("[<< net] Ignore duplicated message "+("%08x"%m.uid)+" <"+m.nick+"> "+m.text)
                     return
 
-                # Report messsage to the user.
+                # Report message to the user.
                 user_msg = m.nick+"> "+m.text
                 msg_info = \
                     "(rssi:%d, ttl:%d, flags:%s)" % \
@@ -366,6 +367,9 @@ class FreakWAN:
 
                 # Reply with ACK if needed.
                 self.send_ack_if_needed(m)
+
+                # Save message on history DB
+                self.history.append(m.encode())
 
                 # Relay if needed.
                 self.relay_if_needed(m)
