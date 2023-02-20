@@ -197,8 +197,15 @@ if __name__ == "__main__":
     h.append(b'foo4')
     h.append(b'foo5')
     h.append(b'foo6')
-    print(h.get_num_records())
+    print("Current records: %d" % h.get_num_records())
     records = h.get_records(4,4) # Cross file fetch
     print(records)
+    records = h.get_records(1,2)
+    print(records)
+
+    print("Adding 100 entries...")
+    for i in range(100):
+        h.append(bytes("entry %d" % i,'utf-8'))
+    print("Current records: %d" % h.get_num_records())
     records = h.get_records(1,2)
     print(records)
