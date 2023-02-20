@@ -15,7 +15,7 @@ from clictrl import CommandsController
 import bluetooth
 from bt import BLEUART
 
-Version="0.12"
+Version="0.13"
 
 LoRaPresets = {
     'superfast': {
@@ -116,6 +116,9 @@ class FreakWAN:
         # should be sent in reverse order, from index 0.
         self.send_queue = []
         self.send_queue_max = 100 # Don't accumulate too many messages
+
+        # We log received messages on persistent memory
+        self.history = History("history")
 
         # The 'processed' dictionary contains messages IDs of messages already
         # received/processed. We save the ID and the associated message
