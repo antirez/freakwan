@@ -116,6 +116,12 @@ When this happens, the data inside the message is not some text in the form `nic
 
 * Media type 0: FreakWAN Compressed Image (FCI). Small 1 bit color image.
 
+```
++--------+------//------+-----------+-------------+----//
+| type:8 | other fields | sender:48 | mediatype:8 | ... media data ...
++--------+------//------+-----------+-------------+----//
+```
+
 Devices receiving this message should try to show the bitmap on the
 screen, if possible, or if the image is too big or they like any
 graphical display ability, some text should be produced to make the user
