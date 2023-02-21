@@ -25,7 +25,11 @@ class DutyCycle:
         # Allocate our slots. The txtime is the number of milliseconds
         # we transmitted during that slot. About 'epoch', see the
         # self.get_epoch() method for more info.
-        self.slots = [{'txtime':0,'epoch':0} for i in range(self.slots_num)]
+        #
+        # We initialize the epochs to -1 to mark the slots
+        # as invalid, so that the algorithm will not count them
+        # before they are populated with actual data.
+        self.slots = [{'txtime':0,'epoch':-1} for i in range(self.slots_num)]
         self.tx_start_time = 0 # time.ticks_ms() of start_tx() call.
 
     #  Return the current active slot. This is just the UNIX time
@@ -59,11 +63,14 @@ class DutyCycle:
     def get_duty_cycle(self):
         txtime = 0
         epoch = self.get_epoch()
+        valid_slots = 0
         for slot in self.slots:
             # Add the time of slots yet not out of scope
-            if slot['epoch'] > epoch - self.slots_num:
+            if slot['epoch'] > max(epoch-self.slots_num,0):
                 txtime += slot['txtime']
-        return (txtime / (self.slots_dur*self.slots_num*1000)) * 100
+                valid_slots += 1
+        if valid_slots == 0: return 0
+        return (txtime / (self.slots_dur*valid_slots*1000)) * 100
 
 if __name__ == "__main__":
     d = DutyCycle(slots_num=4,slots_dur=10)
@@ -73,4 +80,5 @@ if __name__ == "__main__":
         d.end_tx()
         time.sleep(.9)
         # Should converge to 10%
+        print(d.slots)
         print(d.get_duty_cycle())
