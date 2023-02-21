@@ -29,7 +29,7 @@ All groups of 8 pixels (scanning from top-left to bottom-right) are sent
 verbatim as a single byte, with the exception of the following sequence
 of pixels, called the escapes:
 
-    0x3C 11000011 (long run escape)
+    0xC3 11000011 (long run escape)
     0x3D 00111101 (short run white+black escape)
     0x65 01100101 (short run black_white escape)
 
