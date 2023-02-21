@@ -13,10 +13,11 @@ from splash import SplashScreen
 from history import History
 from message import *
 from clictrl import CommandsController
+from dutycycle import DutyCycle
 import bluetooth
 from bt import BLEUART
 
-Version="0.14"
+Version="0.15"
 
 LoRaPresets = {
     'superfast': {
@@ -121,6 +122,11 @@ class FreakWAN:
         # We log received messages on persistent memory
         self.history = History("msg.db",histlen=100,recordsize=256)
 
+        # Configure the duty cycle tracker, use a period of 25 minutes
+        # with five 5min slots. We could extend it up to an hour, according
+        # to regulations.
+        self.duty_cycle = DutyCycle(slots_num=5,slots_dur=60*5)
+
         # The 'processed' dictionary contains messages IDs of messages already
         # received/processed. We save the ID and the associated message
         # in case we are the originators (in order to collect acks). The
@@ -216,6 +222,7 @@ class FreakWAN:
     # Called when the packet was transmitted. Only useful to turn
     # the TX led off.
     def lora_tx_done(self):
+        self.duty_cycle.end_tx()
         if self.tx_led: self.tx_led.off()
 
     # Send packets waiting in the send queue. This function, right now,
@@ -248,6 +255,7 @@ class FreakWAN:
                 # be turned off later when the IRQ reports success.
                 if m.send_canceled == False:
                     if self.tx_led: self.tx_led.on()
+                    self.duty_cycle.start_tx()
                     self.lora.send(m.encode())
                     time.sleep_ms(1)
 
@@ -452,6 +460,7 @@ class FreakWAN:
         msg += " SendQueue:"+str(len(self.send_queue))
         msg += " CacheLen:"+str(cached_total)
         msg += " FreeMem:"+str(gc.mem_free())
+        msg += " DutyCycle: %.2f%%" % self.duty_cycle.get_duty_cycle()
         print(msg)
     
     # This is the default callback that handle a message received from BLE.
