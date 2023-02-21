@@ -13,7 +13,7 @@ import time
 # number from to 0 to 100 expressing the percentage of time
 # the TX was active.
 #
-# The algorithm devices the time in self.slots_num slots each
+# The algorithm divides the time in self.slots_num slots each
 # of the duration of self.slots_dur seconds. They default to
 # 4 slots of 15 minutes. Each slot knows the total tx time
 # during that slot, in milliseconds. When we call get_duty_cycle()
