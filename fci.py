@@ -29,7 +29,7 @@ class ImageFCI:
         while runlen:
             max_line_len = self.width - self.rx
             line_len = min(max_line_len,runlen)
-            if color and self.ry >= 0 and self.ry < display.height:
+            if color and self.y+self.ry >= 0 and self.y+self.ry < display.height:
                 display.line(self.x+self.rx,self.y+self.ry,self.x+self.rx+line_len-1,self.y+self.ry,color)
             self.rx += line_len
             if self.rx == self.width:
@@ -41,7 +41,7 @@ class ImageFCI:
     # into the image, starting from the current position rx,ry.
     def draw_verb(self,display,pattern):
         for bit in range(7,-1,-1):
-            if pattern & (1<<bit) and self.ry >= 0 and self.ry < display.height:
+            if pattern & (1<<bit) and self.y+self.ry >= 0 and self.y+self.ry < display.height:
                 display.pixel(self.x+self.rx,self.y+self.ry,1)
             self.rx += 1
             if self.rx == self.width:
