@@ -5,6 +5,7 @@
 # See the LICENSE file for more information
 
 from font4x6 import *
+from fci import ImageFCI
 
 # This class implements an IRC-alike view for the ssd1306 display.
 # it is possible to push new lines of text, and only the latest N will
@@ -61,7 +62,10 @@ class Scroller:
     def rows_needed(self):
         needed = 0
         for l in self.lines:
-            needed += int((len(l)+(self.cols-1))/self.cols)
+            if isinstance(l,ImageFCI):
+                needed += int(self.get_image_padded_height(l.height)/self.font_height)
+            else:
+                needed += int((len(l)+(self.cols-1))/self.cols)
         return needed
 
     # Display the battery icon, that is built on the
@@ -88,6 +92,16 @@ class Scroller:
         full_pixel = round(batt_perc/10)
         self.display.fill_rect(2+px,2,full_pixel,3,1)
 
+    # When displaying images, we need to start from the row edge in order
+    # make mixes of images and text well aligned. So we pad the image
+    # height to the font height.
+    def get_image_padded_height(self,height):
+        if height % self.font_height:
+            padded_height = height+(self.font_height-(height%self.font_height))
+        else:
+            padded_height = height
+        return padded_height
+
     # Update the screen content.
     def refresh(self):
         if not self.display: return
@@ -98,9 +112,23 @@ class Scroller:
         y = (min(self.rows,self.rows_needed())-1) * self.font_height
         lines = self.lines[:]
         while y >= 0:
+            # Handle FCI images
+            if isinstance(lines[-1],ImageFCI):
+                img = lines[-1]
+                lines.pop(-1)
+                y -= self.get_image_padded_height(img.height)
+                img.draw_into(self.display,0,y)
+                continue
+
+            # Handle text
             if len(lines[-1]) == 0:
+                # We consumed all the current line. Remove it
+                # and start again from the top of the loop, since
+                # the next line could be an image.
                 lines.pop(-1)
                 if len(lines) == 0: return # Should not happen
+                continue
+
             to_consume = len(lines[-1]) % self.cols
             if to_consume == 0: to_consume = self.cols
             rowchars = lines[-1][-to_consume:] # Part to display from the end
@@ -119,7 +147,8 @@ class Scroller:
 
     # Add a new line, without refreshing the display.
     def print(self,msg):
-        msg = self.convert_from_utf8(msg)
+        if isinstance(msg,str):
+            msg = self.convert_from_utf8(msg)
         self.lines.append(msg)
         self.lines = self.lines[-self.rows:]
 

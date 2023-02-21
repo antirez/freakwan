@@ -7,6 +7,7 @@
 import time
 
 from message import Message
+from fci import ImageFCI
 
 # This class is used by the FreakWAN class in order to execute
 # commands received from the user via Bluetooth. Actually here we
@@ -120,6 +121,14 @@ class CommandsController:
                     for enc in msglist:
                         m = Message.from_encoded(enc)
                         send_reply(m.nick+"> "+m.text)
+            elif argv[0] == "!image" and argc == 2:
+                try:
+                    img = ImageFCI(filename=argv[1])
+                    fw.scroller.print("you> image:")
+                    fw.scroller.print(img)
+                    fw.refresh_view()
+                except Exception as e:
+                    send_reply("Error loading the image: "+str(e))
             else:
                 send_reply("Unknown command or num of args: "+argv[0])
         else:
