@@ -117,7 +117,9 @@ class Scroller:
                 img = lines[-1]
                 lines.pop(-1)
                 y -= self.get_image_padded_height(img.height)
+                y += self.font_height
                 img.draw_into(self.display,0,y)
+                y -= self.font_height
                 continue
 
             # Handle text
