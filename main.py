@@ -102,9 +102,9 @@ class FreakWAN:
         if machine.reset_cause() == machine.DEEPSLEEP_RESET:
             if self.low_battery():
                 for i in range(3):
-                    if self.tx_led: self.tx_led.on()
+                    self.set_tx_led(True)
                     machine.sleep(50)
-                    if self.tx_led: self.tx_led.off()
+                    self.set_tx_led(True)
                     machine.sleep(50)
                 machine.deepsleep(5000) # Will restart again after few sec.
 
@@ -215,6 +215,16 @@ class FreakWAN:
         perc = 123-(123/((1+((volts/3.7)**80))**0.165))
         return max(min(100,int(perc)),0)
 
+    # Turn led on if state is True, off if it is False
+    def set_tx_led(self,new_state):
+        if not self.tx_led: return     # No led in this device
+        if self.config['tx_led']['inverted']:
+            new_state = not new_state
+        if new_state:
+            self.tx_led.on()
+        else:
+            self.tx_led.off()
+
     # Return a human readable nickname for the device, composed
     # using the device unique ID.
     def device_hw_nick(self):
@@ -248,7 +258,7 @@ class FreakWAN:
     # the TX led off.
     def lora_tx_done(self):
         self.duty_cycle.end_tx()
-        if self.tx_led: self.tx_led.off()
+        self.set_tx_led(False)
 
     # Send packets waiting in the send queue. This function, right now,
     # will just send every packet in the queue. But later it should
@@ -279,7 +289,7 @@ class FreakWAN:
                 # Send the message and turn the green led on. This will
                 # be turned off later when the IRQ reports success.
                 if m.send_canceled == False:
-                    if self.tx_led: self.tx_led.on()
+                    self.set_tx_led(True)
                     self.duty_cycle.start_tx()
                     self.lora.send(m.encode())
                     time.sleep_ms(1)

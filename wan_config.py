@@ -40,6 +40,7 @@ class UserConfig:
     # config ['tx_led'] = None
     config['tx_led'] = {
         'pin': 25,
+        'inverted': False,      # Set to True if pin on = led off
     }
 
     # Goes to deep sleep when this percentage is reached, in order to
