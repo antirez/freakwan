@@ -514,7 +514,7 @@ class FreakWAN:
     # points more than the threshold.
     def low_battery(self,try_awake=False):
         min_level = self.config['sleep_battery_perc']
-        if try_awaye: min_level += 3
+        if try_awake: min_level += 3
         return self.get_battery_perc() < min_level
 
     def power_off(self,offtime):
