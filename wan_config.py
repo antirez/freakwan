@@ -41,3 +41,7 @@ class UserConfig:
     config['tx_led'] = {
         'pin': 25,
     }
+
+    # Goes to deep sleep when this percentage is reached, in order to
+    # avoid damaging the battery.
+    config['sleep_battery_perc'] = 20

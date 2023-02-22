@@ -69,6 +69,7 @@ class FreakWAN:
             'relay_max_delay': 10000,
             'relay_rssi_limit': -60,
             'status': "Hi there!",
+            'sleep_battery_perc': 20,
         }
         self.config.update(UserConfig.config)
 
@@ -472,6 +473,14 @@ class FreakWAN:
         cmd = self.uart.read().decode().strip()
         self.cmdctrl.exec_user_command(self,cmd,fw.uart.print)
 
+    def low_battery(self):
+        return self.get_battery_perc() < self.config['sleep_battery_perc']
+
+    def power_off(self):
+        self.lora.reset()
+        if self.display: self.display.poweroff()
+        machine.deepsleep(60000*3600*24)
+
     # This is the event loop of the application where we handle messages
     # received from BLE using the specified callback.
     # If the callback is not defined we use the class provided one:
@@ -499,20 +508,41 @@ class FreakWAN:
         while True:
             # Splash screen handling.
             if tick <= animation_ticks:
-                self.splashscreen.next_frame()
-                self.refresh_view()
-                if tick == animation_ticks:
+                if tick == animation_ticks or self.low_battery():
                     self.switch_view(self.ScrollerView)
                     self.scroller.print("FreakWAN v"+Version)
+                    tick = animation_ticks+1
+
+                self.splashscreen.next_frame()
+                self.refresh_view()
                 tick += 1
                 continue
 
             # Normal loop.
             if tick % 10 == 0: gc.collect()
             if tick % 50 == 0: self.show_status_log()
+
             # From time to time, refresh the current view so that
             # if it is the scroller, it can update the battery icon.
-            if tick % 600 == 0: self.refresh_view()
+            if tick % 600 == 0:
+                self.refresh_view()
+
+            # Periodically check the battery level, and if too low, protect
+            # it shutting the device down.
+            if tick % 100 == 0:
+                if self.low_battery():
+                    self.scroller.print("")
+                    self.scroller.print("*******************")
+                    self.scroller.print("***             ***")
+                    self.scroller.print("*** LOW BATTERY ***")
+                    self.scroller.print("***             ***")
+                    self.scroller.print("*******************")
+                    self.scroller.print("")
+                    self.scroller.print("Device frozen. Switching off in 15 seconds.")
+                    self.refresh_view()
+                    machine.sleep(15000)
+                    self.power_off()
+
             self.send_messages_in_queue()
             self.evict_processed_cache()
             await asyncio.sleep(0.1)
