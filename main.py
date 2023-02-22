@@ -73,8 +73,18 @@ class FreakWAN:
         }
         self.config.update(UserConfig.config)
 
+        #################################################################
+        # The first thing we need to initialize is the different devices
+        # ways to obtain battery information and the TX led.
+        #
+        # This way we can re-enter deep sleep ASAP if we are just returning
+        # from low battery deep sleep. We will just flash the led to
+        # report we are actaully sleeping for low battery.
+        #################################################################
+
         # Init battery voltage pin
         self.battery_adc = ADC(Pin(35))
+
         # Voltage is divided by 2 befor reaching PID 32. Since normally
         # a 3.7V battery is used, to sample it we need the full 3.3
         # volts range.
@@ -85,6 +95,20 @@ class FreakWAN:
             self.tx_led = Pin(self.config['tx_led']['pin'],Pin.OUT)
         else:
             self.tx_led = None
+
+        # Check if we are in low battery mode, and if the battery
+        # is still too low to restart, before powering up anything
+        # else.
+        if machine.reset_cause() == machine.DEEPSLEEP_RESET:
+            if self.low_battery():
+                for i in range(3):
+                    if self.tx_led: self.tx_led.on()
+                    machine.sleep(50)
+                    if self.tx_led: self.tx_led.off()
+                    machine.sleep(50)
+                machine.deepsleep(5000) # Will restart again after few sec.
+
+        ################### NORMAL STARTUP FOLLOWS ##################
 
         # Init display
         if self.config['ssd1306']:
@@ -476,10 +500,10 @@ class FreakWAN:
     def low_battery(self):
         return self.get_battery_perc() < self.config['sleep_battery_perc']
 
-    def power_off(self):
+    def power_off(self,offtime):
         self.lora.reset()
         if self.display: self.display.poweroff()
-        machine.deepsleep(60000*3600*24)
+        machine.deepsleep(offtime)
 
     # This is the event loop of the application where we handle messages
     # received from BLE using the specified callback.
@@ -541,7 +565,7 @@ class FreakWAN:
                     self.scroller.print("Device frozen. Switching off in 15 seconds.")
                     self.refresh_view()
                     machine.sleep(15000)
-                    self.power_off()
+                    self.power_off(5000)
 
             self.send_messages_in_queue()
             self.evict_processed_cache()
