@@ -510,6 +510,9 @@ class FreakWAN:
             # Normal loop.
             if tick % 10 == 0: gc.collect()
             if tick % 50 == 0: self.show_status_log()
+            # From time to time, refresh the current view so that
+            # if it is the scroller, it can update the battery icon.
+            if tick % 600 == 0: self.refresh_view()
             self.send_messages_in_queue()
             self.evict_processed_cache()
             await asyncio.sleep(0.1)
