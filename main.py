@@ -100,7 +100,7 @@ class FreakWAN:
         # is still too low to restart, before powering up anything
         # else.
         if machine.reset_cause() == machine.DEEPSLEEP_RESET:
-            if self.low_battery():
+            if self.low_battery(try_awake = True):
                 for i in range(3):
                     self.set_tx_led(True)
                     machine.sleep(50)
@@ -507,8 +507,15 @@ class FreakWAN:
         cmd = self.uart.read().decode().strip()
         self.cmdctrl.exec_user_command(self,cmd,fw.uart.print)
 
-    def low_battery(self):
-        return self.get_battery_perc() < self.config['sleep_battery_perc']
+    # Return if the battery is under the low battery threshould.
+    # If 'try_awake' is true, it means we are asking from the point
+    # of view of awaking back the device after we did an emergency
+    # shut down, and in that case, we want the battery to be a few
+    # points more than the threshold.
+    def low_battery(self,try_awake=False):
+        min_level = self.config['sleep_battery_perc']
+        if try_awaye: min_level += 3
+        return self.get_battery_perc() < min_level
 
     def power_off(self,offtime):
         self.lora.reset()
