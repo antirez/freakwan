@@ -83,7 +83,16 @@ class Message:
             mtype = struct.unpack("<B",msg)[0]
             if mtype == MessageTypeData:
                 self.type,self.flags,self.uid,self.ttl,self.sender = struct.unpack("<BBLB6s",msg)
-                self.nick,self.text = msg[13:].decode("utf-8").split(":")
+                if self.flags & MessageFlagsMedia:
+                    msg = msg[13:] # Skip header
+                    sep = msg.find(b':')
+                    if sep == -1:
+                        raise Exception("Missing nick separator in media type")
+                    self.nick = msg[:sep].decode("utf-8")
+                    self.media_type = msg[sep+1]
+                    self.media_data = msg[sep+2:]
+                else:
+                    self.nick,self.text = msg[13:].decode("utf-8").split(":")
                 return True
             elif mtype == MessageTypeAck:
                 self.type,self.flags,self.uid,self.ack_type,self.sender = struct.unpack("<BBLB6s",msg)

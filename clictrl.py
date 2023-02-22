@@ -6,7 +6,7 @@
 
 import time
 
-from message import Message
+from message import *
 from fci import ImageFCI
 
 # This class is used by the FreakWAN class in order to execute
@@ -124,9 +124,15 @@ class CommandsController:
             elif argv[0] == "!image" and argc == 2:
                 try:
                     img = ImageFCI(filename=argv[1])
-                    fw.scroller.print("you> image:")
-                    fw.scroller.print(img)
-                    fw.refresh_view()
+                    if len(img.encoded) > 200:
+                        send_reply("Image over 200 bytes. Too large to send before fragmentation gets implemented")
+                    else:
+                        msg = Message(flags=MessageFlagsMedia,nick=fw.config['nick'], text=bytes([0])+img.encoded)
+                        print("HERE")
+                        fw.send_asynchronously(msg,max_delay=0,num_tx=1,relay=True)
+                        fw.scroller.print("you> image:")
+                        fw.scroller.print(img)
+                        fw.refresh_view()
                 except Exception as e:
                     send_reply("Error loading the image: "+str(e))
             else:
