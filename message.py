@@ -27,7 +27,7 @@ MessageMediaTypeImageFCI = 0
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
 class Message:
-    def __init__(self, nick="", text="", uid=False, ttl=15, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type=0, seen=0):
+    def __init__(self, nick="", text="", media_type=255, media_data=False, uid=False, ttl=15, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type=0, seen=0):
         self.ctime = time.ticks_ms() # To evict old messages
 
         # send_time is only useful for sending, to introduce a random delay.
@@ -42,6 +42,8 @@ class Message:
         self.flags = flags
         self.nick = nick
         self.text = text
+        self.media_type = media_type
+        self.media_data = media_data
         self.uid = uid if uid != False else self.gen_uid()
         self.sender = sender if sender != False else self.get_this_sender()
         self.ttl = ttl              # Only DATA
@@ -73,7 +75,10 @@ class Message:
     # Turn the message into its binary representation.
     def encode(self):
         if self.type == MessageTypeData:
-            return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.sender+self.nick+":"+self.text
+            if self.flags & MessageFlagsMedia:
+                return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.sender+self.nick+":"+bytes([self.media_type])+self.media_data
+            else:
+                return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.sender+self.nick+":"+self.text
         elif self.type == MessageTypeAck:
             return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ack_type)+self.sender
         elif self.type == MessageTypeHello:

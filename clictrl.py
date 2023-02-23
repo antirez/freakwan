@@ -120,14 +120,17 @@ class CommandsController:
                     msglist = fw.history.get_records(count-1,count)
                     for enc in msglist:
                         m = Message.from_encoded(enc)
-                        send_reply(m.nick+"> "+m.text)
+                        if m.flags & MessageFlagsMedia:
+                            send_reply(m.nick+"> [%d bytes of media]"%len(m.media_data))
+                        else:
+                            send_reply(m.nick+"> "+m.text)
             elif argv[0] == "!image" and argc == 2:
                 try:
                     img = ImageFCI(filename=argv[1])
                     if len(img.encoded) > 200:
                         send_reply("Image over 200 bytes. Too large to send before fragmentation gets implemented")
                     else:
-                        msg = Message(flags=MessageFlagsMedia,nick=fw.config['nick'], text=bytes([MessageMediaTypeImageFCI])+img.encoded)
+                        msg = Message(flags=MessageFlagsMedia,nick=fw.config['nick'],media_type=MessageMediaTypeImageFCI,media_data=img.encoded)
                         fw.send_asynchronously(msg,max_delay=0,num_tx=1,relay=True)
                         fw.scroller.print("you> image:")
                         fw.scroller.print(img)
