@@ -270,22 +270,20 @@ class FreakWAN:
         while len(self.send_queue):
             m = self.send_queue.pop(0)
             if (time.ticks_diff(time.ticks_ms(),m.send_time) > 0):
-
-                # If the radio is busy sending. We wait here.
-                # However it was sperimentally observed that sometimes
-                # it can get stuck (maybe because of some race condition
-                # in this code?). So if a given amount of time has elapsed
-                # without progresses, we reset the radio and return.
-                wait_ms_counter = 0
-                wait_ms_counter_max = 5000 # 5 seconds
-                while(self.lora.tx_in_progress):
-                    wait_ms_counter += 1
-                    if wait_ms_counter == 5000:
+                # If the radio is busy sending, waiting here is of
+                # little help: it may take a while for the packet to
+                # be transmitted. Try again in the next cycle. However
+                # check if the radio looks stuck sending for
+                # a very long time, and if so, reset the LoRa radio.
+                if self.lora.tx_in_progress:
+                    if self.duty_cycle.get_current_tx_time() > 60000:
                         print("WARNING: TX watchdog radio reset")
                         self.lora_reset_and_configure()
                         self.lora.receive()
-                        return
-                    time.sleep_ms(1)
+                    # Put back the message, in the same order as
+                    # it was, before exiting the loop.
+                    self.send_queue = [m] + self.send_queue
+                    break
 
                 # Send the message and turn the green led on. This will
                 # be turned off later when the IRQ reports success.
@@ -307,7 +305,12 @@ class FreakWAN:
             else:
                 # Time to send this message yet not reached, send later.
                 send_later.append(m)
-        self.send_queue = send_later
+
+        # In case of early break of the while loop, we have still
+        # messages in the original send queue, so the new queue is
+        # the sum of the ones to process again, plus the ones not
+        # yet processed.
+        self.send_queue = self.send_queue + send_later
 
     # Called upon reception of some message. It triggers sending an ACK
     # if certain conditions are met. This method does not check the

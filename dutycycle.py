@@ -30,7 +30,7 @@ class DutyCycle:
         # as invalid, so that the algorithm will not count them
         # before they are populated with actual data.
         self.slots = [{'txtime':0,'epoch':-1} for i in range(self.slots_num)]
-        self.tx_start_time = 0 # time.ticks_ms() of start_tx() call.
+        self.tx_start_time = -1 # time.ticks_ms() of start_tx() call.
 
     #  Return the current active slot. This is just the UNIX time
     # divided by the slot duration, modulo the number of slots. So
@@ -50,8 +50,12 @@ class DutyCycle:
     def start_tx(self):
         self.tx_start_time = time.ticks_ms()
 
+    def get_current_tx_time(self):
+        if self.tx_start_time == -1: return 0
+        return time.ticks_diff(time.ticks_ms(),self.tx_start_time)
+
     def end_tx(self):
-        txtime = time.ticks_diff(time.ticks_ms(),self.tx_start_time)
+        txtime = self.get_current_tx_time()
         idx = self.get_slot_index()
         epoch = self.get_epoch()
         slot = self.slots[idx]
@@ -59,6 +63,7 @@ class DutyCycle:
             slot['epoch'] = epoch
             slot['txtime'] = 0
         slot['txtime'] += txtime
+        self.tx_start_time = -1
 
     def get_duty_cycle(self):
         txtime = 0
