@@ -17,7 +17,7 @@ from dutycycle import DutyCycle
 from bt import BLEUART
 from fci import ImageFCI
 
-Version="0.15"
+Version="0.2"
 
 LoRaPresets = {
     'superfast': {
