@@ -4,36 +4,37 @@ This repository is a work in progress for the following two projects that are go
 
 * An SX1276 driver written in MicroPython, for devices like the LILYGO TTGO LoRa (TM) v2 1.6 and similar.
 * A simple WAN system using LoRa devices, called FreakWAN, part of the [FreakNet](https://en.wikipedia.org/wiki/FreakNet)project.
+* A protocol specification, the one used in the implementation of FreakWAN, to be used upon the LoRa physical layer in order to build a system capable of supporting a chat between distributed users, where intermediate devices relay messages in order to build a mesh able to cover a wide area.
 
 The driver itself is the single file `sx1276.py`, and the `example.py` file shows how to work with it: just copy the driver inside your project and you are done. The rest of this README is about FreakWAN, the project that uses this driver to create a distributed messaging system over LoRa.
 
 # FreakWAN
 
-FreakWAN is an effort to create a LoRa based, open WAN network over LoRa.
+FreakWAN is an effort to create a LoRa-based open WAN network over LoRa.
 Our goal is to cover parts of the Sicily which such network. However the code
 will be freely available for anyone wanting to build their own LoRa
 WANs on top of this work.
 
-This code is currently NOT COMPLETE and designed to work with the
+This code is currently yet not complete, and designed to work with the
 following ESP32-based devices:
 
 1. LILYGO TTGO T3 v2 1.6 LoRa module.
 2. LILYGO TTGO T Beam LoRa module.
 
-However changing the pins setup to adapt it to other ESP32 modules that have an SX1276 LoRa chip and an SSD1306 display, should be very little work.
+However changing the pins setup to adapt it to other ESP32 modules that have an SX1276 (or compatible) LoRa chip and an SSD1306 display, should be very little work.
 
 # Installation
 
 * Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device.
-* Optional: edit `wan_config.py` if you want to set your nickname and status message. This file will later contain more configuration parameters that are currently hard-coded inside the code, since for now all is alpha stage.
-* Transfer all the `.py` files in the root directory of this project (with the exception of `example.py`, that is not needed) in your device. To transfer the files, we recommend using [ampy](https://github.com/scientifichackers/ampy) (`pip3 install adafruit-ampy` should be enough).
+* Optional: edit `wan_config.py` if you want to set your nickname and status message, set the frequency according to your device, and so forth. **Warning**: make sure to set the right frequency based on the LoRa module you own, and make sure your antenna is already installed before using the software, or you may damage your hardware.
+* Transfer all the `.py` files in the root directory of this project (with the exception of `example.py`, that is not needed -- however also transferring it will do no harm) in your device. To transfer the files, you can use [ampy](https://github.com/scientifichackers/ampy) (`pip3 install adafruit-ampy` should be enough), or an alternative tool that we wrote and is conceptually part of the FreakWAN effort, called [talk32](https://github.com/antirez/talk32). Talk32 is much faster at transferring files, but is yet alpha quality code.
 * Restart your device.
 
 # Usage
 
 It is possible to use the device via Bluetooth, using one of the following applications:
 * Mobile: install one of the many BLE UART apps in your phone. For instance, if you use [nRF Toolbox](https://www.nordicsemi.com/Products/Development-tools/nrf-toolbox), select the UART utility service, connect to the device and send a text message or just `!help`. On Android, we recommend the [Serial Bluetooth Terminal app](https://play.google.com/store/apps/details?id=de.kai_morich.serial_bluetooth_terminal&hl=en&gl=US). It works great out of the box, but for the best experience go to Settings, *Send* tab, and select *clear input on send*.
-* Desktup: install [Freakble](https://github.com/eriol/freakble) following the project README.
+* Desktop: install [Freakble](https://github.com/eriol/freakble) following the project README.
 
 Using one of the above, you can talk with the device sending CLI commands.
 If you just send some text, it will be sent as message in the network.
@@ -41,9 +42,22 @@ If you send a valid command starting with the `!` character, it will be executed
 * `!automsg` [on/off] to disable enable automatic messages used for testing.
 * `!bat` to show the battery level.
 * `!preset <name>` to set a LoRa preset. Each preset is a specific spreading, bandiwidth and coding rate setup. To see all the available presets write `!preset help`.
-* !sp, !bw, !cr change the spreading, bandwidth and coding rate independently, if you wish.
-* !ls shows the list of nodes this node is sensing via HELLO messages.
-* !font `big|small` will change between an 8x8 and a 5x7 (4x6 usable area) font.
+* `!sp`, `!bw`, `!cr` change the spreading, bandwidth and coding rate independently, if you wish.
+* `!ls` shows the list of nodes this node is sensing via HELLO messages.
+* `!font big|small` will change between an 8x8 and a 5x7 (4x6 usable area) font.
+* `!image <image-file-name>` send an FCI image (see later about images).
+
+## Sending images
+
+FreakWAN implements its own very small, losslessy compressed 1 bit images, as a proof of concept that we can send small media types over LoRa, and also very useful in order to make our protocol more robust against very long packets (that have a very large *time on air*). Inside the `fci` directory of this repository you will find the specification of the image format and run length compression used, and a tool to convert small PNG files into FCI images.
+
+Once you have the FCI images, you should copy them into the `images` directory inside your device (again, using ampy or talk32 or any other tool). Then you can send the images using the `!image` command using the bluetooth CLI.
+
+## Power management
+
+Right now, for the LILYGO TTGO T3 device, we support reading the battery level and shutting down the device when the battery is too low, since the battery could damage if it is discharged over a certain limit. When this happens, the device will go in deep sleep mode, and will flash the led 3 times every 5 seconds. Then, once connected again to the charger, when the battery charges a bit, it will restart again.
+
+For the T Beam, work is in progress to provide the same feature. For now it is better to disable the power management at all, by setting `config['sleep_battery_perc']` to 0 in the `wan_config.py` file.
 
 # FreakWAN network specification
 
@@ -189,7 +203,7 @@ Format:
 
     antirez:Hi there! I'm part of FreakWAN.
 
-# Messages relay
+## Messages relay
 
 Data messages with the `PleaseRelay` flag set are retransmitted by the nodes receiving them. The retransmission is the fundamental way in which the WAN is built. Imagine the following FreakWAN set of devices:
 
@@ -204,3 +218,9 @@ To do so, FreakWAN uses the following mechanism:
 2. Devices may chose to avoid retransmitting messages with a too high RSSI, in order to avoid using precious channel time without a good reason. It is of little interest that two very nearby devices retransmit their messages.
 3. Retransmitted messages have the `Relayed` flag set, so ACKs are not transmitted by the receivers of those messages. FreakWAN ACKs only serve to inform the originator of the message that some neighbor device received the message, but are not used in order to notify of the final destinations of the message, as this would require a lot of channel time and is quite useless. For direct messages between users, when they will be implemented, the acknowledge of reception can be created on top of the messaging system itself, sending an explicit reply.
 4. Each message received and never seen before is relayed N times, with N being a configuration inside the program defaulting to 3. However users may change it, depending on the network nodes density and other parameters.
+
+## Listen Before Talk
+
+FreakWAN implementations are required to implement Listen Before Talk, in order to avoid sending messages if they detect some other valid LoRa transmission (either about FreakWAN or not) currently active. In this implementation, this feature is accomplished by reading the LoRa radio status register and avoiding transmitting if the set of bits reports an incoming packet being received.
+
+LBT is a fundamental improvement for the performance of this protocol, since a major issue with this kind of routing, where every packet is sent and then relayed to everybody on the same frequency, is packet collisions.
