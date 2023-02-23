@@ -265,6 +265,7 @@ class FreakWAN:
     # implement percentage of channel usage to be able to send only
     # a given percentage of the time.
     def send_messages_in_queue(self):
+        if self.lora.modem_is_receiving_packet(): return
         send_later = [] # List of messages we can't send, yet.
         while len(self.send_queue):
             m = self.send_queue.pop(0)

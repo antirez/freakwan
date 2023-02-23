@@ -24,6 +24,7 @@ RegFifoRxCurrentAddr = 0x10
 RegIrqFlagsMask = 0x11
 RegIrqFlags = 0x12
 RegRxNbBytes = 0x13
+RegModemStat = 0x18
 RegPktSnrValue = 0x19
 RegPktRssiValue = 0x1a 
 RegRssiValue = 0x1b
@@ -57,6 +58,13 @@ IRQTxDone = 1<<3
 IRQCadDone = 1<<2
 IRQFhssChangeChannel = 1<<1
 IRQCadDetected = 1<<0
+
+# RegModemStat bits
+ModemStatusSignalDetected = 1<<0
+ModemStatusSignalSynchronized = 1<<1
+ModemStatusRXOngoing = 1<<2
+ModemStatusHeaderInfoValid = 1<<3
+ModemStatusModemClear = 1<<4
 
 class SX1276:
     def __init__(self, pinset, rx_callback, tx_callback = None):
@@ -242,7 +250,13 @@ class SX1276:
             print("SX1276: packet with bad CRC received")
         else: 
             print("SX1276: not handled event IRQ flags "+str(event))
-                    
+
+    def get_modem_stat(self):
+        return self.spi_read(RegModemStat)
+
+    def modem_is_receiving_packet(self):
+        return self.get_modem_stat() & ModemStatusSignalDetected
+
     def receive(self):    
         # Raise IRQ when a packet is received.
         self.spi_write(RegDioMapping1, Dio0RxDone)
