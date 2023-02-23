@@ -4,7 +4,7 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-import machine, ssd1306, sx1276, time, urandom, gc
+import machine, ssd1306, sx1276, time, urandom, gc, bluetooth
 from machine import Pin, SoftI2C, ADC
 import uasyncio as asyncio
 from wan_config import *
@@ -14,8 +14,8 @@ from history import History
 from message import *
 from clictrl import CommandsController
 from dutycycle import DutyCycle
-import bluetooth
 from bt import BLEUART
+from fci import ImageFCI
 
 Version="0.15"
 
@@ -398,14 +398,25 @@ class FreakWAN:
                     return
 
                 # Report message to the user.
-                user_msg = m.nick+"> "+m.text
                 msg_info = \
                     "(rssi:%d, ttl:%d, flags:%s)" % \
                     (m.rssi,m.ttl,"{0:b}".format(m.flags))
 
-                if m.flags & MessageFlagsRelayed: user_msg += " [R]"
-                self.scroller.print(user_msg)
-                self.uart.print(user_msg+" "+msg_info)
+                if m.flags & MessageFlagsMedia:
+                    if m.media_type == MessageMediaTypeImageFCI:
+                        img = ImageFCI(data=m.media_data)
+                        fw.scroller.print(m.nick+"> image:")
+                        fw.scroller.print(img)
+                        user_msg = m.nick+"> image"
+                    else:
+                        print("[<<< net] Unknown media type %d" % m.media_type)
+                        user_msg = m.nick+"> unknown media"
+                else:
+                    user_msg = m.nick+"> "+m.text
+                    if m.flags & MessageFlagsRelayed: user_msg += " [R]"
+                    self.scroller.print(user_msg)
+                    self.uart.print(user_msg+" "+msg_info)
+
                 print("*** "+user_msg+" "+msg_info)
                 self.refresh_view()
 

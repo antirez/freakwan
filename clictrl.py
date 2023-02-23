@@ -127,7 +127,7 @@ class CommandsController:
                     if len(img.encoded) > 200:
                         send_reply("Image over 200 bytes. Too large to send before fragmentation gets implemented")
                     else:
-                        msg = Message(flags=MessageFlagsMedia,nick=fw.config['nick'], text=bytes([0])+img.encoded)
+                        msg = Message(flags=MessageFlagsMedia,nick=fw.config['nick'], text=bytes([MessageMediaTypeImageFCI])+img.encoded)
                         print("HERE")
                         fw.send_asynchronously(msg,max_delay=0,num_tx=1,relay=True)
                         fw.scroller.print("you> image:")
