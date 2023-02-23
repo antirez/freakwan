@@ -320,7 +320,7 @@ class FreakWAN:
         if m.type != MessageTypeData: return     # Acknowledge only data.
         if m.flags & MessageFlagsRelayed: return # Don't acknowledge relayed.
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type)
-        self.send_asynchronously(ack)
+        self.send_asynchronously(ack,max_delay=0)
         print("[>> net] Sending ACK about "+("%08x"%m.uid))
 
     # Called for data messages we see for the first time. If the
