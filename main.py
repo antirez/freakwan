@@ -136,7 +136,7 @@ class FreakWAN:
 
         # Init BLE chip
         ble = bluetooth.BLE()
-        self.uart = BLEUART(ble, name="FreakWAN_%s" % self.config['nick'])
+        self.uart = BLEUART(ble, name="FW_%s" % self.config['nick'])
         self.cmdctrl = CommandsController()
 
         # Queue of messages we should send ASAP. We append stuff here, so they
@@ -232,9 +232,15 @@ class FreakWAN:
         nick = ""
         consonants = "kvprmnzflst"
         vowels = "aeiou"
-        for x,y in zip(uid[0::2],uid[1::2]):
-            nick += consonants[x%len(consonants)]
-            nick += vowels [y%len(vowels)]
+        val = 0
+        for x in range(len(uid)): val += uid[x] << (x*8)
+        while val > 0 and len(nick) < 10:
+            if len(nick) % 2:
+                nick += consonants[val%len(consonants)]
+                val = int(val/len(consonants))
+            else:
+                nick += vowels [val%len(vowels)]
+                val = int(val/len(vowels))
         return nick
 
     # Put a packet in the send queue. Will be delivered ASAP.
