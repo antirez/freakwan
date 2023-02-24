@@ -219,8 +219,147 @@ To do so, FreakWAN uses the following mechanism:
 3. Retransmitted messages have the `Relayed` flag set, so ACKs are not transmitted by the receivers of those messages. FreakWAN ACKs only serve to inform the originator of the message that some neighbor device received the message, but are not used in order to notify of the final destinations of the message, as this would require a lot of channel time and is quite useless. For direct messages between users, when they will be implemented, the acknowledge of reception can be created on top of the messaging system itself, sending an explicit reply.
 4. Each message received and never seen before is relayed N times, with N being a configuration inside the program defaulting to 3. However users may change it, depending on the network nodes density and other parameters.
 
-## Listen Before Talk
+# Listen Before Talk
 
 FreakWAN implementations are required to implement Listen Before Talk, in order to avoid sending messages if they detect some other valid LoRa transmission (either about FreakWAN or not) currently active. In this implementation, this feature is accomplished by reading the LoRa radio status register and avoiding transmitting if the set of bits reports an incoming packet being received.
 
 LBT is a fundamental improvement for the performance of this protocol, since a major issue with this kind of routing, where every packet is sent and then relayed to everybody on the same frequency, is packet collisions.
+
+# Encryption
+
+FreakWAN default mode of operation is as unencrypted anyone-can-talk
+open network. In this mode, messages can be spoofed, and different
+persons (nicks) or nodes IDs can be impersonated by other devices
+very easily.
+
+For this reason it is also possible to use encryption with pre-shared
+symmetric keys. Because of the device limitations and the standard library
+provided by MicroPython, we had to use an in-house encryption mode based
+on SHA256.
+
+## High level encryption scheme
+
+Each device can store multiple symmetric keys, associated with
+a key name. Every time an encrypted message is received, all the keys
+are tested against the packet, and if a matching key is found (see
+later about the mechanism to validate the key) the message is correctly
+received, and displayed with the additional information of the key
+name, in order to make the user aware that this is an encrypted message
+that was decrypted with a specific key.
+
+So, for example, if a key is shared between only two users, Alice and
+Bob, then Alice will store the `xyz` key with the name "BoB", ad Bob
+will store the same `xyz` key with the name "Alice". Every time Alice
+receives an encrypted message with such key, it will see:
+
+    #Bob bob> Hi Alice, how are you?
+
+Where the first part is `#<keyname>`, and the rest of the message is
+the normal message, nick and text, or media type, as normally displayed.
+
+Similarly if the same key is shared among a group of users, the effect
+will be to participate into a group chat.
+
+Keys must be shared using a protected channel: either via messaging
+systems like Whatsapp or Signal, or face to face with the interested
+users. Optionally the system may decide to encrypt local keys using
+a passphrase, so that keys can't be extracted from the device when
+it is non operational.
+
+## Encrypted packets and algorithm
+
+Only data messages are encrypted. ACKs, HELLO and other messages
+remain unencrypted.
+
+The first four standard header fields of an encrypted packet are not
+encrypted at all: receivers, even without a key at hand, need to be able to
+check the message type and flags, the TTL (in case of relay), the message UID
+(to avoid reprocessing) and so forth. The only difference between the first
+7 bytes (message type, flags, UID, TTL) of an ecrpyted and unencrypted message
+is that the flag `MessageFlagsEncrypted` flag is set. Then, if such
+flag is set and the packet is thus encrypted, a 4 bytes initialization
+vector (IV) follows. This is the unencrypted part of the packet. The
+encrypted part is as the usual data as found in the DATA packet type: 6 bytes
+of sender and the data payload itself. However, at the end of the packet,
+there is an additional (also encrypted with the payload) 9 bytes of checksum,
+used to check integrity and even to see if a given key is actually decrypting
+a given packet correctly. The checksum is just the first 9 bytes of
+HMAC(message), where "message" is the whole message before encryption
+(consisting of both the unencrypted and encrypted part), but with the TTL
+filed set to 0.
+
+This is the representation of the message described above:
+
+```
++--------+---------+-------+-------+-------+-----------+--//--+--------+
+| type:8 | flags:8 | ID:32 | TTL:8 | IV:32 | sender:48 | data | CKSUM |
++--------+---------+-------+-------+-------+-----------+--//--+--------+
+                                           |                           |
+                                           `- Encrypted part ----------'
+```
+
+The 'IV' is the initialization vector for the CBC mode of AES, that is
+the algorithm used for encryption. However it is used together with all
+the unencrypted header part, from the type field, at byte 0, to the last byte
+of the IV. So the initialization vector used is a total 11 bytes, of which
+at least 64 bits of pseudorandom data.
+
+The final 9 bytes checksum is computed using SHA256-HMAC, that is defined as:
+
+    SHA256(ikey || SHA256(okey || message))
+
+However the ikey and okey are 64 bytes padded versions of the compressed key.
+
+The compressed key, `ckey` is obtained as:
+
+    len(key) <= 64 ?
+        ckey = key + 0x00 bytes padding to reach 64 bytes
+    else
+        ckey = SHA256(key) + 32 0x00 bytes of padding
+
+Then to derive `ikey` and `okey`:
+
+    ikey = ckey XOR 64 bytes of 0x36 bytes
+    okey = ckey XOR 64 bytes of 0x5c bytes
+
+**IMPORTANT**: The last bit of the last byte of the 9 bytes CHECKSUM is
+always set to 1, to distinguish the last byte from the padding.
+
+## Encryption
+
+To encrypt, build the packet as described above, append the CHECKSUM part
+to the plain text packet, performing the SHA256-HMAC of the whole packet,
+without the checksum part and with the TTL set to 0, and setting the LSB
+bit of the last byte to 1. Then pad the encrypted part, adding zero bytes
+after the checksum part, to make the encrypted payload a multiple of 16 bytes,
+and finally encrypt the payload part with AES, using as initialization
+vector the first 16 bytes of SHA256 digest of byte from 0 to the final byte
+of the IV (11 total bytes), with TTL set to 0, and as key the first 16 bytes
+of SHA256 of the key stored in the keychain as an utf-8 string.
+
+Decrypting is very similar. However we don't know what is the original
+length of the payload, since we padded it with zeroes. But we know
+that the last byte of the checksum can never be zero, as the last bit
+is always set as per the algorithm above. So, after decryption, we discard
+all the trailing zeroes, and we have the length of the payload. Then we
+subtract the length of the checksum (9 bytes), and can compute the
+SHA256-HMAC and check if it matches. Non matching packets are just
+silently discarded.
+
+## Relaying of encrypted messages
+
+The receiver of the packet has all the information required in order to
+relay the packet: we want the network to be collaborative even for messages
+that are not public. If the PleaseRelay flag is set, nodes should retransmit
+the message as usually, decrementing that TTL, that is not part of the
+CHECKSUM computation nor of the IV (it gets set to 0). Similarly the message
+UID is exposed in the unencrypted header, so nodes without a suitable key for
+the message can yet avoid re-processing the message just saving its UID in
+the messages cache.
+
+## Security considerations
+
+* The encryption scheme described here was designed in order to use few bytes of additional space and the only encryption primitive built-in in MicroPython that was stable enough: the SHA256 hash and AES.
+* Because of the device and LoRa packets size and bandwidth limitations, the IV is shorter than one would hope. However it is partially compensated by the fact that the message UID is also part of the set of bytes used as initialization vector (see the encryption algorithm above). So the IV is actually at least 64 bits of pseudorandom data. For the attacker, it will be very hard to find two messages with the same IV, and even so the information disclosed would be minimal.
+* The HMAC of 64 bits looks short, however in the case of LoRa the bandwidth of the network is so small that a brute force attack sounds extremely hard to mount. It is very unlikely that a forged packet will be sensed as matching some key, and even so probably it will be discarded for other reasons (packet type, wrong data format, ...).
+* The `sender` field of the message is part of the encrypted part, thus encrypted messages don't discose nor the sender, that is encrypted, nor the received, that is implicit (has the key) of the message.
