@@ -3,7 +3,7 @@
 This repository is a work in progress for the following two projects that are going to live in the same place:
 
 * An SX1276 driver written in MicroPython, for devices like the LILYGO TTGO LoRa (TM) v2 1.6 and similar.
-* A simple WAN system using LoRa devices, called FreakWAN, part of the [FreakNet](https://en.wikipedia.org/wiki/FreakNet)project.
+* A simple WAN system using LoRa devices, called FreakWAN, part of the [FreakNet](https://en.wikipedia.org/wiki/FreakNet) project.
 * A protocol specification, the one used in the implementation of FreakWAN, to be used upon the LoRa physical layer in order to build a system capable of supporting a chat between distributed users, where intermediate devices relay messages in order to build a mesh able to cover a wide area.
 
 The driver itself is the single file `sx1276.py`, and the `example.py` file shows how to work with it: just copy the driver inside your project and you are done. The rest of this README is about FreakWAN, the project that uses this driver to create a distributed messaging system over LoRa.
@@ -214,7 +214,7 @@ For a message sent by A to reach C, if we imagine a range of, for instance,
 
 To do so, FreakWAN uses the following mechanism:
 
-1. A data message that has the `PleaseRelay` bit set, when received, is retransmitted multiple times, assuming its TTL is still greater than 1. The TTL of the message is decremented by one, the `Relayed` flag is set in the message, finally the message is send again *as it is*, without changing the sender address, but maintaining the original one.
+1. A data message that has the `PleaseRelay` bit set, when received, is retransmitted multiple times, assuming its TTL is still greater than 1. The TTL of the message is decremented by one, the `Relayed` flag is set in the message, finally the message is sent again *as it is*, without changing the sender address, but maintaining the original one.
 2. Devices may chose to avoid retransmitting messages with a too high RSSI, in order to avoid using precious channel time without a good reason. It is of little interest that two very nearby devices retransmit their messages.
 3. Retransmitted messages have the `Relayed` flag set, so ACKs are not transmitted by the receivers of those messages. FreakWAN ACKs only serve to inform the originator of the message that some neighbor device received the message, but are not used in order to notify of the final destinations of the message, as this would require a lot of channel time and is quite useless. For direct messages between users, when they will be implemented, the acknowledge of reception can be created on top of the messaging system itself, sending an explicit reply.
 4. Each message received and never seen before is relayed N times, with N being a configuration inside the program defaulting to 3. However users may change it, depending on the network nodes density and other parameters.
