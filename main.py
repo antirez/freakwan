@@ -505,7 +505,7 @@ class FreakWAN:
     def show_status_log(self):
         sent = self.lora.msg_sent
         cached_total = len(self.processed_a)+len(self.processed_b)
-        msg = "~"
+        msg = "~"+self.config['nick']
         msg += " Sent:"+str(sent)
         msg += " SendQueue:"+str(len(self.send_queue))
         msg += " CacheLen:"+str(cached_total)

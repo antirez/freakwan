@@ -94,6 +94,7 @@ def gen_resp_payload():
 
 class BLEUART:
     def __init__(self, ble, name="mpy-uart", rxbuf=100):
+        name = name[:10]
         self._ble = ble
         self._ble.active(True)
         self._ble.irq(self.irq_handler)
