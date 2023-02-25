@@ -420,23 +420,24 @@ class FreakWAN:
                 msg_info = \
                     "(rssi:%d, ttl:%d, flags:%s)" % \
                     (m.rssi,m.ttl,"{0:b}".format(m.flags))
+                channel_name = "" if not m.key_name else "#"+str(m.key_name)+" "
 
                 if m.flags & MessageFlagsMedia:
                     if m.media_type == MessageMediaTypeImageFCI:
                         img = ImageFCI(data=m.media_data)
-                        fw.scroller.print(m.nick+"> image:")
+                        fw.scroller.print(channel_name+m.nick+"> image:")
                         fw.scroller.print(img)
-                        user_msg = m.nick+"> image"
+                        user_msg = channel_name+m.nick+"> image"
                     else:
                         print("[<<< net] Unknown media type %d" % m.media_type)
-                        user_msg = m.nick+"> unknown media"
+                        user_msg = channel_name+m.nick+"> unknown media"
                 else:
-                    user_msg = m.nick+"> "+m.text
+                    user_msg = channel_name+m.nick+"> "+m.text
                     if m.flags & MessageFlagsRelayed: user_msg += " [R]"
                     self.scroller.print(user_msg)
                     self.uart.print(user_msg+" "+msg_info)
 
-                print("*** "+user_msg+" "+msg_info)
+                print("*** "+channel_name+user_msg+" "+msg_info)
                 self.refresh_view()
 
                 # Reply with ACK if needed.
