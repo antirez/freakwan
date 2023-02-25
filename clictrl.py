@@ -139,6 +139,17 @@ class CommandsController:
                     send_reply("Error loading the image: "+str(e))
             else:
                 send_reply("Unknown command or num of args: "+argv[0])
+        elif cmd[0] == '#':
+            idx = cmd.find(' ')
+            key_name = cmd[1:idx]
+            text = cmd[idx+1:]
+            if not fw.keychain.has_key(key_name):
+                send_reply("No key named '"+str(key_name)+"' in keychain.")
+            else:
+                msg = Message(nick=fw.config['nick'], text=text, key_name=key_name)
+                fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
+                fw.scroller.print("#"+key_name+" you> "+msg.text)
+                fw.refresh_view()
         else:
             msg = Message(nick=fw.config['nick'], text=cmd)
             fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)

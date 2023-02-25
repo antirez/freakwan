@@ -58,7 +58,7 @@ class Keychain:
     def encrypt(self,packet,key_name):
         key = self.keys.get(key_name)
         if key == None:
-            raise Exception("No key with the specified name")
+            raise Exception("No key with the specified name: "+str(key_name))
         # Compute the IV and digest with TTL set to 0, as it could
         # change as the packet gets relayed by the network.
         # In the next step we also add the IV field.

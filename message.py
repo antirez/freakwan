@@ -101,8 +101,8 @@ class Message:
             # Encrypt if needed and if a keychain was provided.
             if self.key_name:
                 if keychain:
-                    encoded = keychain.encrypt(self.key_name,encoded)
-                else
+                    encoded = keychain.encrypt(encoded,self.key_name)
+                else:
                     printf("Warning: no keychain provided to Message.encode(). Message with key_name set will be unencrypted.")
             return encoded
         elif self.type == MessageTypeAck:
@@ -169,9 +169,9 @@ class Message:
             return False
 
     # Create a message object from the binary representation of a message.
-    def from_encoded(encoded):
+    def from_encoded(encoded,keychain):
         m = Message()
-        if m.decode(encoded):
+        if m.decode(encoded,keychain):
             return m
         else:
             return False
