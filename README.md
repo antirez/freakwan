@@ -283,10 +283,7 @@ encrypted part is as the usual data as found in the DATA packet type: 6 bytes
 of sender and the data payload itself. However, at the end of the packet,
 there is an additional (also encrypted with the payload) 9 bytes of checksum,
 used to check integrity and even to see if a given key is actually decrypting
-a given packet correctly. The checksum is just the first 9 bytes of
-HMAC(message), where "message" is the whole message before encryption
-(consisting of both the unencrypted and encrypted part), but with the TTL
-filed set to 0.
+a given packet correctly. The checksum computation is specified later.
 
 This is the representation of the message described above:
 
