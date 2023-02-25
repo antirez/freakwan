@@ -13,15 +13,27 @@ The driver itself is the single file `sx1276.py`, and the `example.py` file show
 FreakWAN is an effort to create a LoRa-based open WAN network over LoRa.
 Our goal is to cover parts of the Sicily which such network. However the code
 will be freely available for anyone wanting to build their own LoRa
-WANs on top of this work.
+WANs on top of this work. The main features of our implementation and
+protocol are the following:
 
-This code is currently yet not complete, and designed to work with the
-following ESP32-based devices:
+* Support for a distributed network based on LoRa and broadcast routing.
+* Basic chat features, ability to send medias (like small images).
+* Configurable number of relay retransmissions with random delays.
+* First-hop acknowledges of messages sent.
+* Symmetric encryption with AES in CBC mode, with support for integrity detection and multiple keys keychain: each group of clients knowing a given key is part of a virtual group. The network is collaborative for encrpyted messages: nodes that are not able to decrypt a given message can broadcast it, since the encrypted part is not vital to perform the relay of messages.
+* Sensing of nearby nodes, via HELLO messages (advertising).
+* Bandwidth usage mitigation features.
+* Duty cycle tracking.
+* Local storage of messages in the device flash, with automatic deletion of old messages.
+* CLI interface via Bluetooth LE and Desktop and Android application.
+* Simple to understand, hackable code base.
+
+This code is currently a functional work in progress, designed to work with the following ESP32-based devices:
 
 1. LILYGO TTGO T3 v2 1.6 LoRa module.
 2. LILYGO TTGO T Beam LoRa module.
 
-However changing the pins setup to adapt it to other ESP32 modules that have an SX1276 (or compatible) LoRa chip and an SSD1306 display, should be very little work.
+However changing the pins in the configuration, to adapt it to other ESP32 modules that have an SX1276 (or compatible) LoRa chip and an SSD1306 display (or no dislay, in headless mode), should be very little work.
 
 # Installation
 
@@ -46,6 +58,44 @@ If you send a valid command starting with the `!` character, it will be executed
 * `!ls` shows the list of nodes this node is sensing via HELLO messages.
 * `!font big|small` will change between an 8x8 and a 5x7 (4x6 usable area) font.
 * `!image <image-file-name>` send an FCI image (see later about images).
+* `!last [<count>]` show last messages received, taking them from the local storage of the device.
+
+## Encrypted messages
+
+By default messages are sent in cleartext and will reach every device part of the network, configured in the same LoRa frequency, spreading and bandwidth. However it is possible to send encrypted messages that will reach only other users with a matching symmetric key. For instance, if Alice and Bob want to communicate in a private way, they will sent the same key, let's say `abcd123`, in their devices. Bob will do:
+
+    !addkey alice abcd123
+
+While Alice will do:
+
+    !addkey bob abcd1234
+
+(Note: they need to use much longer and unguessable key! A good way to generate a key is to to combine a number of words and numbers together, or just generate a random 256 bit hex string with any available tool).
+
+Now, Alice will be able to send messages to Bob, and the other way around, just typing:
+
+    #bob some message
+
+Bob will see, in the display of the device and in the Android application, if connected via, BTE, something like that:
+
+    #alice Alice> ... message ...
+
+Encrypted messages that are correctly received and decoded are shown as:
+
+    #<keyname> Nick> message
+
+Each device can have multiple keys. The device will try to decrypt each encrypted message with all the keys stored inside the key chain (the device flash memory, under the `keys` directory -- warning! keys are not encrypted on disk).
+
+If many users will set the same key with the same name, they are effectively creating something like an *IRC channel*, a chat where all such individuals can talk together.
+
+This is the set of commands to work with encrypted messages:
+
+    #<keyname> some message     -- send message with the given key.
+    !addkey keyname actual-key-as-a-string  -- add the specified key.
+    !delkey keyname             -- remove the specified key.
+    !keys                       -- list available keys.
+    !usekey keyname             -- set the specified key as default to send all the next messages, without the need to resort to the #key syntax.
+    !nokey                      -- undo !usekey, return back to plaintext.
 
 ## Sending images
 

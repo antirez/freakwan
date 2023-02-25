@@ -15,6 +15,9 @@ from fci import ImageFCI
 # method, so this can be used to execute the same commands arriving
 # by other means.
 class CommandsController:
+    def __init__(self):
+        self.default_key = None
+
     # 'command' is the command string to execute, while 'fw' is
     # our FreaWAN application class, used by the CommandsController
     # in order to do anything the application can do.
@@ -87,14 +90,14 @@ class CommandsController:
                         fw.lora_reset_and_configure()
                 send_reply("bandwidth set to "+str(fw.config['lora_bw']))
             elif argv[0] == "!help":
-                send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls !font !last")
+                send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls !font !last !addkey !delkey !keys !usekey !nokey")
             elif argv[0] == "!bat" and argc == 1:
                 volts = fw.get_battery_microvolts()/1000000
                 perc = fw.get_battery_perc()
                 send_reply("battery %d%%, %.2f volts" % (perc,volts))
             elif argv[0] == "!font" and argc == 2:
                 if argv[1] not in ["big","small"]:
-                    send_reply("Font name can be: big, small")
+                    send_reply("Font name can be: big, small.")
                 else:
                     fw.scroller.select_font(argv[1])
                     fw.refresh_view()
@@ -115,7 +118,7 @@ class CommandsController:
             elif argv[0] == "!last" and (argc == 1 or argc == 2):
                 count = int(argv[1]) if argc == 2 else 10
                 if count < 1:
-                    send_reply("messages count must be positive")
+                    send_reply("Messages count must be positive.")
                 else:
                     msglist = fw.history.get_records(count-1,count)
                     for enc in msglist:
@@ -124,11 +127,31 @@ class CommandsController:
                             send_reply(m.nick+"> [%d bytes of media]"%len(m.media_data))
                         else:
                             send_reply(m.nick+"> "+m.text)
+            elif argv[0] == "!addkey" and argc == 3:
+                fw.keychain.add_key(argv[1],argv[2])
+                send_reply("Key added to keychain.")
+            elif argv[0] == "!delkey" and argc == 2:
+                if fw.keychain.has_key(argv[1]):
+                    fw.keychain.del_key(argv[1])
+                    send_reply("Key removed from keychain")
+                else:
+                    send_reply("No such key: "+argv[1])
+            elif argv[0] == "!usekey" and argc == 2:
+                if fw.keychain.has_key(argv[1]):
+                    self.default_key = argv[1]
+                    send_reply("Key set.")
+                else:
+                    send_reply("No such key: "+argv[1])
+            elif argv[0] == "!nokey" and argc == 1:
+                self.default_key = None
+                send_reply("Key unset. New messages will be sent unencrypted.")
+            elif argv[0] == "!keys" and argc == 1:
+                send_reply(", ".join(fw.keychain.list_keys()))
             elif argv[0] == "!image" and argc == 2:
                 try:
                     img = ImageFCI(filename=argv[1])
                     if len(img.encoded) > 200:
-                        send_reply("Image over 200 bytes. Too large to send before fragmentation gets implemented")
+                        send_reply("Image over 200 bytes. Too large to send before fragmentation gets implemented.")
                     else:
                         msg = Message(flags=MessageFlagsMedia,nick=fw.config['nick'],media_type=MessageMediaTypeImageFCI,media_data=img.encoded)
                         fw.send_asynchronously(msg,max_delay=0,num_tx=1,relay=True)
@@ -151,9 +174,11 @@ class CommandsController:
                 fw.scroller.print("#"+key_name+" you> "+msg.text)
                 fw.refresh_view()
         else:
-            msg = Message(nick=fw.config['nick'], text=cmd)
+            key_name = self.default_key
+            group = "" if not key_name else "#"+key_name+" "
+            msg = Message(nick=fw.config['nick'], text=cmd, key_name=key_name)
             fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
-            fw.scroller.print("you> "+msg.text)
+            fw.scroller.print(group+"you> "+msg.text)
             fw.refresh_view()
 
 
