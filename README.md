@@ -304,31 +304,12 @@ the unencrypted header part, from the type field, at byte 0, to the last byte
 of the IV. So the initialization vector used is a total 11 bytes, of which
 at least 64 bits of pseudorandom data.
 
-The final 9 bytes checksum is computed using SHA256-HMAC, that is defined as:
-
-    SHA256(ikey || SHA256(okey || message))
-
-However the ikey and okey are 64 bytes padded versions of the compressed key.
-
-The compressed key, `ckey` is obtained as:
-
-    len(key) <= 64 ?
-        ckey = key + 0x00 bytes padding to reach 64 bytes
-    else
-        ckey = SHA256(key) + 32 0x00 bytes of padding
-
-Then to derive `ikey` and `okey`:
-
-    ikey = ckey XOR 64 bytes of 0x36 bytes
-    okey = ckey XOR 64 bytes of 0x5c bytes
-
-**IMPORTANT**: The last bit of the last byte of the 9 bytes CHECKSUM is
-always set to 1, to distinguish the last byte from the padding.
+The final 9 bytes checksum is computed using SHA256, but **the last bit of the last byte of the 9 bytes is always set to 1**, to distinguish the last byte from the padding.
 
 ## Encryption
 
 To encrypt, build the packet as described above, append the CHECKSUM part
-to the plain text packet, performing the SHA256-HMAC of the whole packet,
+to the plain text packet, performing the SHA256 digest of the whole packet,
 without the checksum part and with the TTL set to 0, and setting the LSB
 bit of the last byte to 1. Then pad the encrypted part, adding zero bytes
 after the checksum part, to make the encrypted payload a multiple of 16 bytes,
@@ -343,7 +324,7 @@ that the last byte of the checksum can never be zero, as the last bit
 is always set as per the algorithm above. So, after decryption, we discard
 all the trailing zeroes, and we have the length of the payload. Then we
 subtract the length of the checksum (9 bytes), and can compute the
-SHA256-HMAC and check if it matches. Non matching packets are just
+SHA256 digest and check if it matches. Non matching packets are just
 silently discarded.
 
 ## Relaying of encrypted messages
@@ -361,5 +342,5 @@ the messages cache.
 
 * The encryption scheme described here was designed in order to use few bytes of additional space and the only encryption primitive built-in in MicroPython that was stable enough: the SHA256 hash and AES.
 * Because of the device and LoRa packets size and bandwidth limitations, the IV is shorter than one would hope. However it is partially compensated by the fact that the message UID is also part of the set of bytes used as initialization vector (see the encryption algorithm above). So the IV is actually at least 64 bits of pseudorandom data. For the attacker, it will be very hard to find two messages with the same IV, and even so the information disclosed would be minimal.
-* The HMAC of 64 bits looks short, however in the case of LoRa the bandwidth of the network is so small that a brute force attack sounds extremely hard to mount. It is very unlikely that a forged packet will be sensed as matching some key, and even so probably it will be discarded for other reasons (packet type, wrong data format, ...).
+* The final digest of 64 bits looks short, however in the case of LoRa the bandwidth of the network is so small that a brute force attack sounds extremely hard to mount. It is very unlikely that a forged packet will be sensed as matching some key, and even so probably it will be discarded for other reasons (packet type, wrong data format, ...).
 * The `sender` field of the message is part of the encrypted part, thus encrypted messages don't discose nor the sender, that is encrypted, nor the received, that is implicit (has the key) of the message.
