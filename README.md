@@ -276,7 +276,7 @@ encrypted at all: receivers, even without a key at hand, need to be able to
 check the message type and flags, the TTL (in case of relay), the message UID
 (to avoid reprocessing) and so forth. The only difference between the first
 7 bytes (message type, flags, UID, TTL) of an ecrpyted and unencrypted message
-is that the flag `MessageFlagsEncrypted` flag is set. Then, if such
+is that the flag `MessageFlagsEncr` flag is set. Then, if such
 flag is set and the packet is thus encrypted, a 4 bytes initialization
 vector (IV) follows. This is the unencrypted part of the packet. The
 encrypted part is as the usual data as found in the DATA packet type: 6 bytes
@@ -307,13 +307,13 @@ The final 9 bytes checksum is computed using SHA256, but **the last bit of the l
 
 To encrypt, build the packet as described above, append the CHECKSUM part
 to the plain text packet, performing the SHA256 digest of the whole packet,
-without the checksum part and with the TTL set to 0, and setting the LSB
-bit of the last byte to 1. Then pad the encrypted part, adding zero bytes
-after the checksum part, to make the encrypted payload a multiple of 16 bytes,
-and finally encrypt the payload part with AES, using as initialization
-vector the first 16 bytes of SHA256 digest of byte from 0 to the final byte
-of the IV (11 total bytes), with TTL set to 0, and as key the first 16 bytes
-of SHA256 of the key stored in the keychain as an utf-8 string.
+without the checksum part, with the TTL set to 0 and the `Relayed` flag clear,
+and setting the LSB bit of the last byte to 1. Then pad the encrypted part,
+adding zero bytes after the checksum part, to make the encrypted payload a
+multiple of 16 bytes, and finally encrypt the payload part with AES, using as
+initialization vector the first 16 bytes of SHA256 digest of byte from 0 to
+the final byte of the IV (11 total bytes), with TTL set to 0, and as key the
+first 16 bytes of SHA256 of the key stored in the keychain as an utf-8 string.
 
 Decrypting is very similar. However we don't know what is the original
 length of the payload, since we padded it with zeroes. But we know
@@ -329,11 +329,9 @@ silently discarded.
 The receiver of the packet has all the information required in order to
 relay the packet: we want the network to be collaborative even for messages
 that are not public. If the PleaseRelay flag is set, nodes should retransmit
-the message as usually, decrementing that TTL, that is not part of the
-CHECKSUM computation nor of the IV (it gets set to 0). Similarly the message
-UID is exposed in the unencrypted header, so nodes without a suitable key for
-the message can yet avoid re-processing the message just saving its UID in
-the messages cache.
+the message as usually, decrementing that TTL and setting the `Relayed` flag: the TTL and this flag are not part of the CHECKSUM computation, nor of the IV (they are set to 0), so can be modified by intermediate nodes without invalidating the packet. Similarly, the message UID is exposed in the unencrypted header, so
+nodes without a suitable key for the message can yet avoid re-processing the
+message just saving its UID in the messages cache.
 
 ## Security considerations
 

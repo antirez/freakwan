@@ -16,6 +16,7 @@ from clictrl import CommandsController
 from dutycycle import DutyCycle
 from bt import BLEUART
 from fci import ImageFCI
+from keychain import Keychain
 
 Version="0.2"
 
@@ -146,6 +147,10 @@ class FreakWAN:
 
         # We log received messages on persistent memory
         self.history = History("msg.db",histlen=100,recordsize=256)
+
+        # Our keychain is responsible of handling keys and
+        # encrypting / decrypting packets.
+        self.keychain = Keychain()
 
         # Configure the duty cycle tracker, use a period of 25 minutes
         # with five 5min slots. We could extend it up to an hour, according
@@ -400,7 +405,12 @@ class FreakWAN:
         m = Message.from_encoded(packet)
         if m:
             m.rssi = rssi
-            if m.type == MessageTypeData:
+            if m.no_key == True:
+                # This message is encrypted and we don't have the
+                # right key. Let's relay it, to help the network anyway.
+                if self.mark_as_processed(m): return
+                self.relay_if_needed(m)
+            elif m.type == MessageTypeData:
                 # Already processed? Return ASAP.
                 if self.mark_as_processed(m):
                     print("[<< net] Ignore duplicated message "+("%08x"%m.uid)+" <"+m.nick+"> "+m.text)
