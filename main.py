@@ -354,6 +354,7 @@ class FreakWAN:
         m.ttl -= 1
         m.flags |= MessageFlagsRelayed  # This is a relay. No ACKs, please.
         self.send_asynchronously(m,num_tx=self.config['relay_num_tx'],max_delay=self.config['relay_max_delay'])
+        self.icons.set_relay_visibility(True)
         print("[>> net] Relaying "+("%08x"%m.uid)+" from "+m.nick)
 
     # Return the message if it was already marked as processed, otherwise
@@ -454,6 +455,7 @@ class FreakWAN:
             elif m.type == MessageTypeAck:
                 about = self.get_processed_message(m.uid)
                 if about != None:
+                    self.icons.set_ack_visibility(True)
                     print("[<< net] Got ACK about "+("%08x"%m.uid)+" by "+m.sender_to_str())
                     about.acks[m.sender] = True
                     # If we received ACKs from all the nodes we know about,
@@ -599,9 +601,10 @@ class FreakWAN:
             if tick % 50 == 0: self.show_status_log()
 
             # From time to time, refresh the current view so that
-            # if it is the scroller, it can update the battery icon.
-            if tick % 600 == 0:
-                self.refresh_view()
+            # we can update the battery icon, turn off the ACK
+            # and relay icon, and so forth.
+            rt = int(self.icons.min_refresh_time() * 10)
+            if tick % rt == 0: self.refresh_view()
 
             # Periodically check the battery level, and if too low, protect
             # it shutting the device down.
