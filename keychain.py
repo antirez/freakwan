@@ -106,7 +106,7 @@ class Keychain:
 if __name__ == "__main__":
     kc = Keychain()
     kc.add_key("freaknet","morte")
-    test_packet = b"TF" + "IDID" + "T" + "SENDER" + "foo: bar"
+    test_packet = b"TF" + "IDID" + "T" + "SENDER" + "foo: bar 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
     #print(test_packet)
     encr = kc.encrypt(test_packet,"freaknet")
     print("ENCR: "+str(encr))
