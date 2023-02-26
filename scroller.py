@@ -15,12 +15,11 @@ class Scroller:
     Font8x8 = 0
     Font4x6 = 1
 
-    def __init__(self, display, get_batt_perc):
+    def __init__(self, display):
         self.display = display  # Display driver
         self.lines = []
         self.xres = 128
         self.yres = 64
-        self.get_batt_perc = get_batt_perc # Method to get battery percentage
         # The framebuffer of MicroPython only supports 8x8 fonts so far, so:
         self.select_font("big")
 
@@ -68,30 +67,6 @@ class Scroller:
                 needed += int((len(l)+(self.cols-1))/self.cols)
         return needed
 
-    # Display the battery icon, that is built on the
-    # following model. There are a total of 10 pixels to
-    # fill, so each horizontal pixel is 10% of battery.
-    #..............
-    #.##########...
-    #.#xxxxxxxxx##.
-    #.#xxxxxxxxxx#.
-    #.#xxxxxxxxx##.
-    #.##########...
-    #..............
-    def draw_battery(self):
-        batt_perc = self.get_batt_perc()
-        px = self.xres-14
-        self.display.fill_rect(0+px,0,14,7,0)
-        self.display.fill_rect(1+px,1,12,5,1)
-        self.display.pixel(11+px,1,0)
-        self.display.pixel(12+px,1,0)
-        self.display.pixel(11+px,5,0)
-        self.display.pixel(12+px,5,0)
-        self.display.pixel(11+px,3,0)
-        self.display.fill_rect(2+px,2,9,3,0)
-        full_pixel = round(batt_perc/10)
-        self.display.fill_rect(2+px,2,full_pixel,3,1)
-
     # When displaying images, we need to start from the row edge in order
     # make mixes of images and text well aligned. So we pad the image
     # height to the font height.
@@ -103,7 +78,7 @@ class Scroller:
         return padded_height
 
     # Update the screen content.
-    def refresh(self):
+    def refresh(self,show=True):
         if not self.display: return
         self.display.fill(0)
         # We need to draw the lines backward starting from the last
@@ -137,8 +112,7 @@ class Scroller:
             lines[-1]=lines[-1][:-to_consume]  # Remaining part.
             self.render_text(rowchars, 0, y, 1)
             y -= self.font_height
-        self.draw_battery()
-        self.display.show()
+        if show: self.display.show()
 
     # Convert certain unicode points to our 4x6 font characters.
     def convert_from_utf8(self,msg):

@@ -9,6 +9,7 @@ from machine import Pin, SoftI2C, ADC
 import uasyncio as asyncio
 from wan_config import *
 from scroller import Scroller
+from icons import StatusIcons
 from splash import SplashScreen
 from history import History
 from message import *
@@ -123,11 +124,12 @@ class FreakWAN:
             self.display = None
 
         # Views
-        self.scroller = Scroller(self.display, get_batt_perc=self.get_battery_perc)
+        self.scroller = Scroller(self.display)
         self.scroller.select_font("small")
         self.splashscreen = SplashScreen(self.display)
         self.SplashScreenView = 0
         self.ScrollerView = 1
+        self.icons = StatusIcons(self.display,get_batt_perc=self.get_battery_perc)
         self.switch_view(self.SplashScreenView)
 
         # Init LoRa chip
@@ -191,7 +193,8 @@ class FreakWAN:
         if self.current_view == self.SplashScreenView:
             self.splashscreen.refresh()
         elif self.current_view == self.ScrollerView:
-            self.scroller.refresh()
+            self.scroller.refresh(False)
+            self.icons.refresh()
 
     # Switch to the specified view
     def switch_view(self,view_id):
