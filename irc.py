@@ -4,7 +4,7 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-import usocket, network, time, uasyncio
+import usocket, network, time, uasyncio, urandom
 
 # Minimal IRC protocol chat example:
 #
@@ -23,7 +23,8 @@ class IRC:
     def __init__(self,nick,host="irc.libera.chat",port=6667):
         self.host=host
         self.port=port
-        self.nick=nick
+        self.nick = nick
+        self.channel="#Freakwan-"+nick
         self.connected = False
 
     # Connect to the IRC server.
@@ -50,8 +51,10 @@ class IRC:
     # Register to the server.
     def register(self):
         self.socket.write(b"USER %s 8 * :FreakWAN Device\r\n" % self.nick)
-        self.socket.write(b"NICK %s\r\n" % self.nick)
-        self.socket.write(b"JOIN #%s-%s\r\n" % ("FreakWAN-",self.nick))
+        # Use a random nickname, to avoid collisions after disconnections.
+        nick="%s%d" % (self.nick,urandom.getrandbits(32))
+        self.socket.write(b"NICK %s\r\n" % nick)
+        self.socket.write(b"JOIN %s\r\n" % self.channel)
 
     # Write to the IRC server. Here we just do buffering. Actual writing
     # is performing to flush_write_buffer().
@@ -70,6 +73,32 @@ class IRC:
         except:
             # Detect socket errors in the read path.
             pass
+
+    # Write a message into the bot channel
+    def reply(self,reply):
+        self.write(b"PRIVMSG %s :%s\r\n" %(self.channel,reply))
+
+    # Receive every line from the IRC server, and does the
+    # right thing according to the protocol.
+    def process_line(self,line):
+        # Reply to server PINGs, to avoid timing out.
+        if line[:4] == b'PING':
+            self.write(b'PONG'+line[4:])
+            return
+
+        # Reply to user messages
+        match = b"PRIVMSG %s :" % self.channel
+        idx = line.find(match)
+        self.lastline = line
+        if idx != -1:
+            try:
+                idx += len(match)
+                user_msg = line[idx:].decode('utf-8')
+                print("[IRC] command: %s" % user_msg)
+                self.reply("Got it")
+            except Exception as e:
+                print("[IRC] error processing command: "+str(e))
+                pass    # Ignore wrong UTF-8 strings.
 
     # Main loop: wait for server data, react to it.
     async def run(self):
@@ -110,7 +139,7 @@ class IRC:
                 idx = self.rbuf.find(b'\r\n')
                 if idx == -1: break
                 line = self.rbuf[:idx]
-                print(line)
+                self.process_line(line)
                 self.rbuf = self.rbuf[idx+2:]
 
             # Send data to the server.
