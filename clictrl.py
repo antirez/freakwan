@@ -52,21 +52,21 @@ class CommandsController:
             idx = cmd.find(' ')
             key_name = cmd[1:idx]
             text = cmd[idx+1:]
-            if not fw.keychain.has_key(key_name):
+            if not self.fw.keychain.has_key(key_name):
                 send_reply("No key named '"+str(key_name)+"' in keychain.")
             else:
-                msg = Message(nick=fw.config['nick'], text=text, key_name=key_name)
-                fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
-                fw.scroller.print("#"+key_name+" you> "+msg.text)
-                fw.refresh_view()
+                msg = Message(nick=self.fw.config['nick'], text=text, key_name=key_name)
+                self.fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
+                self.fw.scroller.print("#"+key_name+" you> "+msg.text)
+                self.fw.refresh_view()
         else:
             # Plain text message.
             key_name = self.default_key
             group = "" if not key_name else "#"+key_name+" "
-            msg = Message(nick=fw.config['nick'], text=cmd, key_name=key_name)
-            fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
-            fw.scroller.print(group+"you> "+msg.text)
-            fw.refresh_view()
+            msg = Message(nick=self.fw.config['nick'], text=cmd, key_name=key_name)
+            self.fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
+            self.fw.scroller.print(group+"you> "+msg.text)
+            self.fw.refresh_view()
 
     def cmd_automsg(self,argv,argc,send_reply):
         if argc > 2: return False
