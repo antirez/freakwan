@@ -141,7 +141,7 @@ class FreakWAN:
         # Init BLE chip
         ble = bluetooth.BLE()
         self.uart = BLEUART(ble, name="FW_%s" % self.config['nick'])
-        self.cmdctrl = CommandsController()
+        self.cmdctrl = CommandsController(self)
 
         # Queue of messages we should send ASAP. We append stuff here, so they
         # should be sent in reverse order, from index 0.
@@ -550,12 +550,12 @@ class FreakWAN:
     # 3. Send asynchronously the message and display it.
     def ble_receive_callback(self):
         cmd = self.uart.read().decode().strip()
-        self.cmdctrl.exec_user_command(self,cmd,fw.uart.print)
+        self.cmdctrl.exec_user_command(cmd,fw.uart.print)
 
     # Process commands from IRC.
     def irc_receive_callback(self,cmd):
         cmd = cmd.strip()
-        self.cmdctrl.exec_user_command(self,cmd,self.irc.reply)
+        self.cmdctrl.exec_user_command(cmd,self.irc.reply)
 
     # Return if the battery is under the low battery threshould.
     # If 'try_awake' is true, it means we are asking from the point
