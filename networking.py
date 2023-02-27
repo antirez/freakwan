@@ -8,16 +8,23 @@ import usocket, network, time, uasyncio, urandom
 
 # Minimal IRC protocol chat example:
 #
-# USER lora1234 8 * :FreakWAN Device
-# NICK lora1234
+# Registration is like that:
+#   USER lora1234 8 * :FreakWAN Device
+#   NICK lora1234
 #
-# PING :\gsYQfum`R
-# PONG :\gsYQfum`R
+# You have to reply to pings with pongs, to avoid timing out:
+#   PING :\gsYQfum`R
+#   PONG :\gsYQfum`R
 #
-# JOIN #test1234
-# PRIVMSG #test1234 hey
-# :antirez83728!~antirez83@freenode-bj0.sp3.osjlkk.IP JOIN :#test1234
-# :antirez83728!~antirez83@freenode-bj0.sp3.osjlkk.IP PRIVMSG #test1234 :Hello
+# Joining channels and sending messages to channels (or users):
+#   JOIN #test1234
+#   PRIVMSG #test1234 :hey
+#
+# Joining is confirmed (we don't use this, we hope it just works):
+#   :antirez83728!~antirez83@freenode-bj0.sp3.osjlkk.IP JOIN :#test1234
+#
+# This is how messages are received:
+#   :antirez83728!~antirez83@freenode-bj0.sp3.osjlkk.IP PRIVMSG #test1234 :Hello
 
 class IRC:
     def __init__(self,nick,host="irc.libera.chat",port=6667):
@@ -26,6 +33,7 @@ class IRC:
         self.nick = nick
         self.channel="#Freakwan-"+nick
         self.connected = False
+        self.active = False
 
     # Connect to the IRC server.
     def connect(self):
@@ -43,10 +51,15 @@ class IRC:
         self.wbuf = b'' # Write buffer
 
     def disconnect(self):
-        self.socket.close()
-        self.connected = False
-        self.rbuf = b''
-        self.wbuf = b''
+        try:
+            self.connected = False
+            self.rbuf = b''
+            self.wbuf = b''
+            # Leave close() as last call so that the previous calls will
+            # always get executed.
+            self.socket.close()
+        except:
+            pass
 
     # Register to the server.
     def register(self):
@@ -100,9 +113,18 @@ class IRC:
                 print("[IRC] error processing command: "+str(e))
                 pass    # Ignore wrong UTF-8 strings.
 
+    # Called to disable the IRC subsystem and abort the asynchronous
+    # main loop.
+    def stop(self):
+        if self.active:
+            self.active = False
+        else:
+            self.disconnect()
+
     # Main loop: wait for server data, react to it.
     async def run(self):
-        while True:
+        self.active = True
+        while self.active:
             # Reconnect if needed
             if not self.connected:
                 print("[IRC] Connecting to server...")
@@ -120,7 +142,7 @@ class IRC:
             try:
                 l = self.socket.read()
             except Exception as e:
-                printf("[IRC] Disconnected: "+str(e))
+                print("[IRC] Disconnected: "+str(e))
                 self.disconnect()
                 continue
             
@@ -144,15 +166,39 @@ class IRC:
 
             # Send data to the server.
             self.flush_write_buffer()
+        print("[IRC] subsystem disabeld. Exiting")
+        self.disconnect()
+
+# This class just implements what is needed in order to setup the
+# wifi, check if it is currently connected, wait for the connection
+# to happen and so forth.
+class WiFiConnection:
+    def __init__(self):
+        self.interface = network.WLAN(network.STA_IF)
+
+    def connect(self,ssid,password):
+        self.interface.active(True)
+        try:
+            self.interface.disconnect()
+        except:
+            pass
+        self.interface.connect(ssid,password)
+
+    def is_connected(self):
+        return self.interface.isconnected()
+
+    async def wait_for_connection(self):
+        print("[WiFi] Waiting for connection...")
+        while not self.interface.isconnected():
+            await asyncio.sleep(1)
+        print("[WiFi] Connected.")
 
 if __name__ == "__main__":
-    sta_if = network.WLAN(network.STA_IF)
-    if not sta_if.isconnected():
-        sta_if.active(True)
-        sta_if.connect('Suite 2', '23041972')
-        while not sta_if.isconnected():
-            print("Waiting for wifi connection...")
-            time.sleep(1)
+    wifi = WiFiConnection()
+    wifi.connect('Suite 2', '23041972')
+    while not wifi.is_connected():
+        print("Waiting for WiFi")
+        time.sleep(1)
 
     irc = IRC("test1234")
     asyncio.run(irc.run())
