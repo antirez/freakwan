@@ -6,6 +6,7 @@
 
 from font4x6 import *
 from fci import ImageFCI
+import time
 
 # This class implements an IRC-alike view for the ssd1306 display.
 # it is possible to push new lines of text, and only the latest N will
@@ -15,13 +16,16 @@ class Scroller:
     Font8x8 = 0
     Font4x6 = 1
 
-    def __init__(self, display):
+    def __init__(self, display, dim_time=60, ss_time=360):
         self.display = display  # Display driver
         self.lines = []
         self.xres = 128
         self.yres = 64
         # The framebuffer of MicroPython only supports 8x8 fonts so far, so:
         self.select_font("big")
+        self.last_update = time.time()
+        self.dim_t = dim_time       # Inactivity to set to lower contrast.
+        self.screensave_t = ss_time # Inactivity to enable screen saver.
 
     def select_font(self,fontname):
         if fontname == "big":
