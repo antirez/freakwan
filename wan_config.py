@@ -59,5 +59,5 @@ class UserConfig:
     # IRC configuration. Just if it is enabled or not. The channel name is
     # automatically created from the nick of the device. See README.
     config['irc'] = {
-        'enabled' = False
+        'enabled': False
     }

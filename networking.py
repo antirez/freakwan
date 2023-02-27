@@ -4,7 +4,7 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-import usocket, network, time, uasyncio, urandom
+import usocket, network, time, uasyncio as asyncio, urandom
 
 # Minimal IRC protocol chat example:
 #

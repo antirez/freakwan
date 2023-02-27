@@ -554,7 +554,7 @@ class FreakWAN:
     # Process commands from IRC.
     def irc_receive_callback(self,cmd):
         cmd = cmd.strip()
-        self.cmdctrl.exec_user_command(self,cmd,irc.reply)
+        self.cmdctrl.exec_user_command(self,cmd,self.irc.reply)
 
     # Return if the battery is under the low battery threshould.
     # If 'try_awake' is true, it means we are asking from the point
@@ -593,6 +593,7 @@ class FreakWAN:
             else:
                 return False
         if not self.wifi: self.wifi = WiFiConnection()
+        print("[WiFi] Connecting to %s" % network)
         self.wifi.connect(network,password)
         return True
 
@@ -667,7 +668,7 @@ if __name__ == "__main__":
     # Connect to WiFi ASAP if the configuration demands so.
     wifi_network = fw.config.get('wifi_startup_network')
     if wifi_network:
-        fw.start_wifi(fw.config['wifi'][network][0],fw.config['wifi'][network][1])
+        fw.start_wifi(wifi_network, fw.config['wifi'][wifi_network])
 
     # All the FreakWAN execution is performed in the 'run' loop, and
     # in the callbacks registered during the initialization.
