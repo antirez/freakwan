@@ -27,13 +27,14 @@ import usocket, network, time, uasyncio, urandom
 #   :antirez83728!~antirez83@freenode-bj0.sp3.osjlkk.IP PRIVMSG #test1234 :Hello
 
 class IRC:
-    def __init__(self,nick,host="irc.libera.chat",port=6667):
+    def __init__(self,nick,callback,host="irc.libera.chat",port=6667):
         self.host=host
         self.port=port
         self.nick = nick
         self.channel="#Freakwan-"+nick
         self.connected = False
         self.active = False
+        self.callback = callback # Called when receiving messages
 
     # Connect to the IRC server.
     def connect(self):
@@ -89,6 +90,7 @@ class IRC:
 
     # Write a message into the bot channel
     def reply(self,reply):
+        if not self.connected: return
         self.write(b"PRIVMSG %s :%s\r\n" %(self.channel,reply))
 
     # Receive every line from the IRC server, and does the
@@ -107,11 +109,10 @@ class IRC:
             try:
                 idx += len(match)
                 user_msg = line[idx:].decode('utf-8')
-                print("[IRC] command: %s" % user_msg)
-                self.reply("Got it")
             except Exception as e:
                 print("[IRC] error processing command: "+str(e))
                 pass    # Ignore wrong UTF-8 strings.
+            self.callback(user_msg)
 
     # Called to disable the IRC subsystem and abort the asynchronous
     # main loop.
@@ -194,8 +195,10 @@ class WiFiConnection:
         print("[WiFi] Connected.")
 
 if __name__ == "__main__":
+    SSID='TestSSDI'
+    password='SomePassword'
     wifi = WiFiConnection()
-    wifi.connect('Suite 2', '23041972')
+    wifi.connect(SSID,password)
     while not wifi.is_connected():
         print("Waiting for WiFi")
         time.sleep(1)

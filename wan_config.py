@@ -46,3 +46,18 @@ class UserConfig:
     # Goes to deep sleep when this percentage is reached, in order to
     # avoid damaging the battery.
     config['sleep_battery_perc'] = 20
+
+    # WiFi network, in order to use the IRC interface.
+    config['wifi'] = {
+        'mynetwork1': 'mypassword',
+        'ssid2': 'password2'
+    }
+
+    # WiFi network to join at startup.
+    config['wifi_startup_network'] = False
+
+    # IRC configuration. Just if it is enabled or not. The channel name is
+    # automatically created from the nick of the device. See README.
+    config['irc'] = {
+        'enabled' = False
+    }

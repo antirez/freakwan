@@ -18,6 +18,7 @@ from dutycycle import DutyCycle
 from bt import BLEUART
 from fci import ImageFCI
 from keychain import Keychain
+from networking import IRC, WiFiConnection
 
 Version="0.2"
 
@@ -158,6 +159,12 @@ class FreakWAN:
         # with five 5min slots. We could extend it up to an hour, according
         # to regulations.
         self.duty_cycle = DutyCycle(slots_num=5,slots_dur=60*5)
+
+        # Networking stuff. They are allocated only on demand in order
+        # to save memory. Many users may not need such features.
+        self.irc = None
+        self.irc_task = None
+        self.wifi = None
 
         # The 'processed' dictionary contains messages IDs of messages already
         # received/processed. We save the ID and the associated message
@@ -537,12 +544,17 @@ class FreakWAN:
     
     # This is the default callback that handle a message received from BLE.
     # It will:
-    # 1. get the text from BLE message;
-    # 2. create a our Message with the received text;
-    # 3. send asynchronously the message and display it.
+    # 1. Get the text from BLE message;
+    # 2. Create a our Message with the received text;
+    # 3. Send asynchronously the message and display it.
     def ble_receive_callback(self):
         cmd = self.uart.read().decode().strip()
         self.cmdctrl.exec_user_command(self,cmd,fw.uart.print)
+
+    # Process commands from IRC.
+    def irc_receive_callback(self,cmd):
+        cmd = cmd.strip()
+        self.cmdctrl.exec_user_command(self,cmd,irc.reply)
 
     # Return if the battery is under the low battery threshould.
     # If 'try_awake' is true, it means we are asking from the point
@@ -572,6 +584,26 @@ class FreakWAN:
         # BT connection. For now, just wait in a loop.
         while True: await asyncio.sleep(1)
 
+    # Start the WiFi subsystem, using an already configured network
+    # (if password is None) or a new network.
+    def start_wifi(self,network,password=None):
+        if password == None:
+            if self.config['wifi'].get(network):
+                password = self.config['wifi'][network]
+            else:
+                return False
+        if not self.wifi: self.wifi = WiFiConnection()
+        self.wifi.connect(network,password)
+        return True
+
+    # Start the IRC subsystem.
+    def start_irc(self):
+        if not self.irc:
+            self.irc = IRC(self.config['nick'],self.irc_receive_callback)
+        if not self.irc.active:
+            asyncio.create_task(self.irc.run())
+        return True
+
     # This is the main event loop of the application, where we perform
     # periodic tasks, like sending messages in the queue. Other tasks
     # are handled by sub-tasks.
@@ -579,6 +611,8 @@ class FreakWAN:
         asyncio.create_task(self.send_hello_message())
         asyncio.create_task(self.send_periodic_message())
         asyncio.create_task(self.receive_from_ble())
+        if fw.config.get('irc') and fw.config['irc']['enabled']:
+            fw.start_irc()
 
         tick = 0
         animation_ticks = 10
@@ -629,4 +663,12 @@ class FreakWAN:
 
 if __name__ == "__main__":
     fw = FreakWAN()
+    
+    # Connect to WiFi ASAP if the configuration demands so.
+    wifi_network = fw.config.get('wifi_startup_network')
+    if wifi_network:
+        fw.start_wifi(fw.config['wifi'][network][0],fw.config['wifi'][network][1])
+
+    # All the FreakWAN execution is performed in the 'run' loop, and
+    # in the callbacks registered during the initialization.
     asyncio.run(fw.run())
