@@ -38,9 +38,12 @@ However changing the pins in the configuration, to adapt it to other ESP32 modul
 # Installation
 
 * Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device.
-* Optional: edit `wan_config.py` if you want to set your nickname and status message, set the frequency according to your device, and so forth. **Warning**: make sure to set the right frequency based on the LoRa module you own, and make sure your antenna is already installed before using the software, or you may damage your hardware.
-* Transfer all the `.py` files in the root directory of this project (with the exception of `example.py`, that is not needed -- however also transferring it will do no harm) in your device. To transfer the files, you can use [ampy](https://github.com/scientifichackers/ampy) (`pip3 install adafruit-ampy` should be enough), or an alternative tool that we wrote and is conceptually part of the FreakWAN effort, called [talk32](https://github.com/antirez/talk32). Talk32 is much faster at transferring files, but is yet alpha quality code.
-* Restart your device.
+* Clone this repository, and edit `wan_config.py` to set your nickname and status message, set the frequency according to your device, and so forth. **Warning**: make sure to set the right frequency based on the LoRa module you own, and make sure your antenna is already installed before using the software, or you may damage your hardware.
+* Transfer all the `.py` files in the root directory of this project in your device. To transfer the files, you can use [ampy](https://github.com/scientifichackers/ampy) (`pip3 install adafruit-ampy` should be enough), or an alternative tool that we wrote, and is conceptually part of the FreakWAN effort, called [talk32](https://github.com/antirez/talk32). Talk32 is much faster at transferring files, but is yet alpha quality code. If you use Talk32, you will need to run something like this:
+
+    talk32 /dev/tty.usbserial001 put *.py
+
+* Restart your device. If everything is fine you will see the splash screen and then the program version.
 
 # Usage
 
@@ -59,6 +62,12 @@ If you send a valid command starting with the `!` character, it will be executed
 * `!font big|small` will change between an 8x8 and a 5x7 (4x6 usable area) font.
 * `!image <image-file-name>` send an FCI image (see later about images).
 * `!last [<count>]` show last messages received, taking them from the local storage of the device.
+
+## Using the device via IRC
+
+FreakWAN is able to join IRC and receive messages and send messages received via LoRa into an IRC channel. Edit `wan_config.py` and enable IRC, by setting the enabled flag to True, and configuring a WiFi network. Upload the modified file inside the device and restart it.
+
+The device, by default, will enter the `#Freakwan-<nickname>` channel of `irc.libera.chat`, and will listen for commands there. The same commands you can send via Bluetooth are also available via IRC. Because of limitations with the ESP32 memory and MicroPython memory usage, SSL is not available, so FreakWAN will connect to IRC via port 6667, which is not encrypted.
 
 ## Encrypted messages
 
