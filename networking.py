@@ -4,7 +4,7 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-import usocket, network, time, uasyncio as asyncio, urandom
+import usocket, network, time, uasyncio as asyncio, urandom, re
 
 # Minimal IRC protocol chat example:
 #
@@ -20,7 +20,7 @@ import usocket, network, time, uasyncio as asyncio, urandom
 #   JOIN #test1234
 #   PRIVMSG #test1234 :hey
 #
-# Joining is confirmed (we don't use this, we hope it just works):
+# Joining is confirmed:
 #   :antirez83728!~antirez83@freenode-bj0.sp3.osjlkk.IP JOIN :#test1234
 #
 # This is how messages are received:
@@ -80,13 +80,15 @@ class IRC:
     # the part we were not able to transfer to the socket still in the
     # buffer for the next time.
     def flush_write_buffer(self):
-        if len(self.wbuf) == 0: return
-        try:
-            written = self.socket.write(self.wbuf)
-            self.wbuf = self.wbuf[written:]
-        except:
-            # Detect socket errors in the read path.
-            pass
+        while True:
+            if len(self.wbuf) == 0: return
+            try:
+                written = self.socket.write(self.wbuf)
+                if written == 0: return
+                self.wbuf = self.wbuf[written:]
+            except:
+                # Handle socket errors in the read path.
+                return
 
     # Write a message into the bot channel
     def reply(self,reply):
@@ -113,6 +115,14 @@ class IRC:
                 print("[IRC] error processing command: "+str(e))
                 pass    # Ignore wrong UTF-8 strings.
             self.callback(user_msg)
+            return
+
+        # Handle JOIN message. We don't do much with it right now,
+        # just print in the logs that we (or somebody else) joined.
+        m = re.compile(":(.*)!(.*) JOIN (.*)").match(line)
+        if m:
+            nick,channel = m.group(1).decode('utf-8'),m.group(3).decode('utf-8')
+            print("[IRC] %s joined %s" % (nick,channel))
 
     # Called to disable the IRC subsystem and abort the asynchronous
     # main loop.
@@ -147,26 +157,26 @@ class IRC:
                 self.disconnect()
                 continue
             
+            # We need to accumulate data till we find "\r\n", and
+            # accumulate the last unfinished line.
+            if l:
+                self.rbuf += l
+                while True:
+                    idx = self.rbuf.find(b'\r\n')
+                    if idx == -1: break
+                    line = self.rbuf[:idx]
+                    self.process_line(line)
+                    self.rbuf = self.rbuf[idx+2:]
+
+            # Send data to the server
+            self.flush_write_buffer()
+
             # If no data is available, the best we can do is sleeping,
             # as uasyncio does not support awaiting sockets. Anyway this
             # code path is not very delay sensitive, and replying to the
             # user 200 milliseconds later is not going to ruin the experience.
-            if not l:
-                await asyncio.sleep(.2)
-                continue
+            if not l: await asyncio.sleep(.2)
 
-            # We need to accumulate data till we find "\r\n", and
-            # accumulate the last unfinished line.
-            self.rbuf += l
-            while True:
-                idx = self.rbuf.find(b'\r\n')
-                if idx == -1: break
-                line = self.rbuf[:idx]
-                self.process_line(line)
-                self.rbuf = self.rbuf[idx+2:]
-
-            # Send data to the server.
-            self.flush_write_buffer()
         print("[IRC] subsystem disabeld. Exiting")
         self.disconnect()
 

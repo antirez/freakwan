@@ -447,6 +447,7 @@ class FreakWAN:
                     if m.flags & MessageFlagsRelayed: user_msg += " [R]"
                     self.scroller.print(user_msg)
                     self.uart.print(user_msg+" "+msg_info)
+                    if self.irc: self.irc.reply(user_msg+" "+msg_info)
 
                 print("*** "+channel_name+user_msg+" "+msg_info)
                 self.refresh_view()
