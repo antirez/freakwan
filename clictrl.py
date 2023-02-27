@@ -122,7 +122,7 @@ class CommandsController:
                 else:
                     msglist = fw.history.get_records(count-1,count)
                     for enc in msglist:
-                        m = Message.from_encoded(enc)
+                        m = Message.from_encoded(enc,fw.keychain)
                         if m.flags & MessageFlagsMedia:
                             send_reply(m.nick+"> [%d bytes of media]"%len(m.media_data))
                         else:
