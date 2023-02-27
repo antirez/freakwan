@@ -74,6 +74,11 @@ class IRC:
     # is performing to flush_write_buffer().
     def write(self,data):
         if not self.connected: return
+        # If for some reason we can't flush the buffer to the socket, we
+        # are forced to discard it. Better to accumulate the last part
+        # of the buffer than the first one, so that it will contain more
+        # recent messages.
+        if len(self.wbuf) > 1024: self.wbuf = b''
         self.wbuf += data
 
     # Try to write our pending write buffer, if any. And leave
@@ -119,10 +124,13 @@ class IRC:
 
         # Handle JOIN message. We don't do much with it right now,
         # just print in the logs that we (or somebody else) joined.
-        m = re.compile(":(.*)!(.*) JOIN (.*)").match(line)
-        if m:
-            nick,channel = m.group(1).decode('utf-8'),m.group(3).decode('utf-8')
-            print("[IRC] %s joined %s" % (nick,channel))
+        v = line.split(b' ')
+        if len(v) == 3 and v[1] == b'JOIN':
+            v2 = v[0].split(b'!')
+            if len(v2) == 2:
+                nick = v2[0][1:].decode('utf-8')
+                channel = v[2][1:].decode('utf-8')
+                print("[IRC] %s joined %s" % (nick,channel))
 
     # Called to disable the IRC subsystem and abort the asynchronous
     # main loop.
