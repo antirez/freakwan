@@ -105,7 +105,7 @@ class IRC:
     def process_line(self,line):
         # Reply to server PINGs, to avoid timing out.
         if line[:4] == b'PING':
-            self.write(b'PONG'+line[4:])
+            self.write(b'PONG'+line[4:]+b'\r\n')
             return
 
         # Reply to user messages
