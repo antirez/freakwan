@@ -67,7 +67,7 @@ If you send a valid command starting with the `!` character, it will be executed
 
 FreakWAN is able to join IRC and receive messages and send messages received via LoRa into an IRC channel. Edit `wan_config.py` and enable IRC, by setting the enabled flag to True, and configuring a WiFi network. Upload the modified file inside the device and restart it.
 
-The device, by default, will enter the `#Freakwan-<nickname>` channel of `irc.libera.chat`, and will listen for commands there. The same commands you can send via Bluetooth are also available via IRC. Because of limitations with the ESP32 memory and MicroPython memory usage, SSL is not available, so FreakWAN will connect to IRC via port 6667, which is not encrypted.
+The device, by default, will enter the `##Freakwan-<nickname>` channel of `irc.libera.chat` (please, note the two `#` in the channel name), and will listen for commands there. The same commands you can send via Bluetooth are also available via IRC. Because of limitations with the ESP32 memory and MicroPython memory usage, SSL is not available, so FreakWAN will connect to IRC via port 6667, which is not encrypted.
 
 ## Encrypted messages
 

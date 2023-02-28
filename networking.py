@@ -31,7 +31,7 @@ class IRC:
         self.host=host
         self.port=port
         self.nick = nick
-        self.channel="#Freakwan-"+nick
+        self.channel="##Freakwan-"+nick
         self.connected = False
         self.active = False
         self.callback = callback # Called when receiving messages
