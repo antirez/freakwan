@@ -147,7 +147,7 @@ class Scroller:
             if to_consume == 0: to_consume = self.cols
             rowchars = lines[-1][-to_consume:] # Part to display from the end
             lines[-1]=lines[-1][:-to_consume]  # Remaining part.
-            self.render_text(rowchars, 0, y, 1)
+            self.render_text(rowchars, 0+self.xoff, y+self.yoff, 1)
             y -= self.font_height
 
     # Return the minimum time the caller should refresh the screen
@@ -169,7 +169,14 @@ class Scroller:
         if not self.display: return
         self.update_screensaver_state()
         self.display.fill(0)
-        if self.state != self.StateSaver: self.draw_text()
+        if self.state != self.StateSaver:
+            minutes = int(time.time()/60) % 4
+            # We use minutes from 0 to 3 to move text one pixel
+            # left-right, top-bottom. This saves OLED from overusing
+            # always the same set of pixels.
+            self.xoff = minutes & 1
+            self.yoff = (minutes>>1) & 1
+            self.draw_text()
         random_icons_offset = self.state == self.StateSaver
         if self.icons: self.icons.refresh(random_offset=random_icons_offset)
         if show:
