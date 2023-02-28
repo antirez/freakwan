@@ -75,6 +75,13 @@ class CommandsController:
         send_reply("automsg set to "+str(self.fw.config['automsg']))
         return True
 
+    def cmd_prom(self,argv,argc,send_reply):
+        if argc > 2: return False
+        if argc == 2:
+            self.fw.promiscuous = argv[1] == '1' or argv[1] == 'on'
+        send_reply("promiscuous mode set to "+str(self.fw.promiscuous))
+        return True
+
     def cmd_preset(self,argv,argc,send_reply):
         if argc != 2: return False
         if argv[1] in LoRaPresets:

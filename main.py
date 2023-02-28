@@ -137,6 +137,11 @@ class FreakWAN:
         self.lora = sx1276.SX1276(self.config['sx1276'],self.process_message,
                                   self.lora_tx_done)
         self.lora_reset_and_configure()
+        
+        # When promiscuous mode is enabled, we can debug all the messages we
+        # receive, as the message cache, to avoid re-processing messages,
+        # is disabled.
+        self.promiscuous = False
 
         # Init BLE chip
         ble = bluetooth.BLE()
@@ -382,6 +387,7 @@ class FreakWAN:
     def mark_as_processed(self,m):
         if m.type == MessageTypeData:
             if self.get_processed_message(m.uid):
+                if self.promiscuous: return False
                 return True
             else:
                 self.processed_a[m.uid] = m
