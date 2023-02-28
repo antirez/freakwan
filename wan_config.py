@@ -16,6 +16,7 @@ class UserConfig:
     config['lora_bw']=250000        # Bandwidth
     config['lora_cr']=8             # Coding rate
     config['lora_fr']=869500000     # Frequency
+    config['lora_pw']=17            # TX power (dbm, range 2-20)
 
     # Pin configuration for the SSD1306 display.
     config['ssd1306']= {

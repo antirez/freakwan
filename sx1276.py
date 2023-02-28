@@ -107,7 +107,7 @@ class SX1276:
     # Set the radio parameters. Allowed spreadings are from 6 to 12.
     # Bandwidth and coding rate are listeed below in the dictionaries.
     # TX power is from 2 to 20 dbm.
-    def configure(self, freq, bandwidth, rate, spreading, txpower=17):
+    def configure(self, freq, bandwidth, rate, spreading, txpower):
         Bw = {   7800: 0b0000,
                 10400: 0b0001,
                 15600: 0b0010,

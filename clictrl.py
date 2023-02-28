@@ -88,6 +88,21 @@ class CommandsController:
                 ", ".join(x for x in LoRaPresets))
         return True
 
+    def cmd_pw(self,argv,argc,send_reply):
+        if argc > 2: return False
+        if argc == 2:
+            try:
+                txpower = int(argv[1])
+            except:
+                txpower = 0
+            if txpower < 2 or txpower > 20:
+                send_reply("Invalid tx power (dbm). Use 2-20.")
+            else:
+                self.fw.config['lora_pw'] = txpower
+                self.fw.lora_reset_and_configure()
+        send_reply("TX power set to "+str(self.fw.config['lora_pw']))
+        return True
+
     def cmd_sp(self,argv,argc,send_reply):
         if argc > 2: return False
         if argc == 2:
@@ -138,7 +153,7 @@ class CommandsController:
 
     def cmd_help(self,argv,argc,send_reply):
         if argc != 1: return False
-        send_reply("Commands: !automsg !sp !cr !bw !freq !preset !ls !font !last !addkey !delkey !keys !usekey !nokey")
+        send_reply("Commands: !automsg !pw !sp !cr !bw !freq !preset !ls !font !last !addkey !delkey !keys !usekey !nokey")
         return True
 
     def cmd_bat(self,argv,argc,send_reply):

@@ -215,7 +215,7 @@ class FreakWAN:
     def lora_reset_and_configure(self):
         was_receiving = self.lora.receiving
         self.lora.begin()
-        self.lora.configure(self.config['lora_fr'],self.config['lora_bw'],self.config['lora_cr'],self.config['lora_sp'])
+        self.lora.configure(self.config['lora_fr'],self.config['lora_bw'],self.config['lora_cr'],self.config['lora_sp'],self.config['lora_pw'])
         if was_receiving: self.lora.receive()
 
     # Return the battery voltage. The battery voltage is divided
