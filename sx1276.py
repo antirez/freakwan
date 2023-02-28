@@ -17,6 +17,7 @@ RegFrfMsb = 0x06
 RegFrfMid = 0x07
 RegFrfLsb = 0x08
 RegPaConfig = 0x09
+RegOcp = 0x0b
 RegFifoTxBaseAddr = 0x0e
 RegFifoRxBaseAddr = 0x0f
 RegFifoAddrPtr = 0x0d
@@ -105,7 +106,8 @@ class SX1276:
 
     # Set the radio parameters. Allowed spreadings are from 6 to 12.
     # Bandwidth and coding rate are listeed below in the dictionaries.
-    def configure(self, freq, bandwidth, rate, spreading):
+    # TX power is from 2 to 20 dbm.
+    def configure(self, freq, bandwidth, rate, spreading, txpower=17):
         Bw = {   7800: 0b0000,
                 10400: 0b0001,
                 15600: 0b0010,
@@ -148,16 +150,42 @@ class SX1276:
         self.spi_write(RegFrfMsb,(freq_in_steps >> 16) & 0xff)
         self.spi_write(RegFrfMid,(freq_in_steps >> 8) & 0xff)
         self.spi_write(RegFrfLsb,(freq_in_steps >> 0) & 0xff)
-        
-        # Set TX power. We want +17db, so we enable PA_BOOST.
-        # With boost enabled, output power is due by Pout=17-(15-OutputPower)
+
+        # Set TX power. We always use PA_BOOST mode. For powers
+        # between 2 and 17 we use normal operations, from 18
+        # to 20 we enable the special 20DBM mode.
+        txpower = min(max(2,txpower),20)
+
+        # For high powers, select the special 20dbm mode and disable any
+        # overcurrent protection, to make sure the TX circuit can drain
+        # as much as needed. Without setting such registers PA_BOOST can
+        # deliver 17dbm max.
+        if txpower > 17:
+            self.spi_write(RegOcp, 0)           # No over current protection.
+            self.spi_write(RegPaDac, 0x87)      # Select 20dbm mode
+
+        # Enable PA_BOOST.
         boost = 1<<7
-        # Select max power available, but with PA_BOOST enabled should not
-        # do anything useful.
+
+        # Select max power available. With PA_BOOST enabled should not
+        # do anything useful. However we set it to max to avoid any
+        # potential issue.
         maxpower = 7<<4
-        outpower = 15 # Pout = 17-(15-15) = +17db
+
+        # This is what controls PA_BOOST power: the output power part
+        # of the register. Final power will be according to the following:
+        #
+        # For default PaDac mode:
+        #   Pout=17-(15-OutputPower)
+        #
+        # If Dac is 0x87, 20dbm mode:
+        #   Pout=20-(15-OutputPower)
+        if txpower > 17:
+            outpower = txpower-5
+        else:
+            outpower = txpower-2
         self.spi_write(RegPaConfig, boost|maxpower|outpower)
-        
+
         # We either receive or send, so let's use all the 256 bytes
         # of FIFO available by setting both recv and send FIFO address
         # to the base.
