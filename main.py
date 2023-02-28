@@ -4,7 +4,7 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-import machine, ssd1306, sx1276, time, urandom, gc, bluetooth
+import machine, ssd1306, sx1276, time, urandom, gc, bluetooth, sys, io
 from machine import Pin, SoftI2C, ADC
 import uasyncio as asyncio
 from wan_config import *
@@ -672,4 +672,23 @@ if __name__ == "__main__":
 
     # All the FreakWAN execution is performed in the 'run' loop, and
     # in the callbacks registered during the initialization.
-    asyncio.run(fw.run())
+    try:
+        asyncio.run(fw.run())
+    except Exception as e:
+        # Capture the error as a string. It isn't of much use to have
+        # it in the serial, if nobody is connected via USB.
+        buf = io.StringIO()
+        sys.print_exception(e, buf)
+        stacktrace = buf.getvalue()
+        print(stacktrace)
+
+        # Print errors on the OLED, too. We want to immediately
+        # recognized a crashed device.
+        for stline in stacktrace.split("\n"):
+            fw.scroller.print(stline)
+        fw.scroller.refresh()
+
+        # Let's log the stack trace on the filesystem, too.
+        f = open('crash.txt','w')
+        f.write(stacktrace)
+        f.close()
