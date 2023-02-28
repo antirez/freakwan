@@ -602,19 +602,13 @@ class FreakWAN:
         if not self.irc:
             self.irc = IRC(self.config['nick'],self.irc_receive_callback)
         if not self.irc.active:
-            asyncio.create_task(self.irc.run())
-        return True
+            self.irc_task = asyncio.create_task(self.irc.run())
+        return self.irc_task
 
     # This is the main event loop of the application, where we perform
     # periodic tasks, like sending messages in the queue. Other tasks
     # are handled by sub-tasks.
     async def run(self):
-        asyncio.create_task(self.send_hello_message())
-        asyncio.create_task(self.send_periodic_message())
-        asyncio.create_task(self.receive_from_ble())
-        if fw.config.get('irc') and fw.config['irc']['enabled']:
-            fw.start_irc()
-
         tick = 0
         animation_ticks = 10
 
@@ -662,23 +656,11 @@ class FreakWAN:
             await asyncio.sleep(0.1)
             tick += 1
 
-if __name__ == "__main__":
-    fw = FreakWAN()
-    
-    # Connect to WiFi ASAP if the configuration demands so.
-    wifi_network = fw.config.get('wifi_startup_network')
-    if wifi_network:
-        fw.start_wifi(wifi_network, fw.config['wifi'][wifi_network])
-
-    # All the FreakWAN execution is performed in the 'run' loop, and
-    # in the callbacks registered during the initialization.
-    try:
-        asyncio.run(fw.run())
-    except Exception as e:
+    def crash_handler(self,loop,context):
         # Capture the error as a string. It isn't of much use to have
         # it in the serial, if nobody is connected via USB.
         buf = io.StringIO()
-        sys.print_exception(e, buf)
+        sys.print_exception(context['exception'], buf)
         stacktrace = buf.getvalue()
         print(stacktrace)
 
@@ -692,3 +674,22 @@ if __name__ == "__main__":
         f = open('crash.txt','w')
         f.write(stacktrace)
         f.close()
+
+if __name__ == "__main__":
+    fw = FreakWAN()
+
+    # Connect to WiFi ASAP if the configuration demands so.
+    wifi_network = fw.config.get('wifi_startup_network')
+    if wifi_network:
+        fw.start_wifi(wifi_network, fw.config['wifi'][wifi_network])
+
+    # All the FreakWAN execution is performed in the 'run' loop, and
+    # in the callbacks registered during the initialization.
+    asyncio.create_task(fw.send_hello_message())
+    asyncio.create_task(fw.send_periodic_message())
+    asyncio.create_task(fw.receive_from_ble())
+    asyncio.create_task(fw.run())
+    if fw.config.get('irc') and fw.config['irc']['enabled']: fw.start_irc()
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(fw.crash_handler)
+    loop.run_forever()
