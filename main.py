@@ -125,12 +125,12 @@ class FreakWAN:
             self.display = None
 
         # Views
-        self.scroller = Scroller(self.display)
+        icons = StatusIcons(self.display,get_batt_perc=self.get_battery_perc)
+        self.scroller = Scroller(self.display,icons=icons)
         self.scroller.select_font("small")
         self.splashscreen = SplashScreen(self.display)
         self.SplashScreenView = 0
         self.ScrollerView = 1
-        self.icons = StatusIcons(self.display,get_batt_perc=self.get_battery_perc)
         self.switch_view(self.SplashScreenView)
 
         # Init LoRa chip
@@ -200,8 +200,7 @@ class FreakWAN:
         if self.current_view == self.SplashScreenView:
             self.splashscreen.refresh()
         elif self.current_view == self.ScrollerView:
-            self.scroller.refresh(False)
-            self.icons.refresh()
+            self.scroller.refresh()
 
     # Switch to the specified view
     def switch_view(self,view_id):
@@ -361,7 +360,7 @@ class FreakWAN:
         m.ttl -= 1
         m.flags |= MessageFlagsRelayed  # This is a relay. No ACKs, please.
         self.send_asynchronously(m,num_tx=self.config['relay_num_tx'],max_delay=self.config['relay_max_delay'])
-        self.icons.set_relay_visibility(True)
+        self.scroller.icons.set_relay_visibility(True)
         print("[>> net] Relaying "+("%08x"%m.uid)+" from "+m.nick)
 
     # Return the message if it was already marked as processed, otherwise
@@ -463,7 +462,7 @@ class FreakWAN:
             elif m.type == MessageTypeAck:
                 about = self.get_processed_message(m.uid)
                 if about != None:
-                    self.icons.set_ack_visibility(True)
+                    self.scroller.icons.set_ack_visibility(True)
                     print("[<< net] Got ACK about "+("%08x"%m.uid)+" by "+m.sender_to_str())
                     about.acks[m.sender] = True
                     # If we received ACKs from all the nodes we know about,
@@ -639,7 +638,7 @@ class FreakWAN:
             # From time to time, refresh the current view so that
             # we can update the battery icon, turn off the ACK
             # and relay icon, and so forth.
-            rt = int(self.icons.min_refresh_time() * 10)
+            rt = int(self.scroller.min_refresh_time() * 10)
             if tick % rt == 0: self.refresh_view()
 
             # Periodically check the battery level, and if too low, protect

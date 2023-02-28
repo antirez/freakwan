@@ -1,11 +1,11 @@
-# Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com> # All Rights Reserved
+# Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com>
+# All Rights Reserved
 #
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
 from font4x6 import *
-from fci import ImageFCI
-import time
+import time, urandom
 
 # This class shows status icons on the display. It is called every
 # time the current view is refreshed, at the end, so it should assume
@@ -43,27 +43,28 @@ class StatusIcons:
     #..............
     def draw_battery(self):
         self.last_batt_perc = self.get_batt_perc()
-        px = self.xres-14
-        self.display.fill_rect(0+px,0,14,7,0)
-        self.display.fill_rect(1+px,1,12,5,1)
-        self.display.pixel(11+px,1,0)
-        self.display.pixel(12+px,1,0)
-        self.display.pixel(11+px,5,0)
-        self.display.pixel(12+px,5,0)
-        self.display.pixel(11+px,3,0)
-        self.display.fill_rect(2+px,2,9,3,0)
+        px = self.xres-14+self.xoff
+        py = 0+self.yoff
+        self.display.fill_rect(0+px,0+py,14,7,0)
+        self.display.fill_rect(1+px,1+py,12,5,1)
+        self.display.pixel(11+px,1+py,0)
+        self.display.pixel(12+px,1+py,0)
+        self.display.pixel(11+px,5+py,0)
+        self.display.pixel(12+px,5+py,0)
+        self.display.pixel(11+px,3+py,0)
+        self.display.fill_rect(2+px,2+py,9,3,0)
         full_pixel = round(self.last_batt_perc/10)
-        self.display.fill_rect(2+px,2,full_pixel,3,1)
+        self.display.fill_rect(2+px,2+py,full_pixel,3,1)
 
     def draw_ack_icon(self):
-        px = self.xres-8
-        py = 10
+        px = self.xres-8+self.xoff
+        py = 10+self.yoff
         self.display.fill_rect(px,py,8,9,1)
         self.display.text("A",px,py+1,0)
 
     def draw_relay_icon(self):
-        px = self.xres-8
-        py = 22
+        px = self.xres-8+self.xoff
+        py = 22+self.yoff
         self.display.fill_rect(px,py,8,9,1)
         self.display.text("R",px,py+1,0)
 
@@ -79,9 +80,16 @@ class StatusIcons:
         # changes much before one minute.
         return 60
 
-    # Update the screen content.
-    def refresh(self):
+    # Update the screen content. If 'random_offset' is True, we are in
+    # screensaver mode and the icons should be displayed at random locations.
+    def refresh(self,random_offset=False):
         if not self.display: return
+        if random_offset:
+            self.xoff = urandom.randint(-(self.xres-10),0)
+            self.yoff = urandom.randint(0,self.yres-20)
+        else:
+            self.xoff = 0
+            self.yoff = 0
         self.draw_battery()
         # Turn off icons that timed out.
         for icon in self.show:

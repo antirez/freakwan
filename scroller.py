@@ -15,17 +15,51 @@ import time
 class Scroller:
     Font8x8 = 0
     Font4x6 = 1
+    StateActive = 0  # Display active
+    StateDimmed = 1  # Dispaly still active but minimum contrast set
+    StateSaver = 2   # Screen saver: only icons at random places on screen.
 
-    def __init__(self, display, dim_time=60, ss_time=360):
+    def __init__(self, display, icons=None, dim_time=10, ss_time=120):
         self.display = display  # Display driver
+        self.icons = icons
         self.lines = []
         self.xres = 128
         self.yres = 64
         # The framebuffer of MicroPython only supports 8x8 fonts so far, so:
         self.select_font("big")
         self.last_update = time.time()
+        # OLED saving system state. We write text at an x,y offset, that
+        # can be of 0 or 1 pixels. This way we use pixels more evenly
+        # creating a less evident image ghosting effect in the more
+        # used pixels.
+        self.xoff = 0
+        self.yoff = 0
         self.dim_t = dim_time       # Inactivity to set to lower contrast.
         self.screensave_t = ss_time # Inactivity to enable screen saver.
+        self.state = self.StateActive
+        self.contrast = 255
+
+    # Set maximum display contrast. It will be dimmed after some inactivity
+    # time.
+    def set_contrast(self,contrast):
+        self.contrast = contrast
+
+    # Get current contrast based on inactivity time.
+    def get_contrast(self):
+        if self.state == self.StateActive:
+            return self.contrast
+        elif self.state == self.StateDimmed or self.state == self.StateSaver:
+            return 1 # Still pretty visible but in direct sunlight
+
+    # Update self.state based on last activity time.
+    def update_screensaver_state(self):
+        inactivity = time.time() - self.last_update
+        if inactivity > self.screensave_t:
+            self.state = self.StateSaver
+        elif inactivity > self.dim_t:
+            self.state = self.StateDimmed
+        else:
+            self.state = self.StateActive
 
     def select_font(self,fontname):
         if fontname == "big":
@@ -81,10 +115,9 @@ class Scroller:
             padded_height = height
         return padded_height
 
-    # Update the screen content.
-    def refresh(self,show=True):
-        if not self.display: return
-        self.display.fill(0)
+
+    # Draw the scroller "terminal" text.
+    def draw_text(self):
         # We need to draw the lines backward starting from the last
         # row and going backward. This makes handling line wraps simpler,
         # as we consume from the end of the last line and so forth.
@@ -116,7 +149,32 @@ class Scroller:
             lines[-1]=lines[-1][:-to_consume]  # Remaining part.
             self.render_text(rowchars, 0, y, 1)
             y -= self.font_height
-        if show: self.display.show()
+
+    # Return the minimum time the caller should refresh the screen
+    # the next time, in case of no activity. This is useful so that we
+    # can dim the screen and update other time-dependent stuff (such status
+    # icons) fast enough for the UI behavior to make sense.
+    def min_refresh_time(self):
+        icon_min_rt = self.icons.min_refresh_time()
+        if self.state == self.StateActive:
+            rt = self.dim_t+1
+        elif self.state == self.StateDimmed:
+            rt = self.screensave_t+1
+        elif self.state == self.StateSaver:
+            rt = 60
+        return min(icon_min_rt,rt)
+
+    # Update the screen content.
+    def refresh(self,show=True):
+        if not self.display: return
+        self.update_screensaver_state()
+        self.display.fill(0)
+        if self.state != self.StateSaver: self.draw_text()
+        random_icons_offset = self.state == self.StateSaver
+        if self.icons: self.icons.refresh(random_offset=random_icons_offset)
+        if show:
+            self.display.contrast(self.get_contrast())
+            self.display.show()
 
     # Convert certain unicode points to our 4x6 font characters.
     def convert_from_utf8(self,msg):
@@ -131,4 +189,5 @@ class Scroller:
             msg = self.convert_from_utf8(msg)
         self.lines.append(msg)
         self.lines = self.lines[-self.rows:]
+        self.last_update = time.time()
 
