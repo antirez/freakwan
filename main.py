@@ -692,4 +692,9 @@ if __name__ == "__main__":
     if fw.config.get('irc') and fw.config['irc']['enabled']: fw.start_irc()
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(fw.crash_handler)
-    loop.run_forever()
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        fw.scroller.print("")
+        fw.scroller.print("--- Stopped ---")
+        fw.scroller.refresh()
