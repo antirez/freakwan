@@ -605,10 +605,11 @@ class FreakWAN:
             self.irc_task = asyncio.create_task(self.irc.run())
         return self.irc_task
 
-    # This is the main event loop of the application, where we perform
+    # This is the main control loop of the application, where we perform
     # periodic tasks, like sending messages in the queue. Other tasks
-    # are handled by sub-tasks.
-    async def run(self):
+    # are handled by different tasks created at startup, at the end
+    # of this file.
+    async def cron(self):
         tick = 0
         animation_ticks = 10
 
@@ -685,10 +686,10 @@ if __name__ == "__main__":
 
     # All the FreakWAN execution is performed in the 'run' loop, and
     # in the callbacks registered during the initialization.
+    asyncio.create_task(fw.cron())
     asyncio.create_task(fw.send_hello_message())
     asyncio.create_task(fw.send_periodic_message())
     asyncio.create_task(fw.receive_from_ble())
-    asyncio.create_task(fw.run())
     if fw.config.get('irc') and fw.config['irc']['enabled']: fw.start_irc()
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(fw.crash_handler)
