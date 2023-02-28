@@ -160,7 +160,11 @@ class CommandsController:
 
     def cmd_help(self,argv,argc,send_reply):
         if argc != 1: return False
-        send_reply("Commands: !automsg !pw !sp !cr !bw !freq !preset !ls !font !last !addkey !delkey !keys !usekey !nokey")
+        helpstr = "Commands: "
+        for x in dir(self):
+            if x.find("cmd_") != 0: continue
+            helpstr += x.replace("cmd_","!")+" "
+        send_reply(helpstr)
         return True
 
     def cmd_bat(self,argv,argc,send_reply):
