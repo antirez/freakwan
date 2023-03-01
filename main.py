@@ -650,8 +650,9 @@ class FreakWAN:
         # of the application: after a soft reset, the ESP32 will keep
         # the state of the WiFi network.
         if not self.wifi: self.wifi = WiFiConnection()
-            print("[WiFi] Stopping Wifi (if active)")
-            self.wifi.stop()
+        print("[WiFi] Stopping Wifi (if active)")
+        self.wifi.stop()
+        self.config['wifi_default_network'] = None
 
     # Start the IRC subsystem.
     def start_irc(self):
@@ -659,7 +660,17 @@ class FreakWAN:
             self.irc = IRC(self.config['nick'],self.irc_receive_callback)
         if not self.irc.active:
             self.irc_task = asyncio.create_task(self.irc.run())
+        self.config['irc']['enabled'] = True
         return self.irc_task
+
+    # Stop the IRC subsystem
+    def stop_irc(self):
+        if not self.irc: return
+        self.irc.reply("IRC subsystem is shutting down")
+        self.irc.stop()
+        self.irc_task = None
+        self.irc = None
+        self.config['irc']['enabled'] = False
 
     # This is the main control loop of the application, where we perform
     # periodic tasks, like sending messages in the queue. Other tasks

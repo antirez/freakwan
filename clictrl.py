@@ -296,13 +296,6 @@ class CommandsController:
         elif argc == 3 and (argv[1] == 'del' or argv[1] == 'rm'):
             del(self.fw.config['wifi'][argv[2]])
             send_reply("Wifi network removed. Use '!config save' to permanently remove it.")
-        elif argc == 2 and argv[1] == 'start':
-            defnet = self.fw.config.get('wifi_default_network')
-            defpass = self.fw.config['wifi'].get(defnet)
-            if not defnet or not defpass:
-                send_reply("No default WiFi network set. Use !wifi start <ssid>.")
-            else:
-                self.fw.wifi.connect(defnet,defpass)
         elif argc == 3 and argv[1] == 'start':
             netname = argv[2]
             netpass = self.fw.config['wifi'].get(netname)
@@ -318,9 +311,18 @@ class CommandsController:
             send_reply("Usage: wifi                   -- list wifi networks")
             send_reply("Usage: wifi add <net> <pass>  -- Add wifi network")
             send_reply("Usage: wifi del <net>         -- Remove wifi network")
-            send_reply("Usage: wifi start             -- Connect to default network")
             send_reply("Usage: wifi start <net>       -- Connect to specified network")
             send_reply("Usage: wifi stop              -- Disconnect wifi")
+
+    def cmd_irc(self,argv,argc,send_reply):
+        if argc == 2 and argv[1] == 'stop':
+            self.fw.stop_irc()
+            send_reply("IRC stopped")
+        elif argc == 2 and argv[1] == 'start':
+            self.fw.start_irc()
+            send_reply("IRC started")
+        else:
+            send_reply("Usage: irc start | stop")
 
     def cmd_image(self,argv,argc,send_reply):
         if argc != 2: return False

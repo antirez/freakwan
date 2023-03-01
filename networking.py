@@ -136,6 +136,8 @@ class IRC:
     # main loop.
     def stop(self):
         if self.active:
+            # Setting active to False will also cause it to
+            # disconnect, after exiting the loop.
             self.active = False
         else:
             self.disconnect()
