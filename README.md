@@ -1,13 +1,3 @@
-# FreakWAN and a MicroPython SX1276 driver
-
-This repository is a work in progress for the following two projects that are going to live in the same place:
-
-* An SX1276 driver written in MicroPython, for devices like the LILYGO TTGO LoRa (TM) v2 1.6 and similar.
-* A simple WAN system using LoRa devices, called FreakWAN, part of the [FreakNet](https://en.wikipedia.org/wiki/FreakNet) project.
-* A protocol specification, the one used in the implementation of FreakWAN, to be used upon the LoRa physical layer in order to build a system capable of supporting a chat between distributed users, where intermediate devices relay messages in order to build a mesh able to cover a wide area.
-
-The driver itself is the single file `sx1276.py`, and the `example.py` file shows how to work with it: just copy the driver inside your project and you are done. The rest of this README is about FreakWAN, the project that uses this driver to create a distributed messaging system over LoRa.
-
 # FreakWAN
 
 FreakWAN is an effort to create a LoRa-based open WAN network over LoRa.
@@ -25,6 +15,8 @@ protocol are the following:
 * Bandwidth usage mitigation features.
 * Duty cycle tracking.
 * Local storage of messages in the device flash, with automatic deletion of old messages.
+* Simple home-made driver for the sx1276 LoRa chip. We will support SX126x too, very soon.
+* OLED terminal alike output. OLED burning pixels protection.
 * CLI interface via Bluetooth LE and Desktop and Android application.
 * Simple to understand, hackable code base.
 
@@ -35,10 +27,12 @@ This code is currently a functional work in progress, designed to work with the 
 
 However changing the pins in the configuration, to adapt it to other ESP32 modules that have an SX1276 (or compatible) LoRa chip and an SSD1306 display (or no dislay, in headless mode), should be very little work.
 
+FreakWAN is implemented in MicroPython, making use only of default libraries.
+
 # Installation
 
 * Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device.
-* Clone this repository, and edit `wan_config.py` to set your nickname and status message, set the frequency according to your device, and so forth. **Warning**: make sure to set the right frequency based on the LoRa module you own, and make sure your antenna is already installed before using the software, or you may damage your hardware.
+* Clone this repository, and edit `wan_config.py` to set your nickname and status message, set the frequency according to your device. **Warning**: make sure to set the right frequency based on the LoRa module you own, and make sure your antenna is already installed before using the software, or you **may damage your hardware**.
 * Transfer all the `.py` files in the root directory of this project in your device. To transfer the files, you can use [ampy](https://github.com/scientifichackers/ampy) (`pip3 install adafruit-ampy` should be enough), or an alternative tool that we wrote, and is conceptually part of the FreakWAN effort, called [talk32](https://github.com/antirez/talk32). Talk32 is much faster at transferring files, but is yet alpha quality code. If you use Talk32, you will need to run something like this:
 
     talk32 /dev/tty.usbserial001 put *.py
@@ -47,35 +41,44 @@ However changing the pins in the configuration, to adapt it to other ESP32 modul
 
 # Usage
 
-It is possible to use the device via Bluetooth, using one of the following applications:
-* Mobile: install one of the many BLE UART apps in your phone. For instance, if you use [nRF Toolbox](https://www.nordicsemi.com/Products/Development-tools/nrf-toolbox), select the UART utility service, connect to the device and send a text message or just `!help`. On Android, we recommend the [Serial Bluetooth Terminal app](https://play.google.com/store/apps/details?id=de.kai_morich.serial_bluetooth_terminal&hl=en&gl=US). It works great out of the box, but for the best experience go to Settings, *Send* tab, and select *clear input on send*.
-* Desktop: install [Freakble](https://github.com/eriol/freakble) following the project README.
+It is possible to use the device via Bluetooth LE, using one of the following applications:
+* Android: install one of the many BLE UART apps available. We recommend the [Serial Bluetooth Terminal app](https://play.google.com/store/apps/details?id=de.kai_morich.serial_bluetooth_terminal&hl=en&gl=US). It works great out of the box, but for the best experience open the settings, go to the *Send* tab, and select *clear input on send*. An alternative is [nRF Toolbox](https://www.nordicsemi.com/Products/Development-tools/nrf-toolbox), select the UART utility service, connect to the device and send a text message or just `!help`.
+* iPhone: [BLE Terminal HM-10](https://apps.apple.com/it/app/ble-terminal-hm-10/id1398703795?l=en) works well and is free. There are other more costly options.
+* Linux Desktop: install [Freakble](https://github.com/eriol/freakble) following the project README.
+* For MacOS you may try Bluefruit Connect. It is available in the Mac App Store.
 
-Using one of the above, you can talk with the device sending CLI commands.
-If you just send some text, it will be sent as message in the network.
-If you send a valid command starting with the `!` character, it will be executed. For now you can use:
+Using one of the above, you can talk with the device, and chat with other users around, sending CLI commands.
+If you just type some text, it will be sent as message in the network. Messages received from the network are also shown in the serial console.
+If you send a valid command starting with the `!` character, it will be executed as a command, in order to show information, change the device configuration and so forth. For now you can use:
 * `!automsg` [on/off] to disable enable automatic messages used for testing.
 * `!bat` to show the battery level.
-* `!preset <name>` to set a LoRa preset. Each preset is a specific spreading, bandiwidth and coding rate setup. To see all the available presets write `!preset help`.
-* `!sp`, `!bw`, `!cr` change the spreading, bandwidth and coding rate independently, if you wish.
-* `!ls` shows the list of nodes this node is sensing via HELLO messages.
+* `!preset <name>` to set a LoRa preset. Each preset is a specific spreading, bandwidth and coding rate setup. To see all the available presets write `!preset help`.
+* `!sp`, `!bw`, `!cr` to change the spreading, bandwidth and coding rate independently, if you wish.
+* `!pw` changes the TX power. Valid values are from 2 to 20 (dbms).
+* `!ls` shows nodes around. This is the list of nodes this node is able to sense, via HELLO messages.
 * `!font big|small` will change between an 8x8 and a 5x7 (4x6 usable area) font.
 * `!image <image-file-name>` send an FCI image (see later about images).
 * `!last [<count>]` show last messages received, taking them from the local storage of the device.
-* `!pw <power>` to set the power from 2 to 20 dbm.
 * `!config [save|reset]` to save (or reset) certain configuration parameters (LoRa radio parameters, automsg, irc, wifi, ...) that will be reloaded at startup.
+* `!irc [stop|start]` starts or stops the IRC interface.
+* `!wifi help`, to see all the WiFi configuration subcommands. Using this command you can add and remove WiFi networks, connect or disconnect the WiFi (required for the IRC interface), and so forth.
 
 New bang commands are addede constantly, so try `!help` to see what is available. We'll try to take this README in sync, especially after the first months of intense development will be finished.
 
 ## Using the device via IRC
 
-FreakWAN is able to join IRC and receive messages and send messages received via LoRa into an IRC channel. Edit `wan_config.py` and enable IRC, by setting the enabled flag to True, and configuring a WiFi network. Upload the modified file inside the device and restart it.
+FreakWAN is able to join IRC, to receive messages and commands via IRC and also to show messages received via LoRa into an IRC channel. Edit `wan_config.py` and enable IRC by setting the enabled flag to True, and configuring a WiFi network. Upload the modified file inside the device and restart it. Another way to enable IRC is to use bang commands, like that:
 
-The device, by default, will enter the `##Freakwan-<nickname>` channel of `irc.libera.chat` (please, note the two `#` in the channel name), and will listen for commands there. The same commands you can send via Bluetooth are also available via IRC. Because of limitations with the ESP32 memory and MicroPython memory usage, SSL is not available, so FreakWAN will connect to IRC via port 6667, which is not encrypted.
+    !wifi add networkname password
+    !wifi start networkname
+    !irc start
+    !config save (only if you want to persist this configuration)
+
+The device, by default, will enter the `##Freakwan-<nickname>` channel of `irc.libera.chat` (please, note the two `#` in the channel name), and will listen for commands there. The same commands you can send via Bluetooth are also available via IRC. Because of limitations with the ESP32 memory and MicroPython memory usage, SSL is not available, so FreakWAN will connect to IRC via the TCP port 6667, which is not encrypted.
 
 ## Encrypted messages
 
-By default messages are sent in cleartext and will reach every device part of the network, configured in the same LoRa frequency, spreading and bandwidth. However it is possible to send encrypted messages that will reach only other users with a matching symmetric key. For instance, if Alice and Bob want to communicate in a private way, they will sent the same key, let's say `abcd123`, in their devices. Bob will do:
+By default LoRa messages are sent in cleartext and will reach every device part of the network, assuming they are configured with the same LoRa frequency, spreading, bandwidth and coding rate. However, it is possible to send encrypted messages that will reach only other users with a matching symmetric key. For instance, if Alice and Bob want to communicate in a private way, they will set the same key, let's say `abcd123`, in their devices. Bob will do:
 
     !addkey alice abcd123
 
@@ -89,7 +92,7 @@ Now, Alice will be able to send messages to Bob, and the other way around, just 
 
     #bob some message
 
-Bob will see, in the display of the device and in the Android application, if connected via, BTE, something like that:
+Bob will see, in the OLED display of the device, and in the Android application, if connected via BTE, something like that:
 
     #alice Alice> ... message ...
 
@@ -97,9 +100,9 @@ Encrypted messages that are correctly received and decoded are shown as:
 
     #<keyname> Nick> message
 
-Each device can have multiple keys. The device will try to decrypt each encrypted message with all the keys stored inside the key chain (the device flash memory, under the `keys` directory -- warning! keys are not encrypted on disk).
+Each device can have multiple keys. The device will try to decrypt each encrypted message with all the keys stored inside the key chain (the device flash memory, under the `keys` directory -- warning! keys are not encrypted on the device storage).
 
-If many users will set the same key with the same name, they are effectively creating something like an *IRC channel*, a chat where all such individuals can talk together.
+If many users will set the same key with the same name, they are effectively creating something like an *IRC channel* over LoRa, a chat where all such individuals can talk together.
 
 This is the set of commands to work with encrypted messages:
 
@@ -118,9 +121,11 @@ Once you have the FCI images, you should copy them into the `images` directory i
 
 ## Power management
 
-Right now, for the LILYGO TTGO T3 device, we support reading the battery level and shutting down the device when the battery is too low, since the battery could damage if it is discharged over a certain limit. When this happens, the device will go in deep sleep mode, and will flash the led 3 times every 5 seconds. Then, once connected again to the charger, when the battery charges a bit, it will restart again.
+Right now, for the LILYGO TTGO T3 device, we support reading the battery level and shutting down the device when the battery is too low, since the battery could be damaged if it is discharged over a certain limit. To prevent such issues, when voltage is too low, the device will go in deep sleep mode, and will flash the led 3 times every 5 seconds. Then, once connected again to the charger, when the battery charges a bit, it will restart again.
 
 For the T Beam, work is in progress to provide the same feature. For now it is better to disable the power management at all, by setting `config['sleep_battery_perc']` to 0 in the `wan_config.py` file.
+
+If you plan to power your device with a battery that is not 3.7v, probably it's better to disable this feature from the configuration, or the device may shut down because it is sensing a too low voltage, assuming the battery is low.
 
 # FreakWAN network specification
 

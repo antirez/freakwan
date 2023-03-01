@@ -20,7 +20,7 @@ from fci import ImageFCI
 from keychain import Keychain
 from networking import IRC, WiFiConnection
 
-Version="0.31"
+Version="0.32"
 
 LoRaPresets = {
     'superfast': {
