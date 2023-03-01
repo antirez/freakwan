@@ -1,23 +1,29 @@
 # FreakWAN
 
-FreakWAN is an effort to create a LoRa-based open WAN network over LoRa.
-Our goal is to cover parts of the Sicily which such network. However the code
-will be freely available for anyone wanting to build their own LoRa
-WANs on top of this work. The main features of our implementation and
+FreakWAN is an effort to create a LoRa-based open WAN network over LoRa. The network built with FreakWAN has two main goals:
+
+1. To provide both a plaintext and an encrypted distributed chat system.
+2. As a side effect of the first goal, to create a robust protocol over LoRa to support other applications, like sensors data collection, home autmation applications and so forth.
+
+Our goal is to cover parts of the Sicily with such a network. However the code
+will be freely available to anyone wanting to build their own LoRa
+WANs on top of this software. The main features of our implementation and
 protocol are the following:
 
-* Support for a distributed network based on LoRa and broadcast routing.
+* A distributed network based on LoRa and broadcast routing.
 * Basic chat features, ability to send medias (like small images).
+* Different channels (including one-to-one chats) using encryption.
 * Configurable number of relay retransmissions with random delays.
 * First-hop acknowledges of messages sent.
-* Symmetric encryption with AES in CBC mode, with support for integrity detection and multiple keys keychain: each group of clients knowing a given key is part of a virtual group. The network is collaborative for encrpyted messages: nodes that are not able to decrypt a given message can broadcast it, since the encrypted part is not vital to perform the relay of messages.
-* Sensing of nearby nodes, via HELLO messages (advertising).
+* Symmetric encryption with AES in CBC mode, with support for integrity detection and multiple concurrent keys: each group of clients knowing a given key is part of a virtual group. The network is collaborative for encrpyted messages: even nodes that are not able to decrypt a given message can broadcast it, since the encrypted part is not vital to perform relaying of messages.
+* Sensing of nearby nodes, via `HELLO` messages (advertising).
 * Bandwidth usage mitigation features.
 * Duty cycle tracking.
 * Local storage of messages in the device flash, with automatic deletion of old messages.
-* Simple home-made driver for the sx1276 LoRa chip. We will support SX126x too, very soon.
+* Simple home-made driver for the sx1276 LoRa chip. We will support SX126x too, very soon. In general, no external dependencies.
 * OLED terminal alike output. OLED burning pixels protection.
-* CLI interface via Bluetooth LE and Desktop and Android application.
+* CLI interface via Bluetooth LE, with applications available for Android, iPhone, Linux, MacOS, Windows.
+* IRC interface: the device can work as a bot over the IRC protocol.
 * Simple to understand, hackable code base.
 
 This code is currently a functional work in progress, designed to work with the following ESP32-based devices:
@@ -25,7 +31,7 @@ This code is currently a functional work in progress, designed to work with the 
 1. LILYGO TTGO T3 v2 1.6 LoRa module.
 2. LILYGO TTGO T Beam LoRa module.
 
-However changing the pins in the configuration, to adapt it to other ESP32 modules that have an SX1276 (or compatible) LoRa chip and an SSD1306 display (or no dislay, in headless mode), should be very little work.
+However changing the pins in the configuration, to adapt it to other ESP32 modules that have an SX1276 (or compatible) LoRa chip and an SSD1306 display (or no dislay, in headless mode), should be very little work. We are waiting to receive our T-ECHO devices to try supporting this device as well.
 
 FreakWAN is implemented in MicroPython, making use only of default libraries.
 
