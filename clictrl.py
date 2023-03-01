@@ -31,9 +31,10 @@ class CommandsController:
     # Otherwise what we get from Bluetooth UART, we just send as
     # a message.
     def exec_user_command(self,cmd,send_reply):
-        if len(cmd) == 0:
-            return
-        print("Command from BLE/IRC received: ", cmd)
+        cmd = str(cmd).strip()
+        if len(cmd) == 0: return
+
+        print("Command from BLE/IRC received: %s" % cmd)
         if cmd[0] == '!':
             # Command call.
             argv = cmd[1:].split()
@@ -260,6 +261,43 @@ class CommandsController:
         if argc != 1: return False
         send_reply(", ".join(self.fw.keychain.list_keys()))
         return True
+
+    def cmd_wifi(self,argv,argc,send_reply):
+        if argc == 1:
+            send_reply("Configured wifi networks:")
+            for ssid in self.fw.config['wifi']:
+                send_reply(ssid)
+        elif argc == 4 and argv[1] == 'add':
+            self.fw.config['wifi'][argv[2]] = argv[3]
+            send_reply("WiFi network added. Use '!config save' to see it after a device restart.")
+        elif argc == 3 and (argv[1] == 'del' or argv[1] == 'rm'):
+            del(self.fw.config['wifi'][argv[2]])
+            send_reply("Wifi network removed. Use '!config save' to permanently remove it.")
+        elif argc == 2 and argv[1] == 'start':
+            defnet = self.fw.config.get('wifi_default_network')
+            defpass = self.fw.config['wifi'].get(defnet)
+            if not defnet or not defpass:
+                send_reply("No default WiFi network set. Use !wifi start <ssid>.")
+            else:
+                self.fw.wifi.connect(defnet,defpass)
+        elif argc == 3 and argv[1] == 'start':
+            netname = argv[2]
+            netpass = self.fw.config['wifi'].get(netname)
+            if not netpass:
+                send_reply("No WiFi network named %s" % netname)
+            else:
+                self.fw.start_wifi(netname,netpass)
+                send_reply("Connecting to %s" % netname)
+        elif argc == 2 and argv[1] == 'stop':
+            self.fw.stop_wifi()
+            send_reply("WiFi turned off")
+        else:
+            send_reply("Usage: wifi                   -- list wifi networks")
+            send_reply("Usage: wifi add <net> <pass>  -- Add wifi network")
+            send_reply("Usage: wifi del <net>         -- Remove wifi network")
+            send_reply("Usage: wifi start             -- Connect to default network")
+            send_reply("Usage: wifi start <net>       -- Connect to specified network")
+            send_reply("Usage: wifi stop              -- Disconnect wifi")
 
     def cmd_image(self,argv,argc,send_reply):
         if argc != 2: return False

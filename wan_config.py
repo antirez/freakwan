@@ -55,7 +55,7 @@ class UserConfig:
     }
 
     # WiFi network to join at startup.
-    config['wifi_startup_network'] = False
+    config['wifi_default_network'] = False
 
     # IRC configuration. Just if it is enabled or not. The channel name is
     # automatically created from the nick of the device. See README.

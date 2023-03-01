@@ -203,6 +203,12 @@ class WiFiConnection:
             pass
         self.interface.connect(ssid,password)
 
+    def stop(self):
+        try:
+            self.interface.active(False)
+        except:
+            pass
+
     def is_connected(self):
         return self.interface.isconnected()
 

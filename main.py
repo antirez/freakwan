@@ -73,6 +73,7 @@ class FreakWAN:
             'relay_rssi_limit': -60,
             'status': "Hi there!",
             'sleep_battery_perc': 20,
+            'wifi': {},
         }
         self.config.update(UserConfig.config)
 
@@ -219,7 +220,7 @@ class FreakWAN:
     # band commands. We just save things that we want likely to be
     # reloaded on startup.
     def save_settings(self):
-        settings = ['lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi']
+        settings = ['lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi','wifi_default_network']
         try:
             f = open("settings.txt","wb")
             code = ""
@@ -593,12 +594,11 @@ class FreakWAN:
     # 2. Create a our Message with the received text;
     # 3. Send asynchronously the message and display it.
     def ble_receive_callback(self):
-        cmd = self.uart.read().decode().strip()
+        cmd = self.uart.read().decode()
         self.cmdctrl.exec_user_command(cmd,fw.uart.print)
 
     # Process commands from IRC.
     def irc_receive_callback(self,cmd):
-        cmd = cmd.strip()
         self.cmdctrl.exec_user_command(cmd,self.irc.reply)
 
     # Return if the battery is under the low battery threshould.
@@ -641,6 +641,12 @@ class FreakWAN:
         print("[WiFi] Connecting to %s" % network)
         self.wifi.connect(network,password)
         return True
+
+    # Disconenct WiFi network
+    def stop_wifi(self):
+        if self.wifi:
+            print("[WiFi] Stopping Wifi if active")
+            self.wifi.stop()
 
     # Start the IRC subsystem.
     def start_irc(self):
@@ -725,7 +731,7 @@ if __name__ == "__main__":
     fw = FreakWAN()
 
     # Connect to WiFi ASAP if the configuration demands so.
-    wifi_network = fw.config.get('wifi_startup_network')
+    wifi_network = fw.config.get('wifi_default_network')
     if wifi_network:
         fw.start_wifi(wifi_network, fw.config['wifi'][wifi_network])
 
