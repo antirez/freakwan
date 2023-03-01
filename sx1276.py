@@ -156,14 +156,6 @@ class SX1276:
         # to 20 we enable the special 20DBM mode.
         txpower = min(max(2,txpower),20)
 
-        # For high powers, select the special 20dbm mode and disable any
-        # overcurrent protection, to make sure the TX circuit can drain
-        # as much as needed. Without setting such registers PA_BOOST can
-        # deliver 17dbm max.
-        if txpower > 17:
-            self.spi_write(RegOcp, 0)           # No over current protection.
-            self.spi_write(RegPaDac, 0x87)      # Select 20dbm mode
-
         # Enable PA_BOOST.
         boost = 1<<7
 
@@ -185,6 +177,14 @@ class SX1276:
         else:
             outpower = txpower-2
         self.spi_write(RegPaConfig, boost|maxpower|outpower)
+
+        # For high powers, select the special 20dbm mode and disable any
+        # overcurrent protection, to make sure the TX circuit can drain
+        # as much as needed. Without setting such registers PA_BOOST can
+        # deliver 17dbm max.
+        if txpower > 17:
+            self.spi_write(RegOcp, (1<<5)|18)   # Max current allowed
+            self.spi_write(RegPaDac, 0x87)      # Select 20dbm mode
 
         # We either receive or send, so let's use all the 256 bytes
         # of FIFO available by setting both recv and send FIFO address
