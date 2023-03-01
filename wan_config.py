@@ -1,3 +1,10 @@
+### IMPORTANT NOTICE
+###
+### Please, be aware that certain things configured in this file
+### can also be configured with bang commands, like !wifi, !irc
+### and so forth. After a "!config save" command, the configuration
+### saved in "settings.txt" overrides what you define here.
+
 class UserConfig:
     config = {}
     # This is just your nickname, how the network will know you.

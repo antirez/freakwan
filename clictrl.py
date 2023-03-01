@@ -19,6 +19,27 @@ class CommandsController:
         self.default_key = None
         self.fw = fw # Reference to the FreakWAN app object
 
+    # Split command arguments, trying to consider "strings with quotes
+    # and spaces" as a single one. So the user can type: !cmd "argu ment".
+    def split_arguments(self,cmd):
+        sp = cmd.split()
+        argv = []
+        in_quotes = False
+        for a in sp:
+            if in_quotes:
+                if len(a) and a[-1] == '"':
+                    a = a[:-1]
+                    in_quotes = False
+                argv[-1] += " "+a
+            else:
+                if len(a) and a[0] == '"' and a[-1] == '"':
+                    a = a[1:-1]
+                elif len(a) and a[0] == '"':
+                    a = a[1:]
+                    in_quotes = True
+                argv.append(a)
+        return argv
+
     # 'command' is the command string to execute, while 'fw' is
     # our FreaWAN application class, used by the CommandsController
     # in order to do anything the application can do.
@@ -37,7 +58,7 @@ class CommandsController:
         print("Command from BLE/IRC received: %s" % cmd)
         if cmd[0] == '!':
             # Command call.
-            argv = cmd[1:].split()
+            argv = self.split_arguments(cmd[1:])
             argc = len(argv)
             method_name = 'cmd_'+argv[0]
             if not hasattr(self.__class__,method_name):
