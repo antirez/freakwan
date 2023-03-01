@@ -62,6 +62,10 @@ If you send a valid command starting with the `!` character, it will be executed
 * `!font big|small` will change between an 8x8 and a 5x7 (4x6 usable area) font.
 * `!image <image-file-name>` send an FCI image (see later about images).
 * `!last [<count>]` show last messages received, taking them from the local storage of the device.
+* `!pw <power>` to set the power from 2 to 20 dbm.
+* `!config [save|reset]` to save (or reset) certain configuration parameters (LoRa radio parameters, automsg, irc, wifi, ...) that will be reloaded at startup.
+
+New bang commands are addede constantly, so try `!help` to see what is available. We'll try to take this README in sync, especially after the first months of intense development will be finished.
 
 ## Using the device via IRC
 
