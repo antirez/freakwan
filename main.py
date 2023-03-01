@@ -213,7 +213,7 @@ class FreakWAN:
             f.close()
             exec(content,{},{'self':self})
         except Exception as e:
-            print("Loading settings: "+str(e))
+            print("Loading settings: "+self.get_stack_trace(e))
             pass
 
     # Save certain settings the user is able to modify using
@@ -225,10 +225,12 @@ class FreakWAN:
             f = open("settings.txt","wb")
             code = ""
             for s in settings:
-                code += "self.config['%s'] = %s\n" % (s,str(self.config[s]))
+                if self.config.get(s):
+                    code += "self.config['%s'] = %s\n" % (s,str(self.config[s]))
             f.write(code)
             f.close()
-        except:
+        except Exception as e:
+            print("Saving settings: "+self.get_stack_trace(e))
             pass
 
     # Remove the setting file. After a restar the device will just use
@@ -644,8 +646,11 @@ class FreakWAN:
 
     # Disconenct WiFi network
     def stop_wifi(self):
-        if self.wifi:
-            print("[WiFi] Stopping Wifi if active")
+        # WiFi may be enabled even if we didn't start it in the lifespan
+        # of the application: after a soft reset, the ESP32 will keep
+        # the state of the WiFi network.
+        if not self.wifi: self.wifi = WiFiConnection()
+            print("[WiFi] Stopping Wifi (if active)")
             self.wifi.stop()
 
     # Start the IRC subsystem.
@@ -708,12 +713,17 @@ class FreakWAN:
             await asyncio.sleep(0.1)
             tick += 1
 
+    # Turn the exception into a proper stack trace.
+    # Much better than str(exception).
+    def get_stack_trace(self,exception):
+        buf = io.StringIO()
+        sys.print_exception(exception, buf)
+        return buf.getvalue()
+
     def crash_handler(self,loop,context):
         # Capture the error as a string. It isn't of much use to have
-        # it in the serial, if nobody is connected via USB.
-        buf = io.StringIO()
-        sys.print_exception(context['exception'], buf)
-        stacktrace = buf.getvalue()
+        # it just in the serial, if nobody is connected via USB.
+        stacktrace = self.get_stack_trace(context['exception'])
         print(stacktrace)
 
         # Print errors on the OLED, too. We want to immediately

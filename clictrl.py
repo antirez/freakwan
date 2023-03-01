@@ -285,8 +285,10 @@ class CommandsController:
 
     def cmd_wifi(self,argv,argc,send_reply):
         if argc == 1:
+            defnet = self.fw.config.get('wifi_default_network')
             send_reply("Configured wifi networks:")
             for ssid in self.fw.config['wifi']:
+                if ssid == defnet: ssid += " (default)"
                 send_reply(ssid)
         elif argc == 4 and argv[1] == 'add':
             self.fw.config['wifi'][argv[2]] = argv[3]
