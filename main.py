@@ -113,6 +113,10 @@ class FreakWAN:
 
         ################### NORMAL STARTUP FOLLOWS ##################
 
+        # Load certain configuration settings the user changed
+        # using bang-commands.
+        self.load_settings()
+
         # Init display
         if self.config['ssd1306']:
             i2c = SoftI2C(sda=Pin(self.config['ssd1306']['sda_pin']),
@@ -198,6 +202,41 @@ class FreakWAN:
         # Start receiving. This will just install the IRQ
         # handler, without blocking the program.
         self.lora.receive()
+
+    # Load settings.txt, with certain changes overriding our
+    # self.config values.
+    def load_settings(self):
+        try:
+            f = open("settings.txt","rb")
+            content = f.read()
+            f.close()
+            exec(content,{},{'self':self})
+        except Exception as e:
+            print("Loading settings: "+str(e))
+            pass
+
+    # Save certain settings the user is able to modify using
+    # band commands. We just save things that we want likely to be
+    # reloaded on startup.
+    def save_settings(self):
+        settings = ['lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi']
+        try:
+            f = open("settings.txt","wb")
+            code = ""
+            for s in settings:
+                code += "self.config['%s'] = %s\n" % (s,str(self.config[s]))
+            f.write(code)
+            f.close()
+        except:
+            pass
+
+    # Remove the setting file. After a restar the device will just use
+    # wan_config.py settings.
+    def reset_settings(self):
+        try:
+            os.unlink("settings.txt")
+        except:
+            pass
 
     # Call the current view refresh method, in order to draw the
     # representation of the view in the framebuffer.

@@ -167,6 +167,17 @@ class CommandsController:
         send_reply(helpstr)
         return True
 
+    def cmd_config(self,argv,argc,send_reply):
+        if argc != 2: return False
+        if argv[1] == "save":
+            self.fw.save_settings()
+            send_reply("Config settings saved")
+        elif argv[1] == "reset":
+            self.fw.reset_settings()
+            send_reply("Config reset done. Restart the device to apply.")
+        else:
+            send_reply("!config valid subcommands: save, reset")
+
     def cmd_bat(self,argv,argc,send_reply):
         if argc != 1: return False
         volts = self.fw.get_battery_microvolts()/1000000
