@@ -209,6 +209,9 @@ class FreakWAN:
     def load_settings(self):
         try:
             f = open("settings.txt","rb")
+        except:
+            return # ENOENT, likely
+        try:
             content = f.read()
             f.close()
             exec(content,{},{'self':self})
@@ -226,7 +229,7 @@ class FreakWAN:
             code = ""
             for s in settings:
                 if self.config.get(s):
-                    code += "self.config['%s'] = %s\n" % (s,str(self.config[s]))
+                    code += "self.config['%s'] = %s\n" % (s,repr(self.config[s]))
             f.write(code)
             f.close()
         except Exception as e:
