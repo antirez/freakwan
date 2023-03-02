@@ -1,21 +1,21 @@
 # FreakWAN
 
-FreakWAN is an effort to create a LoRa-based open WAN network over LoRa. The network built with FreakWAN has two main goals:
+FreakWAN is an effort to create a LoRa-based open WAN network, completely independent from Internet and the cellular phones networks. The network built with FreakWAN has two main goals:
 
-1. To provide both a plaintext and an encrypted distributed chat system.
-2. As a side effect of the first goal, to create a robust protocol over LoRa to support other applications, like sensors data collection, home autmation applications and so forth.
+1. To provide both a plaintext and an encrypted distributed chat system, that can be used by technology amateurs, or in places where internet is not available and during disasters.
+2. As a side effect of the first goal, to create a robust protocol over LoRa to support other applications, like sensors data collection, home automation applications, not having the usual range limitations of OOK/FSK communcation, and so forth.
 
-Our goal is to cover parts of the Sicily with such a network. However the code
+Our goal is to cover parts of the Sicily with such a network. The code
 will be freely available to anyone wanting to build their own LoRa
 WANs on top of this software. The main features of our implementation and
 protocol are the following:
 
 * A distributed network based on LoRa and broadcast routing.
 * Basic chat features, ability to send medias (like small images).
-* Different channels (including one-to-one chats) using encryption.
-* Configurable number of relay retransmissions with random delays.
+* Different group chat or data channels (including one-to-one chats) using encryption to separate them.
+* Configurable number of retransmissions with random delays.
 * First-hop acknowledges of messages sent.
-* Symmetric encryption with AES in CBC mode, with support for integrity detection and multiple concurrent keys: each group of clients knowing a given key is part of a virtual group. The network is collaborative for encrpyted messages: even nodes that are not able to decrypt a given message can broadcast it, since the encrypted part is not vital to perform relaying of messages.
+* Symmetric encryption with AES in CBC mode, with support for integrity detection and multiple concurrent keys: each group of clients knowing a given key is part of a virtual group. The network is collaborative for encrypted messages: even nodes that are not able to decrypt a given message can broadcast it, since the encrypted part is not vital to perform relaying of messages.
 * Sensing of nearby nodes, via `HELLO` messages (advertising).
 * Bandwidth usage mitigation features.
 * Duty cycle tracking.
@@ -33,7 +33,7 @@ This code is currently a functional work in progress, designed to work with the 
 
 However changing the pins in the configuration, to adapt it to other ESP32 modules that have an SX1276 (or compatible) LoRa chip and an SSD1306 display (or no dislay, in headless mode), should be very little work. We are waiting to receive our T-ECHO devices to try supporting this device as well.
 
-FreakWAN is implemented in MicroPython, making use only of default libraries.
+**FreakWAN is implemented in MicroPython**, making use only of default libraries.
 
 # Installation
 
@@ -60,31 +60,31 @@ If you send a valid command starting with the `!` character, it will be executed
 * `!bat` to show the battery level.
 * `!preset <name>` to set a LoRa preset. Each preset is a specific spreading, bandwidth and coding rate setup. To see all the available presets write `!preset help`.
 * `!sp`, `!bw`, `!cr` to change the spreading, bandwidth and coding rate independently, if you wish.
-* `!pw` changes the TX power. Valid values are from 2 to 20 (dbms).
-* `!ls` shows nodes around. This is the list of nodes this node is able to sense, via HELLO messages.
+* `!pw` changes the TX power. Valid values are from 2 to 20 (dbms). Default is 17dbms.
+* `!ls` shows nodes around. This is the list of nodes that your node is able to *sense*, via HELLO messages.
 * `!font big|small` will change between an 8x8 and a 5x7 (4x6 usable area) font.
 * `!image <image-file-name>` send an FCI image (see later about images).
-* `!last [<count>]` show last messages received, taking them from the local storage of the device.
+* `!last [<count>]` show the last messages received, taking them from the local storage of the device.
 * `!config [save|reset]` to save (or reset) certain configuration parameters (LoRa radio parameters, automsg, irc, wifi, ...) that will be reloaded at startup.
 * `!irc [stop|start]` starts or stops the IRC interface.
 * `!wifi help`, to see all the WiFi configuration subcommands. Using this command you can add and remove WiFi networks, connect or disconnect the WiFi (required for the IRC interface), and so forth.
 
-New bang commands are addede constantly, so try `!help` to see what is available. We'll try to take this README in sync, especially after the first months of intense development will be finished.
+New bang commands are added constantly, so try `!help` to see what is available. We'll try to take this README in sync, especially after the first months of intense development will be finished.
 
 ## Using the device via IRC
 
-FreakWAN is able to join IRC, to receive messages and commands via IRC and also to show messages received via LoRa into an IRC channel. Edit `wan_config.py` and enable IRC by setting the enabled flag to True, and configuring a WiFi network. Upload the modified file inside the device and restart it. Another way to enable IRC is to use bang commands, like that:
+FreakWAN is able to join IRC, as a bot. It can receive messages and commands via IRC, and also show messages received via LoRa into an IRC channel. Edit `wan_config.py` and enable IRC by setting the enabled flag to True, and configuring a WiFi network. Upload the modified file inside the device and restart it. Another way to enable IRC is to use bang commands via Bluetooth, like that:
 
     !wifi add networkname password
     !wifi start networkname
     !irc start
     !config save (only if you want to persist this configuration)
 
-The device, by default, will enter the `##Freakwan-<nickname>` channel of `irc.libera.chat` (please, note the two `#` in the channel name), and will listen for commands there. The same commands you can send via Bluetooth are also available via IRC. Because of limitations with the ESP32 memory and MicroPython memory usage, SSL is not available, so FreakWAN will connect to IRC via the TCP port 6667, which is not encrypted.
+The device, by default, will enter the `##Freakwan-<nickname>` channel of `irc.libera.chat` (please, note the two `#` in the channel name), and will listen for commands there. The same commands you can send via Bluetooth are also available via IRC. Because of limitations with the ESP32 memory and the additional MicroPython memory usage, SSL is not available, so FreakWAN will connect to IRC via the TCP port 6667, which is not encrypted.
 
 ## Encrypted messages
 
-By default LoRa messages are sent in cleartext and will reach every device part of the network, assuming they are configured with the same LoRa frequency, spreading, bandwidth and coding rate. However, it is possible to send encrypted messages that will reach only other users with a matching symmetric key. For instance, if Alice and Bob want to communicate in a private way, they will set the same key, let's say `abcd123`, in their devices. Bob will do:
+By default LoRa messages are sent in clear text and will reach every device that is part of the network, assuming it is configured with the same LoRa frequency, spreading, bandwidth and coding rate. However, it is possible to send encrypted messages that will reach only other users with a matching symmetric key. For instance, if Alice and Bob want to communicate in a private way, they will set the same key, let's say `abcd123`, in their devices. Bob will do:
 
     !addkey alice abcd123
 
@@ -92,9 +92,9 @@ While Alice will do:
 
     !addkey bob abcd1234
 
-(Note: they need to use much longer and unguessable key! A good way to generate a key is to to combine a number of words and numbers together, or just generate a random 256 bit hex string with any available tool).
+(Note: they need to use much longer and hard to guess key! A good way to generate a key is to to combine a number of words and numbers together, or just generate a random 256 bit hex string with any available tool).
 
-Now, Alice will be able to send messages to Bob, and the other way around, just typing:
+Now, Alice will be able to send messages to Bob, or the other way around, just typing:
 
     #bob some message
 
@@ -121,9 +121,11 @@ This is the set of commands to work with encrypted messages:
 
 ## Sending images
 
-FreakWAN implements its own very small, losslessy compressed 1 bit images, as a proof of concept that we can send small media types over LoRa, and also very useful in order to make our protocol more robust against very long packets (that have a very large *time on air*). Inside the `fci` directory of this repository you will find the specification of the image format and run length compression used, and a tool to convert small PNG files into FCI images.
+FreakWAN implements its own very small, losslessy [compressed 1 bit images](https://github.com/antirez/freakwan/blob/main/fci/README.md), as a proof of concept that we can send small media types over LoRa. Images are very useful in order to make the protocol more robust when working with very long packets (that have a very large *time on air*). Inside the `fci` directory of this repository you will find the specification of the image format and run length compression used, and a tool to convert small PNG files (255x255 max) into FCI images. For now, only images that are up to 200 bytes compressed can be transmitted.
 
 Once you have the FCI images, you should copy them into the `images` directory inside your device (again, using ampy or talk32 or any other tool). Then you can send the images using the `!image` command using the bluetooth CLI.
+
+You can find a couple test FCI images under `fci/testfci`. They are all less than 200 bytes, so it is possible to send them as FreakWAN messages.
 
 ## Power management
 
