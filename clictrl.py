@@ -327,7 +327,7 @@ class CommandsController:
     def cmd_image(self,argv,argc,send_reply):
         if argc != 2: return False
         try:
-            img = ImageFCI(filename=argv[1])
+            img = ImageFCI(filename="images/"+argv[1])
             if len(img.encoded) > 200:
                 send_reply("Image over 200 bytes. Too large to send before fragmentation gets implemented.")
             else:
