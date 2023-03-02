@@ -90,6 +90,13 @@ class CommandsController:
             self.fw.scroller.print(group+"you> "+msg.text)
             self.fw.refresh_view()
 
+    def cmd_nick(self,argv,argc,send_reply):
+        if argc > 2:
+            return False
+        elif argc == 2:
+            self.fw.config['nick'] = argv[1]
+        send_reply("Your nick is: %s" %self.fw.config['nick'])
+
     def cmd_automsg(self,argv,argc,send_reply):
         if argc > 2: return False
         if argc == 2:
