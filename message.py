@@ -23,6 +23,11 @@ MessageFlagsFragment = 1<<2         # One fragment of many
 MessageFlagsMedia = 1<<3            # Message contains some media
 MessageFlagsEncr = 1<<4             # Message is encrypted
 
+# Virtual flags: not really in the packet header, but added
+# in the message object representing the packet to provide
+# further information.
+MessageFlagsBadCRC = 1<<8           # Message CRC is bad
+
 # Media types
 MessageMediaTypeImageFCI = 0
 

@@ -102,6 +102,12 @@ class CommandsController:
             self.fw.config['quiet'] = argv[1]
         send_reply("quiet mode set to: %s" %self.fw.config['quiet'])
 
+    def cmd_crc(self,argv,argc,send_reply):
+        if argc > 2: return False
+        elif argc == 2:
+            self.fw.config['check_crc'] = argv[1]
+        send_reply("CRC check set to: %s" %self.fw.config['check_crc'])
+
     def cmd_automsg(self,argv,argc,send_reply):
         if argc > 2: return False
         if argc == 2:

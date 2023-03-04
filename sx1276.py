@@ -240,7 +240,8 @@ class SX1276:
     def txrxdone(self, pin): 
         event = self.spi_read(RegIrqFlags)
         self.spi_write(RegIrqFlags, 0xff) # Clear flags
-        if (event & IRQRxDone) and not (event & IRQPayloadCrcError):
+        if event & IRQRxDone:
+            bad_crc = (event & IRQPayloadCrcError) != 0
             # Read data from the FIFO
             addr = self.spi_read(RegFifoRxCurrentAddr)
             self.spi_write(RegFifoAddrPtr, addr) # Read starting from addr
@@ -263,9 +264,12 @@ class SX1276:
             else:
                 rssi = round(-157+rssi+snr,2)
 
+            if bad_crc:
+                print("SX1276: packet with bad CRC received")
+
             # Call the callback the user registered, if any.
             if self.received_callback:
-                self.received_callback(self, packet, rssi)
+                self.received_callback(self, packet, rssi, bad_crc)
         elif event & IRQTxDone:
             self.msg_sent += 1
             # After sending a message, the chip will return in
@@ -274,8 +278,6 @@ class SX1276:
             if self.transmitted_callback: self.transmitted_callback()
             if self.receiving: self.receive()
             self.tx_in_progress = False
-        elif (event & IRQRxDone) and (event & IRQPayloadCrcError):
-            print("SX1276: packet with bad CRC received")
         else: 
             print("SX1276: not handled event IRQ flags "+str(event))
 

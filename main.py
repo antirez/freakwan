@@ -82,6 +82,7 @@ class FreakWAN:
             # to relay other packets, in order to lower our channel usage.
             # So no ACKs, relayed packets, HELLO messages, no repeated messages.
             'quiet': False,
+            'check_crc': True, # Discard packets with wrong CRC if False.
         }
         self.config.update(UserConfig.config)
 
@@ -147,8 +148,7 @@ class FreakWAN:
         self.switch_view(self.SplashScreenView)
 
         # Init LoRa chip
-        self.lora = sx1276.SX1276(self.config['sx1276'],self.process_message,
-                                  self.lora_tx_done)
+        self.lora = sx1276.SX1276(self.config['sx1276'],self.receive_lora_packet,self.lora_tx_done)
         self.lora_reset_and_configure()
         
         # Init BLE chip
@@ -467,10 +467,12 @@ class FreakWAN:
             self.processed_b = {}
 
     # Called by the LoRa radio IRQ upon new packet reception.
-    def process_message(self,lora_instance,packet,rssi):
+    def receive_lora_packet(self,lora_instance,packet,rssi,bad_crc):
+        if self.config['check_crc'] and bad_crc: return
         m = Message.from_encoded(packet,self.keychain)
         if m:
             m.rssi = rssi
+            if bad_crc: m.flags |= MessageFlagsBadCRC
             if m.no_key == True:
                 # This message is encrypted and we don't have the
                 # right key. Let's relay it, to help the network anyway.
@@ -500,6 +502,7 @@ class FreakWAN:
                 else:
                     user_msg = channel_name+m.nick+"> "+m.text
                     if m.flags & MessageFlagsRelayed: user_msg += " [R]"
+                    if m.flags & MessageFlagsBadCRC: user_msg += " [BADCRC]"
                     self.scroller.print(user_msg)
                     self.uart.print(user_msg+" "+msg_info)
                     if self.irc: self.irc.reply(user_msg+" "+msg_info)
