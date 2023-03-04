@@ -534,6 +534,8 @@ class FreakWAN:
                     self.neighbors.popitem()
             else:
                 print("Unknown message type received: "+str(m.type))
+                if self.promiscuous:
+                    self.scroller.print("Unrecognized LoRa packet: "+repr(packet))
 
     # Send HELLO messages from time to time. Evict nodes not refreshed
     # for some time from the neighbors list.
