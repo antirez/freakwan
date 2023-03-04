@@ -74,6 +74,14 @@ class FreakWAN:
             'status': "Hi there!",
             'sleep_battery_perc': 20,
             'wifi': {},
+            # When promiscuous mode is enabled, we can debug all the messages we
+            # receive, as the message cache, to avoid re-processing messages,
+            # is disabled.
+            'prom': False,
+            # When quiet mode is on, we avoid sending any non-data packet and
+            # to relay other packets, in order to lower our channel usage.
+            # So no ACKs, relayed packets, HELLO messages, no repeated messages.
+            'quiet': False,
         }
         self.config.update(UserConfig.config)
 
@@ -143,11 +151,6 @@ class FreakWAN:
                                   self.lora_tx_done)
         self.lora_reset_and_configure()
         
-        # When promiscuous mode is enabled, we can debug all the messages we
-        # receive, as the message cache, to avoid re-processing messages,
-        # is disabled.
-        self.promiscuous = False
-
         # Init BLE chip
         ble = bluetooth.BLE()
         self.uart = BLEUART(ble, name="FW_%s" % self.config['nick'])
@@ -366,7 +369,7 @@ class FreakWAN:
                 # This message may be scheduled for multiple
                 # retransmissions. In this case decrement the count
                 # of transmissions and queue it back again.
-                if m.num_tx > 1 and m.send_canceled == False:
+                if m.num_tx > 1 and m.send_canceled == False and not self.config['quiet']:
                     m.num_tx -= 1
                     next_tx_min_delay = 3000
                     next_tx_max_delay = 8000
@@ -387,6 +390,7 @@ class FreakWAN:
     # message type: it is assumed that the method is called only for
     # message type where this makes sense.
     def send_ack_if_needed(self,m):
+        if self.config['quiet']: return          # No ACKs in quiet mode.
         if m.type != MessageTypeData: return     # Acknowledge only data.
         if m.flags & MessageFlagsRelayed: return # Don't acknowledge relayed.
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type)
@@ -397,6 +401,7 @@ class FreakWAN:
     # originator asked for relay, we schedule a retransmission of
     # this packet, so that other peers can receive it.
     def relay_if_needed(self,m):
+        if self.config['quiet']: return          # No relays in quiet mode.
         if m.type != MessageTypeData: return     # Relay only data messages.
         if not m.flags & MessageFlagsPleaseRelay: return # No relay needed.
         # We also avoid relaying messages that are too strong: if the
@@ -432,7 +437,7 @@ class FreakWAN:
     def mark_as_processed(self,m):
         if m.type == MessageTypeData:
             if self.get_processed_message(m.uid):
-                if self.promiscuous: return False
+                if self.config['prom']: return False
                 return True
             else:
                 self.processed_a[m.uid] = m
@@ -534,7 +539,7 @@ class FreakWAN:
                     self.neighbors.popitem()
             else:
                 print("Unknown message type received: "+str(m.type))
-                if self.promiscuous:
+                if self.config['prom']:
                     self.scroller.print("Unrecognized LoRa packet: "+repr(packet))
 
     # Send HELLO messages from time to time. Evict nodes not refreshed
@@ -556,13 +561,16 @@ class FreakWAN:
                         m.sender_to_str()+" ("+m.nick+")")
             self.neighbors = new
 
-            # Send HELLO.
-            print("[net] Sending HELLO message")
-            msg = Message(mtype=MessageTypeHello,
-                        nick=self.config['nick'],
-                        text=self.config['status'],
-                        seen=len(self.neighbors))
-            self.send_asynchronously(msg,max_delay=0)
+            # Send HELLO, if not in quiet mode.
+            if not self.config['quiet']:
+                print("[net] Sending HELLO message")
+                msg = Message(mtype=MessageTypeHello,
+                            nick=self.config['nick'],
+                            text=self.config['status'],
+                            seen=len(self.neighbors))
+                self.send_asynchronously(msg,max_delay=0)
+
+            # Wait until we need to send the next HELLO.
             await asyncio.sleep(
                 urandom.randint(hello_msg_period_min,hello_msg_period_max)
                 /1000)

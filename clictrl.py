@@ -91,11 +91,16 @@ class CommandsController:
             self.fw.refresh_view()
 
     def cmd_nick(self,argv,argc,send_reply):
-        if argc > 2:
-            return False
+        if argc > 2: return False
         elif argc == 2:
             self.fw.config['nick'] = argv[1]
         send_reply("Your nick is: %s" %self.fw.config['nick'])
+
+    def cmd_quiet(self,argv,argc,send_reply):
+        if argc > 2: return False
+        elif argc == 2:
+            self.fw.config['quiet'] = argv[1]
+        send_reply("quiet mode set to: %s" %self.fw.config['quiet'])
 
     def cmd_automsg(self,argv,argc,send_reply):
         if argc > 2: return False
@@ -107,8 +112,8 @@ class CommandsController:
     def cmd_prom(self,argv,argc,send_reply):
         if argc > 2: return False
         if argc == 2:
-            self.fw.promiscuous = argv[1] == '1' or argv[1] == 'on'
-        send_reply("promiscuous mode set to "+str(self.fw.promiscuous))
+            self.fw.config['prom'] = argv[1] == '1' or argv[1] == 'on'
+        send_reply("promiscuous mode set to "+str(self.fw.config['prom']))
         return True
 
     def cmd_preset(self,argv,argc,send_reply):
