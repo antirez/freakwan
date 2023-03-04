@@ -5,31 +5,32 @@
 # See the LICENSE file for more information
 
 import struct, time, urandom, machine
+from micropython import const
  
 # Message types
-MessageTypeData = 0
-MessageTypeAck = 1
-MessageTypeHello = 2
-MessageTypeBulkStart = 3
-MessageTypeBulkData = 4
-MessageTypeBulkEND = 5
-MessageTypeBulkReply = 6
+MessageTypeData = const(0)
+MessageTypeAck = const(1)
+MessageTypeHello = const(2)
+MessageTypeBulkStart = const(3)
+MessageTypeBulkData = const(4)
+MessageTypeBulkEND = const(5)
+MessageTypeBulkReply = const(6)
 
 # Message flags
-MessageFlagsNone = 0                # No flags
-MessageFlagsRelayed = 1<<0          # Repeated message
-MessageFlagsPleaseRelay = 1<<1      # Please repeat this message
-MessageFlagsFragment = 1<<2         # One fragment of many
-MessageFlagsMedia = 1<<3            # Message contains some media
-MessageFlagsEncr = 1<<4             # Message is encrypted
+MessageFlagsNone = const(0)               # No flags
+MessageFlagsRelayed = const(1<<0)         # Repeated message
+MessageFlagsPleaseRelay = const(1<<1)     # Please repeat this message
+MessageFlagsFragment = const(1<<2)        # One fragment of many
+MessageFlagsMedia = const(1<<3)           # Message contains some media
+MessageFlagsEncr = const(1<<4)            # Message is encrypted
 
 # Virtual flags: not really in the packet header, but added
 # in the message object representing the packet to provide
 # further information.
-MessageFlagsBadCRC = 1<<8           # Message CRC is bad
+MessageFlagsBadCRC = const(1<<8)          # Message CRC is bad
 
 # Media types
-MessageMediaTypeImageFCI = 0
+MessageMediaTypeImageFCI = const(0)
 
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
@@ -180,5 +181,4 @@ class Message:
             return m
         else:
             return False
-
 

@@ -226,7 +226,7 @@ class FreakWAN:
     # band commands. We just save things that we want likely to be
     # reloaded on startup.
     def save_settings(self):
-        settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi','wifi_default_network']
+        settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi','wifi_default_network','quiet','check_crc']
         try:
             f = open("settings.txt","wb")
             code = ""

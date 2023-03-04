@@ -6,66 +6,67 @@
 # See the LICENSE file for more information
 
 from machine import Pin, SoftSPI
+from micropython import const
 import time, struct, urandom
 
 # SX1276 constants
 
 # Registers IDs
-RegFifo = 0x00
-RegOpMode = 0x01
-RegFrfMsb = 0x06
-RegFrfMid = 0x07
-RegFrfLsb = 0x08
-RegPaConfig = 0x09
-RegOcp = 0x0b
-RegFifoTxBaseAddr = 0x0e
-RegFifoRxBaseAddr = 0x0f
-RegFifoAddrPtr = 0x0d
-RegFifoRxCurrentAddr = 0x10
-RegIrqFlagsMask = 0x11
-RegIrqFlags = 0x12
-RegRxNbBytes = 0x13
-RegModemStat = 0x18
-RegPktSnrValue = 0x19
-RegPktRssiValue = 0x1a 
-RegRssiValue = 0x1b
-RegModemConfig1 = 0x1d
-RegModemConfig2 = 0x1e
-RegPreambleMsb = 0x20
-RegPreambleLsb = 0x21
-RegPayloadLength = 0x22
-RegModemConfig3 = 0x26
-RegDioMapping1 = 0x40
-RegVersion = 0x42
-RegPaDac = 0x4d  
+RegFifo = const(0x00)
+RegOpMode = const(0x01)
+RegFrfMsb = const(0x06)
+RegFrfMid = const(0x07)
+RegFrfLsb = const(0x08)
+RegPaConfig = const(0x09)
+RegOcp = const(0x0b)
+RegFifoTxBaseAddr = const(0x0e)
+RegFifoRxBaseAddr = const(0x0f)
+RegFifoAddrPtr = const(0x0d)
+RegFifoRxCurrentAddr = const(0x10)
+RegIrqFlagsMask = const(0x11)
+RegIrqFlags = const(0x12)
+RegRxNbBytes = const(0x13)
+RegModemStat = const(0x18)
+RegPktSnrValue = const(0x19)
+RegPktRssiValue = const(0x1a )
+RegRssiValue = const(0x1b)
+RegModemConfig1 = const(0x1d)
+RegModemConfig2 = const(0x1e)
+RegPreambleMsb = const(0x20)
+RegPreambleLsb = const(0x21)
+RegPayloadLength = const(0x22)
+RegModemConfig3 = const(0x26)
+RegDioMapping1 = const(0x40)
+RegVersion = const(0x42)
+RegPaDac = const(0x4d)
 
 # Working modes
-ModeSleep = 0x00
-ModeStandby = 0x01
-ModeTx = 0x03
-ModeContRx = 0x5
-ModeSingleRx = 0x6
+ModeSleep = const(0x00)
+ModeStandby = const(0x01)
+ModeTx = const(0x03)
+ModeContRx = const(0x5)
+ModeSingleRx = const(0x6)
 
 # Dio0 mapping
-Dio0RxDone = 0 << 6
-Dio0TxDone = 1 << 6
+Dio0RxDone = const(0 << 6)
+Dio0TxDone = const(1 << 6)
 
 # Flags for RegIrqFlags register
-IRQRxTimeout = 1<<7
-IRQRxDone = 1<<6
-IRQPayloadCrcError = 1<<5
-IRQValidHeader = 1<<4
-IRQTxDone = 1<<3
-IRQCadDone = 1<<2
-IRQFhssChangeChannel = 1<<1
-IRQCadDetected = 1<<0
+IRQRxTimeout = const(1<<7)
+IRQRxDone = const(1<<6)
+IRQPayloadCrcError = const(1<<5)
+IRQValidHeader = const(1<<4)
+IRQTxDone = const(1<<3)
+IRQCadDone = const(1<<2)
+IRQFhssChangeChannel = const(1<<1)
+IRQCadDetected = const(1<<0)
 
 # RegModemStat bits
-ModemStatusSignalDetected = 1<<0
-ModemStatusSignalSynchronized = 1<<1
-ModemStatusRXOngoing = 1<<2
-ModemStatusHeaderInfoValid = 1<<3
-ModemStatusModemClear = 1<<4
+ModemStatusSignalDetected = const(1<<0)
+ModemStatusSignalSynchronized = const(1<<1)
+ModemStatusRXOngoing = const(1<<2)
+ModemStatusHeaderInfoValid = const(1<<3)
+ModemStatusModemClear = const(1<<4)
 
 class SX1276:
     def __init__(self, pinset, rx_callback, tx_callback = None):
