@@ -8,7 +8,8 @@ I started from the font originally found [here](https://github.com/filmote/Font4
 
 You manipulate the font in `font_descr.txt`, then convert it to Python
 using the C program `font_conv.c`. The result is a Python bytes type
-with `128*3` bytes (128 mappable characters max), in order to speedup indexing
-during font rendering. The code to render the font is inside the FreakWAN
-project itself, and is quite simple: just draws pixels according to the
-scanlines bit configuration.
+with `191*3` bytes (191 mappable characters max: ASCII set up to 127,
+the a few special chars we define to map specific UTF-8 chars and status
+icons), in order to speedup indexing during font rendering. The code to
+render the font is inside the FreakWAN project itself, and is quite simple:
+just draws pixels according to the scanlines bit configuration.
