@@ -232,7 +232,7 @@ class FreakWAN:
             f = open("settings.txt","wb")
             code = ""
             for s in settings:
-                if self.config.get(s,None) != None:
+                if s in self.config:
                     code += "self.config['%s'] = %s\n" % (s,repr(self.config[s]))
             f.write(code)
             f.close()
@@ -654,10 +654,8 @@ class FreakWAN:
     # (if password is None) or a new network.
     def start_wifi(self,network,password=None):
         if password == None:
-            if self.config['wifi'].get(network):
-                password = self.config['wifi'][network]
-            else:
-                return False
+            password = self.config['wifi'].get(network)
+            if not password: return False
         if not self.wifi: self.wifi = WiFiConnection()
         print("[WiFi] Connecting to %s" % network)
         self.wifi.connect(network,password)
