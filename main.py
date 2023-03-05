@@ -661,7 +661,7 @@ class FreakWAN:
         if not self.wifi: self.wifi = WiFiConnection()
         print("[WiFi] Connecting to %s" % network)
         self.wifi.connect(network,password)
-        self.config['wifi_default_network'] = netname
+        self.config['wifi_default_network'] = network
         return True
 
     # Disconenct WiFi network
