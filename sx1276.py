@@ -36,6 +36,9 @@ RegPreambleMsb = const(0x20)
 RegPreambleLsb = const(0x21)
 RegPayloadLength = const(0x22)
 RegModemConfig3 = const(0x26)
+RegFeiMsb = const(0x28)
+RegFeiMid = const(0x29)
+RegFeiLsb = const(0x2a)
 RegDioMapping1 = const(0x40)
 RegVersion = const(0x42)
 RegPaDac = const(0x4d)
@@ -82,6 +85,7 @@ class SX1276:
         self.miso_pin = Pin(pinset['miso'])
         self.dio0_pin = Pin(pinset['dio0'], Pin.IN)
         self.spi = SoftSPI(baudrate=10000000, polarity=0, phase=0, sck=self.clock_pin, mosi=self.mosi_pin, miso=self.miso_pin)
+        self.bw = 0 # Currently set bandwidth. Saved to compute freq error.
          
     def reset(self):
         self.reset_pin.off()
@@ -126,6 +130,7 @@ class SX1276:
 
         # Set bandwidth and coding rate. Lower bit is left to 0, so
         # explicit header is selected.
+        self.bw = bandwidth
         self.spi_write(RegModemConfig1, Bw[bandwidth] << 4 | CodingRate[rate] << 1)
 
         RxPayloadCrcOn   = 1
@@ -303,3 +308,15 @@ class SX1276:
         self.spi_write(RegPayloadLength, len(data))  # Store len of message
         self.spi_write(RegOpMode, ModeTx) # Switch to TX mode
 
+    def get_freq_error(self):
+        # Read 20 bit two's complement frequency error indicator.
+        fei = (self.spi_read(RegFeiMsb) << 16) | (self.spi_read(RegFeiMsb) << 8) | self.spi_read(RegFeiLsb)
+        # Convert negative values from two's complement.
+        if fei & (1<<19):
+            fei = fei ^ (1<<19) # Clear sign bit
+            fei = fei ^ 0b1111111111111111111 # Invert bits
+            fei = -(fei+1) # Obtain negative value
+        # Convert value in Hertz (section 4.1.5 of datasheet)
+        errhz = (fei*(2**24))/(32*(10**6))
+        errhz = int(errhz*self.bw/500)
+        return errhz
