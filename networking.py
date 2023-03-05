@@ -161,7 +161,7 @@ class IRC:
 
             # Read data from server
             try:
-                l = self.socket.read()
+                l = self.socket.read(64) # Why 64? To avoid out of memory.
             except Exception as e:
                 print("[IRC] Disconnected: "+str(e))
                 self.disconnect()
