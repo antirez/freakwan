@@ -541,9 +541,11 @@ class FreakWAN:
                 if len(self.neighbors) > max_neighbors:
                     self.neighbors.popitem()
             else:
-                print("Unknown message type received: "+str(m.type))
-                if self.config['prom']:
-                    self.scroller.print("Unrecognized LoRa packet: "+repr(packet))
+                print("receive_lora_packet(): message type not implemented: %d" % m.type)
+        else:
+            print("!!! Can't decoded packet: "+repr(packet))
+            if self.config['prom']:
+                self.scroller.print("Unrecognized LoRa packet: "+repr(packet))
 
     # Send HELLO messages from time to time. Evict nodes not refreshed
     # for some time from the neighbors list.

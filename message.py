@@ -169,6 +169,7 @@ class Message:
                 self.nick,self.text = msg[9:].decode("utf-8").split(":")
                 return True
             else:
+                print("!!! Decoding message: wrong message type %d" % mtype)
                 return False
         except Exception as e:
             print("!!! Message decode error msg="+str(msg)+" err="+str(e))
