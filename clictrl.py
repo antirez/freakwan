@@ -210,15 +210,10 @@ class CommandsController:
     def cmd_config(self,argv,argc,send_reply):
         if argc > 2: return False
         if argc == 1:
-            try:
-                f = open("settings.txt","r")
-                while True:
-                    l = f.readline()
-                    if not l: break
-                    send_reply(l)
-                f.close()
-            except:
-                send_reply("No local settings.")
+            settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi_default_network','quiet','check_crc']
+            for s in settings:
+                send_reply("%s: %s" % (s, repr(self.fw.config.get(s))))
+            send_reply("wifi_enabled: %s" % repr(self.fw.wifi and self.fw.is_connected()))
         elif argv[1] == "save":
             self.fw.save_settings()
             send_reply("Config settings saved")
