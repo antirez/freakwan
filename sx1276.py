@@ -317,6 +317,6 @@ class SX1276:
             fei = fei ^ 0b1111111111111111111 # Invert bits
             fei = -(fei+1) # Obtain negative value
         # Convert value in Hertz (section 4.1.5 of datasheet)
-        errhz = (fei*(2**24))/(32*(10**6))
+        errhz = fei*0.524288 # Magic constant is 2**24 / 32e6
         errhz = int(errhz*self.bw/500)
         return errhz
