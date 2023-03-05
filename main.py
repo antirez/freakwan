@@ -74,6 +74,7 @@ class FreakWAN:
             'status': "Hi there!",
             'sleep_battery_perc': 20,
             'wifi': {},
+            'wifi_default_network': False,
             # When promiscuous mode is enabled, we can debug all the messages we
             # receive, as the message cache, to avoid re-processing messages,
             # is disabled.
@@ -660,6 +661,7 @@ class FreakWAN:
         if not self.wifi: self.wifi = WiFiConnection()
         print("[WiFi] Connecting to %s" % network)
         self.wifi.connect(network,password)
+        self.config['wifi_default_network'] = netname
         return True
 
     # Disconenct WiFi network
@@ -670,7 +672,7 @@ class FreakWAN:
         if not self.wifi: self.wifi = WiFiConnection()
         print("[WiFi] Stopping Wifi (if active)")
         self.wifi.stop()
-        self.config['wifi_default_network'] = None
+        self.config['wifi_default_network'] = False
 
     # Start the IRC subsystem.
     def start_irc(self):

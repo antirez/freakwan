@@ -332,7 +332,6 @@ class CommandsController:
             else:
                 self.fw.start_wifi(netname,netpass)
                 send_reply("Connecting to %s" % netname)
-                self.fw.config['wifi_default_network'] = netname
         elif argc == 2 and argv[1] == 'stop':
             self.fw.stop_wifi()
             send_reply("WiFi turned off")
