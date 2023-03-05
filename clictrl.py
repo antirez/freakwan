@@ -208,8 +208,18 @@ class CommandsController:
         return True
 
     def cmd_config(self,argv,argc,send_reply):
-        if argc != 2: return False
-        if argv[1] == "save":
+        if argc > 2: return False
+        if argc == 1:
+            try:
+                f = open("settings.txt","r")
+                while True:
+                    l = f.readline()
+                    if not l: break
+                    send_reply(l)
+                f.close()
+            except:
+                send_reply("No local settings.")
+        elif argv[1] == "save":
             self.fw.save_settings()
             send_reply("Config settings saved")
         elif argv[1] == "reset":
