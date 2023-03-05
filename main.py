@@ -231,7 +231,7 @@ class FreakWAN:
             f = open("settings.txt","wb")
             code = ""
             for s in settings:
-                if self.config.get(s):
+                if self.config.get(s,None) != None:
                     code += "self.config['%s'] = %s\n" % (s,repr(self.config[s]))
             f.write(code)
             f.close()
