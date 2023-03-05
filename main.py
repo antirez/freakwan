@@ -787,3 +787,4 @@ if __name__ == "__main__":
         fw.scroller.print("")
         fw.scroller.print("--- Stopped ---")
         fw.scroller.refresh()
+        fw.lora.reset() # Avoid receiving messages while stopped
