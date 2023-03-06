@@ -182,9 +182,20 @@ Format:
 ```
 
 Note that there is no message length, as it is implicitly encoded in the
-previous layer. The Message string is in the following format:
+previous layer. The message string is in the following format:
 
-    nickname:message
+```
++--------+---------------------//
+| nlen:8 | nick+message text
++--------+---------------------//
+```
+
+Where `nlen` is a byte representing the nick name length inside the
+message, as an unsigned 8 bit integer, and the rest is just the nickname
+of the specified length concatenated with the actual message text, without
+any separator, like in the following example:
+
+    "\x04AnnaHey how are you?"
 
 The TTL is set to 255 normally, and decreased at every retransmission.
 The sender ID is the HMAC returned by the device API, while the 32 bit
@@ -276,9 +287,9 @@ Format:
 * Flags are currently unused for the HELLO message.
 * The sender is the device ID of the sender.
 * Seen is the number of devices this device is currently sensing, that is, the length of its neighbors list.
-* The status message is a string composed of the nickname of the owner, then a semicolon, and a message that the user can set. Like:
+* The status message is exactly like in the DATA message format: a string composed of one byte length of the nickname, and then the nickname of the owner and the message that was set as status message. Like:
 
-    antirez:Hi there! I'm part of FreakWAN.
+    "\x07antirezHi there! I'm part of FreakWAN."
 
 ## Messages relay
 

@@ -99,10 +99,11 @@ class Message:
             # Encode with the encryption flag set, if we are going to
             # encrypt the packet.
             encr_flag = MessageFlagsEncr if self.key_name else MessageFlagsNone
+            encoded = struct.pack("<BBLB6sB",self.type,self.flags|encr_flag,self.uid,self.ttl,self.sender,len(self.nick))+self.nick
             if self.flags & MessageFlagsMedia:
-                encoded = struct.pack("<BBLB",self.type,self.flags|encr_flag,self.uid,self.ttl)+self.sender+self.nick+":"+bytes([self.media_type])+self.media_data
+                encoded += bytes([self.media_type])+self.media_data
             else:
-                encoded = struct.pack("<BBLB",self.type,self.flags|encr_flag,self.uid,self.ttl)+self.sender+self.nick+":"+self.text
+                encoded += self.text
 
             # Encrypt if needed and if a keychain was provided.
             if self.key_name:
@@ -114,7 +115,7 @@ class Message:
         elif self.type == MessageTypeAck:
             return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ack_type)+self.sender
         elif self.type == MessageTypeHello:
-            return struct.pack("<BB6sB",self.type,self.flags,self.sender,self.seen)+self.nick+":"+self.text
+            return struct.pack("<BB6sBB",self.type,self.flags,self.sender,self.seen,len(self.nick))+self.nick+self.text
 
     # Fill the message with the data found in the binary representation
     # provided in 'msg'.
@@ -149,24 +150,23 @@ class Message:
 
             # Decode according to message type.
             if mtype == MessageTypeData:
-                self.type,self.flags,self.uid,self.ttl,self.sender = struct.unpack("<BBLB6s",msg)
+                self.type,self.flags,self.uid,self.ttl,self.sender,nick_len = struct.unpack("<BBLB6sB",msg)
+                self.nick = msg[14:14+nick_len].decode("utf-8")
+                msg = msg[14+nick_len:] # Discard header and nick
+
                 if self.flags & MessageFlagsMedia:
-                    msg = msg[13:] # Skip header
-                    sep = msg.find(b':')
-                    if sep == -1:
-                        raise Exception("Missing nick separator in media type")
-                    self.nick = msg[:sep].decode("utf-8")
-                    self.media_type = msg[sep+1]
-                    self.media_data = msg[sep+2:]
+                    self.media_type = msg[0]
+                    self.media_data = msg[1:]
                 else:
-                    self.nick,self.text = msg[13:].decode("utf-8").split(":")
+                    self.text = msg.decode("utf-8")
                 return True
             elif mtype == MessageTypeAck:
                 self.type,self.flags,self.uid,self.ack_type,self.sender = struct.unpack("<BBLB6s",msg)
                 return True
             elif mtype == MessageTypeHello:
-                self.type,self.flags,self.sender,self.seen = struct.unpack("<BB6sB",msg)
-                self.nick,self.text = msg[9:].decode("utf-8").split(":")
+                self.type,self.flags,self.sender,self.seen,nick_len = struct.unpack("<BB6sBB",msg)
+                self.nick = msg[10:10+nick_len].decode("utf-8")
+                self.text = msg[10+nick_len].decode("utf-8")
                 return True
             else:
                 print("!!! Decoding message: wrong message type %d" % mtype)
