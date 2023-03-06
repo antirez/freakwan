@@ -166,7 +166,7 @@ class Message:
             elif mtype == MessageTypeHello:
                 self.type,self.flags,self.sender,self.seen,nick_len = struct.unpack("<BB6sBB",msg)
                 self.nick = msg[10:10+nick_len].decode("utf-8")
-                self.text = msg[10+nick_len].decode("utf-8")
+                self.text = msg[10+nick_len:].decode("utf-8")
                 return True
             else:
                 print("!!! Decoding message: wrong message type %d" % mtype)
