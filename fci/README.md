@@ -82,7 +82,7 @@ Let's compress the following 8x8 image (`.` = 0, `#` = 1):
 There is a first run of 18 zeros, so we emit the escape sequence byte
 followed by a run length byte:
 
-    01101001 + 0|0000010 (run of 0 bits, 16+2 = 18) (2 bytes so far)
+    11000011 + 0|0000010 (run of 0 bits, 16+2 = 18) (2 bytes so far)
 
 After that there are runs that are always smaller than 17, so we
 emit verbatim bits:
