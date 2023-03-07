@@ -1,0 +1,7 @@
+This is a quick hack to have a Serial BTE CLI that works on MacOS without
+installing any library, only using core stuff. Just reads from the standard
+input and writes to the BTE device, and returns what the BTE device sends.
+
+Sorry about the Objective-C part. The code is terrible as I'm not an
+Objective-C programmer. But there is no CoreBluetooth lower-level C API
+so I had to find my way among the Apple stuff.
