@@ -5,6 +5,7 @@
  * See the LICENSE file for more information. */
 
 #import "SerialBTE.h"
+#include <stdio.h>
 #include <unistd.h>
 
 @implementation SerialBTE
@@ -30,22 +31,27 @@
 }
 
 - (void) CBThread:(id)arg {
-    printf("--- In CBThread ---\n");
     NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
     int tick = 0;
     while(1) {
         NSDate *endDate = [[NSDate alloc] initWithTimeIntervalSinceNow:0.1];
         [runLoop runUntilDate:endDate];
-        usleep(100000);
 
-        tick++;
-        if (tick % 20 == 0 && peripheral != nil && writeChar != nil) {
-            printf("WRITE LS\n");
-            NSString *stringValue = @"!ls";
-            NSData *dataValue = [stringValue dataUsingEncoding:NSUTF8StringEncoding];
-            [peripheral writeValue:dataValue forCharacteristic:writeChar type:CBCharacteristicWriteWithResponse];
+        if (peripheral != nil && writeChar != nil) {
+            printf("> "); fflush(stdout);
+            char buf[256];
+            if (fgets(buf,sizeof(buf),stdin) != NULL) {
+                size_t l = strlen(buf);
+                if (l > 1 && buf[l-1] == '\n') buf[l-1] = 0;
+                NSString *stringValue = [NSString stringWithCString:buf encoding:NSUTF8StringEncoding];
+                NSData *dataValue = [stringValue dataUsingEncoding:NSUTF8StringEncoding];
+                [peripheral writeValue:dataValue forCharacteristic:writeChar type:CBCharacteristicWriteWithResponse];
+                [dataValue release];
+            } else {
+                exit(0);
+            }
         }
-
+        usleep(100000);
     }
 }
 
@@ -61,7 +67,6 @@
  * a BTE scanning or other operations. */
 - (void)centralManagerDidUpdateState:(CBCentralManager *)manager
 {
-    printf("centralManagerDidUpdateState called\n");
     if ([manager state] == CBManagerStatePoweredOn && shouldScan)
     {
         [self startScan];
@@ -77,8 +82,10 @@
 {
     NSMutableArray *peripherals =  [self mutableArrayValueForKey:@"discoveredDevices"];
     const char *deviceName = [[aPeripheral name] cStringUsingEncoding:NSASCIIStringEncoding];
+    NSString *localNameValue = [advertisementData valueForKey:@"kCBAdvDataLocalName"];
+    const char *localName = localNameValue != nil ? [localNameValue cStringUsingEncoding:NSASCIIStringEncoding] : NULL;
     if (deviceName)
-        printf("Found: %s\n", deviceName);
+        printf("Found: %s (%s)\n", deviceName, localName ? localName : "?");
     
     if ([[aPeripheral name] isEqualToString: @"ESP32"])
     {
@@ -149,10 +156,9 @@ didDisconnectPeripheral: (CBPeripheral *)aPeripheral
 - (void) peripheral: (CBPeripheral *)aPeripheral
 didDiscoverServices:(NSError *)error
 {
-    printf("In discover services callback:\n");
     for (CBService *aService in aPeripheral.services)
     {
-        NSLog(@"Service found with UUID: %@", aService.UUID);
+        NSLog(@"Service: %@", aService.UUID);
         [aPeripheral discoverCharacteristics:nil forService:aService];
     }
 }
@@ -161,13 +167,12 @@ didDiscoverServices:(NSError *)error
  * characteristics provided by a given service of the device. */
 - (void) peripheral: (CBPeripheral *)aPeripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error
 {
-    printf("Characteristic discovered:\n");
     for (CBCharacteristic *aChar in service.characteristics)
     {
-        NSLog(@"Service: %@ with Char: %@", [aChar service].UUID, aChar.UUID);
+        // NSLog(@"Service: %@ with Char: %@", [aChar service].UUID, aChar.UUID);
         if (aChar.properties & CBCharacteristicPropertyNotify)
         {
-            printf("IS NOTIFY\n");
+            printf("Notify characteristic found.\n");
             [aPeripheral setNotifyValue:YES forCharacteristic:aChar];
             [aPeripheral readValueForCharacteristic:aChar];
             readChar = aChar;
@@ -175,10 +180,7 @@ didDiscoverServices:(NSError *)error
         } else if (aChar.properties & CBCharacteristicPropertyWrite) {
             writeChar = aChar;
             [writeChar retain];
-            printf("WRITING\n");
-            NSString *stringValue = @"!nick";
-            NSData *dataValue = [stringValue dataUsingEncoding:NSUTF8StringEncoding];
-            [aPeripheral writeValue:dataValue forCharacteristic:aChar type:CBCharacteristicWriteWithResponse];
+            printf("Write characteristic found.\n");
         }
     }
 }
@@ -187,7 +189,13 @@ didDiscoverServices:(NSError *)error
 - (void) peripheral: (CBPeripheral *)aPeripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error
 {
     NSData *newval = characteristic.value;
-    if (newval) printf("%s",(char*)newval.bytes);
+
+    if (newval) {
+        size_t l = [newval length];
+        char *p = (char*)newval.bytes;
+        while (l && p[l-1] == '\n') l--;
+        printf("%.*s\n", (int)l, p);
+    }
 }
 
 - (void)peripheral: (CBPeripheral *)peripheral didModifyServices:(NSArray<CBService *> *)invalidatedServices
