@@ -118,7 +118,6 @@
 {
     printf("Connected.\n");
     [aPeripheral setDelegate:self];
-    printf("Discover services of peripheral...\n");
     [aPeripheral discoverServices:nil];
 }
 
@@ -154,7 +153,7 @@ didDisconnectPeripheral: (CBPeripheral *)aPeripheral
 /* Connect to the specified device. */
 - (void) connectToPeripheral: (CBPeripheral *)aPeripheral
 {
-    printf("Stop scannign and connecting\n");
+    // printf("Stop scannign and connecting\n");
     [_manager stopScan];
     peripheral = aPeripheral;
     NSDictionary *connectOptions = @{
