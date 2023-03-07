@@ -11,16 +11,17 @@
 @interface SerialBTE: NSObject
 <CBCentralManagerDelegate, CBPeripheralDelegate>
 {
-    bool shouldScan;
     CBPeripheral *peripheral;   // Connected device
     CBUUID *serviceUuid;        // UUID we scan for.
     dispatch_queue_t btequeue;  // Queue used by the Central Manager
     CBCharacteristic *readChar, *writeChar; // Serial BTE write and read chars.
+    NSString *namepat;          // Name pattern to match, or nil to connect
+                                // to the first device found.
 }
 
 @property (retain) NSMutableArray *discoveredDevices;
 @property (strong, nonatomic) CBCentralManager *manager;
 
 - (instancetype)init;
-- (void)startScan;
+- (instancetype)initWithNamePattern: (NSString *)pattern;
 @end

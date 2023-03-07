@@ -13,14 +13,19 @@
 
 - (instancetype)init
 {
+    return [self initWithNamePattern: nil];
+}
+
+- (instancetype)initWithNamePattern:(NSString *) pattern
+{
     self = [super init];
     if (self) {
         self.discoveredDevices = [NSMutableArray array];
-        shouldScan = true;
         serviceUuid = [CBUUID UUIDWithString: @"6E400001-B5A3-F393-E0A9-E50E24DCCA9E"];
         readChar = nil;
         writeChar = nil;
         peripheral = nil;
+        namepat = pattern;
         btequeue = dispatch_queue_create("centralmanager", DISPATCH_QUEUE_SERIAL);
         _manager = [[CBCentralManager alloc] initWithDelegate: self
                                                         queue: btequeue];
@@ -67,8 +72,7 @@
  * a BTE scanning or other operations. */
 - (void)centralManagerDidUpdateState:(CBCentralManager *)manager
 {
-    if ([manager state] == CBManagerStatePoweredOn && shouldScan)
-    {
+    if ([manager state] == CBManagerStatePoweredOn) {
         [self startScan];
     }
 }
@@ -84,16 +88,27 @@
     const char *deviceName = [[aPeripheral name] cStringUsingEncoding:NSASCIIStringEncoding];
     NSString *localNameValue = [advertisementData valueForKey:@"kCBAdvDataLocalName"];
     const char *localName = localNameValue != nil ? [localNameValue cStringUsingEncoding:NSASCIIStringEncoding] : NULL;
-    if (deviceName)
-        printf("Found: %s (%s)\n", deviceName, localName ? localName : "?");
-    
-    if ([[aPeripheral name] isEqualToString: @"ESP32"])
-    {
-        /* Conencting will fail if we don't create a durable
-         * reference to the peripheral, so we add it into the array. */
-        [peripherals addObject:aPeripheral];
-        [self connectToPeripheral: aPeripheral];
+
+    if (deviceName) {
+        printf("Found: %s (%s): ", deviceName, localName ? localName : "?");
+        if (namepat != nil) {
+            const char *pat = [namepat cStringUsingEncoding:NSASCIIStringEncoding];
+            if (strcasestr(deviceName,pat) == NULL &&
+                strcasestr(localName,pat) == NULL)
+            {
+                printf("Discarding (name mismatch)\n");
+                return;
+            }
+        }
+        printf("Connecting...\n");
+    } else {
+        return;
     }
+    
+    /* Conencting will fail if we don't create a durable
+     * reference to the peripheral, so we add it into the array. */
+    [peripherals addObject:aPeripheral];
+    [self connectToPeripheral: aPeripheral];
 }
 
 /* Called as a result of connectToPeripheral, once the connection

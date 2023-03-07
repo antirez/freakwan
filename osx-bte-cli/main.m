@@ -7,9 +7,27 @@
 #import <Foundation/Foundation.h>
 #import "SerialBTE.h"
 #include <unistd.h>
+#include <string.h>
 
 int main(int argc, const char **argv) {
-    [SerialBTE new];
+    const char *namePattern = nil;
+
+    if (argc == 2) {
+        if (!strcasecmp(argv[1],"--help")) {
+            fprintf(stderr,
+"Usage: %s           -- connects to the first ESP32 found\n"
+"       %s <pattern> -- connects to device containing <pattern> in name\n",
+                argv[0],argv[0]);
+            exit(1);
+        } else {
+            namePattern = argv[1];
+        }
+    }
+
+    NSString *pattern = nil;
+    if (namePattern) pattern = [NSString stringWithCString:namePattern encoding:NSUTF8StringEncoding];
+
+    [[SerialBTE alloc] initWithNamePattern: pattern];
     while(1) {
         /* The program is structured to run in a differnet thread, in case
          * we want to modify it later so that the bluetooth part is
