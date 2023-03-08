@@ -616,7 +616,7 @@ class FreakWAN:
     # 3. Send asynchronously the message and display it.
     def ble_receive_callback(self):
         cmd = self.uart.read().decode()
-        self.cmdctrl.exec_user_command(cmd,fw.uart.print)
+        self.cmdctrl.exec_user_command(cmd,self.uart.print)
 
     # Process commands from IRC.
     def irc_receive_callback(self,cmd):
