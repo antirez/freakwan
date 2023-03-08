@@ -494,8 +494,8 @@ class FreakWAN:
                 if m.flags & MessageFlagsMedia:
                     if m.media_type == MessageMediaTypeImageFCI:
                         img = ImageFCI(data=m.media_data)
-                        fw.scroller.print(channel_name+m.nick+"> image:")
-                        fw.scroller.print(img)
+                        self.scroller.print(channel_name+m.nick+"> image:")
+                        self.scroller.print(img)
                         user_msg = channel_name+m.nick+"> image"
                     else:
                         print("[<<< net] Unknown media type %d" % m.media_type)
@@ -758,8 +758,8 @@ class FreakWAN:
         # Print errors on the OLED, too. We want to immediately
         # recognized a crashed device.
         for stline in stacktrace.split("\n"):
-            fw.scroller.print(stline)
-        fw.scroller.refresh()
+            self.scroller.print(stline)
+        self.scroller.refresh()
 
         # Let's log the stack trace on the filesystem, too.
         f = open('crash.txt','w')
