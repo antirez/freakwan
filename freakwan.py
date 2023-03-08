@@ -750,6 +750,13 @@ class FreakWAN:
         return buf.getvalue()
 
     def crash_handler(self,loop,context):
+        # Try freeing some memory in order to avoid OOM during
+        # the crash logging itself.
+        self.send_queue = []
+        self.processed_a = {}
+        self.processed_b = {}
+        gc.collect()
+
         # Capture the error as a string. It isn't of much use to have
         # it just in the serial, if nobody is connected via USB.
         stacktrace = self.get_stack_trace(context['exception'])
