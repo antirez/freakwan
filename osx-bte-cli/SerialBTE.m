@@ -126,7 +126,8 @@
 didDisconnectPeripheral: (CBPeripheral *)aPeripheral
                   error: (NSError *)error
 {
-    printf("didDisconnectPeripheral\n");
+    fprintf(stderr,"\nDevice disconnected. Exiting...\n");
+    exit(1);
 }
 
 /* Called on connection error. */
