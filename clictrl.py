@@ -90,37 +90,30 @@ class CommandsController:
             self.fw.scroller.print(group+"you> "+msg.text)
             self.fw.refresh_view()
 
+    def handle_bool_setting(self,field,descr,argv,argc,send_reply):
+        if argc > 2: return False
+        elif argc == 2:
+            self.fw.config[field] = argv[1] == '1' or argv[1] == 'on'
+        send_reply("%s set to: %s" % (descr,self.fw.config[field]))
+        return True
+
+    def cmd_quiet(self,argv,argc,send_reply):
+        return self.handle_bool_setting("quiet",argv[0],argv,argc,send_reply)
+
+    def cmd_crc(self,argv,argc,send_reply):
+        return self.handle_bool_setting("check_crc","CRC checking",argv,argc,send_reply)
+
+    def cmd_automsg(self,argv,argc,send_reply):
+        return self.handle_bool_setting("automsg",argv[0],argv,argc,send_reply)
+
+    def cmd_prom(self,argv,argc,send_reply):
+        return self.handle_bool_setting("prom","promiscuous mode",argv,argc,send_reply)
+
     def cmd_nick(self,argv,argc,send_reply):
         if argc > 2: return False
         elif argc == 2:
             self.fw.config['nick'] = argv[1]
         send_reply("Your nick is: %s" %self.fw.config['nick'])
-
-    def cmd_quiet(self,argv,argc,send_reply):
-        if argc > 2: return False
-        elif argc == 2:
-            self.fw.config['quiet'] = argv[1] == '1' or argv[1] == 'on'
-        send_reply("quiet mode set to: %s" %self.fw.config['quiet'])
-
-    def cmd_crc(self,argv,argc,send_reply):
-        if argc > 2: return False
-        elif argc == 2:
-            self.fw.config['check_crc'] = argv[1] == '1' or argv[1] == 'on'
-        send_reply("CRC check set to: %s" %self.fw.config['check_crc'])
-
-    def cmd_automsg(self,argv,argc,send_reply):
-        if argc > 2: return False
-        if argc == 2:
-            self.fw.config['automsg'] = argv[1] == '1' or argv[1] == 'on'
-        send_reply("automsg set to "+str(self.fw.config['automsg']))
-        return True
-
-    def cmd_prom(self,argv,argc,send_reply):
-        if argc > 2: return False
-        if argc == 2:
-            self.fw.config['prom'] = argv[1] == '1' or argv[1] == 'on'
-        send_reply("promiscuous mode set to "+str(self.fw.config['prom']))
-        return True
 
     def cmd_preset(self,argv,argc,send_reply):
         if argc != 2: return False
