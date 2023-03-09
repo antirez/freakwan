@@ -22,44 +22,6 @@ from networking import IRC, WiFiConnection
 
 Version="0.33"
 
-LoRaPresets = {
-    'superfast': {
-        'lora_sp': 7,
-        'lora_cr': 5,
-        'lora_bw': 500000
-    },
-    'veryfast': {
-        'lora_sp': 8,
-        'lora_cr': 6,
-        'lora_bw': 250000
-    },
-    'fast': {
-        'lora_sp': 9,
-        'lora_cr': 8,
-        'lora_bw': 250000
-    },
-    'mid': {
-        'lora_sp': 10,
-        'lora_cr': 8,
-        'lora_bw': 250000
-    },
-    'far': {
-        'lora_sp': 11,
-        'lora_cr': 8,
-        'lora_bw': 125000
-    },
-    'veryfar': {
-        'lora_sp': 12,
-        'lora_cr': 8,
-        'lora_bw': 125000
-    },
-    'superfar': {
-        'lora_sp': 12,
-        'lora_cr': 8,
-        'lora_bw': 62500
-    }
-}
-
 # The application itself, including all the WAN routing logic.
 class FreakWAN:
     def __init__(self):

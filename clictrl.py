@@ -9,6 +9,44 @@ import time
 from message import *
 from fci import ImageFCI
 
+LoRaPresets = {
+    'superfast': {
+        'lora_sp': 7,
+        'lora_cr': 5,
+        'lora_bw': 500000
+    },
+    'veryfast': {
+        'lora_sp': 8,
+        'lora_cr': 6,
+        'lora_bw': 250000
+    },
+    'fast': {
+        'lora_sp': 9,
+        'lora_cr': 8,
+        'lora_bw': 250000
+    },
+    'mid': {
+        'lora_sp': 10,
+        'lora_cr': 8,
+        'lora_bw': 250000
+    },
+    'far': {
+        'lora_sp': 11,
+        'lora_cr': 8,
+        'lora_bw': 125000
+    },
+    'veryfar': {
+        'lora_sp': 12,
+        'lora_cr': 8,
+        'lora_bw': 125000
+    },
+    'superfar': {
+        'lora_sp': 12,
+        'lora_cr': 8,
+        'lora_bw': 62500
+    }
+}
+
 # This class is used by the FreakWAN class in order to execute
 # commands received from the user via Bluetooth. Actually here we
 # receive just command strings and reply with the passed send_reply
@@ -55,7 +93,7 @@ class CommandsController:
         cmd = str(cmd).strip()
         if len(cmd) == 0: return
 
-        print("Command from BLE/IRC received: %s" % cmd)
+        print("CLI: %s" % cmd)
         if cmd[0] == '!':
             # Command call.
             argv = self.split_arguments(cmd[1:])
@@ -75,7 +113,7 @@ class CommandsController:
             key_name = cmd[1:idx]
             text = cmd[idx+1:]
             if not self.fw.keychain.has_key(key_name):
-                send_reply("No key named '"+str(key_name)+"' in keychain.")
+                send_reply("No such key '"+str(key_name)+"'")
             else:
                 msg = Message(nick=self.fw.config['nick'], text=text, key_name=key_name)
                 self.fw.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
@@ -119,13 +157,12 @@ class CommandsController:
         if argc != 2: return False
         if argv[1] in LoRaPresets:
             self.fw.config.update(LoRaPresets[argv[1]])
-            send_reply("Setting bandwidth:"+str(self.fw.config['lora_bw'])+
-                        " coding rate:"+str(self.fw.config['lora_cr'])+
-                        " spreading:"+str(self.fw.config['lora_sp']))
+            send_reply("Setting bw:"+str(self.fw.config['lora_bw'])+
+                        " cr:"+str(self.fw.config['lora_cr'])+
+                        " sp:"+str(self.fw.config['lora_sp']))
             self.fw.lora_reset_and_configure()
         else:
-            send_reply("Wrong preset name: "+argv[1]+". Try: "+
-                ", ".join(x for x in LoRaPresets))
+            send_reply("Valid presets: "+ ", ".join(x for x in LoRaPresets))
         return True
 
     def cmd_pw(self,argv,argc,send_reply):
@@ -155,7 +192,7 @@ class CommandsController:
             else:
                 self.fw.config['lora_sp'] = spreading
                 self.fw.lora_reset_and_configure()
-        send_reply("spreading set to "+str(self.fw.config['lora_sp']))
+        send_reply("Spreading set to "+str(self.fw.config['lora_sp']))
         return True
 
     def cmd_cr(self,argv,argc,send_reply):
@@ -170,7 +207,7 @@ class CommandsController:
             else:
                 self.fw.config['lora_cr'] = cr 
                 self.fw.lora_reset_and_configure()
-        send_reply("coding rate set to "+str(self.fw.config['lora_cr']))
+        send_reply("Coding rate set to "+str(self.fw.config['lora_cr']))
         return True
 
     def cmd_bw(self,argv,argc,send_reply):
@@ -209,12 +246,12 @@ class CommandsController:
             send_reply("wifi_enabled: %s" % repr(self.fw.wifi and self.fw.is_connected()))
         elif argv[1] == "save":
             self.fw.save_settings()
-            send_reply("Config settings saved")
+            send_reply("Settings saved.")
         elif argv[1] == "reset":
             self.fw.reset_settings()
-            send_reply("Config reset done. Restart the device to apply.")
+            send_reply("Settings file removed.")
         else:
-            send_reply("!config valid subcommands: save, reset")
+            send_reply("Valid subcommands: save, reset")
 
     def cmd_bat(self,argv,argc,send_reply):
         if argc != 1: return False
@@ -226,7 +263,7 @@ class CommandsController:
     def cmd_font(self,argv,argc,send_reply):
         if argc != 2: return False
         if argv[1] not in ["big","small"]:
-            send_reply("Font name can be: big, small.")
+            send_reply("Use big or small.")
         else:
             self.fw.scroller.select_font(argv[1])
             self.fw.refresh_view()
@@ -246,14 +283,14 @@ class CommandsController:
                         (" with RSSI:%d " % (m.rssi))+
                         "It can see "+str(m.seen)+" nodes.")
         if len(self.fw.neighbors) == 0:
-            send_reply("Nobody around, apparently...")
+            send_reply("Nobody around...")
         return True
 
     def cmd_last(self,argv,argc,send_reply):
         if argc > 2: return False
         count = int(argv[1]) if argc == 2 else 10
         if count < 1:
-            send_reply("Messages count must be positive.")
+            send_reply("Wrong count.")
         else:
             msglist = self.fw.history.get_records(count-1,count)
             for enc in msglist:
@@ -308,15 +345,15 @@ class CommandsController:
                 send_reply(ssid)
         elif argc == 4 and argv[1] == 'add':
             self.fw.config['wifi'][argv[2]] = argv[3]
-            send_reply("WiFi network added. Use '!config save' to see it after a device restart.")
+            send_reply("Network added.")
         elif argc == 3 and (argv[1] == 'del' or argv[1] == 'rm'):
             del(self.fw.config['wifi'][argv[2]])
-            send_reply("Wifi network removed. Use '!config save' to permanently remove it.")
+            send_reply("Network removed.")
         elif argc == 3 and argv[1] == 'start':
             netname = argv[2]
             netpass = self.fw.config['wifi'].get(netname)
             if not netpass:
-                send_reply("No WiFi network named %s" % netname)
+                send_reply("No such network: %s" % netname)
             else:
                 self.fw.start_wifi(netname,netpass)
                 send_reply("Connecting to %s" % netname)
@@ -324,11 +361,7 @@ class CommandsController:
             self.fw.stop_wifi()
             send_reply("WiFi turned off")
         else:
-            send_reply("Usage: wifi                   -- list wifi networks")
-            send_reply("Usage: wifi add <net> <pass>  -- Add wifi network")
-            send_reply("Usage: wifi del <net>         -- Remove wifi network")
-            send_reply("Usage: wifi start <net>       -- Connect to specified network")
-            send_reply("Usage: wifi stop              -- Disconnect wifi")
+            send_reply("Usage: wifi | wifi add <net> <pass> | wifi del <net> | wifi start <net> | wifi <stop>")
 
     def cmd_irc(self,argv,argc,send_reply):
         if argc == 2 and argv[1] == 'stop':
@@ -345,7 +378,7 @@ class CommandsController:
         try:
             img = ImageFCI(filename="images/"+argv[1])
             if len(img.encoded) > 200:
-                send_reply("Image over 200 bytes. Too large to send before fragmentation gets implemented.")
+                send_reply("Image must be <= 200 bytes.")
             else:
                 msg = Message(flags=MessageFlagsMedia,nick=self.fw.config['nick'],media_type=MessageMediaTypeImageFCI,media_data=img.encoded)
                 self.fw.send_asynchronously(msg,max_delay=0,num_tx=1,relay=True)
