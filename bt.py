@@ -152,5 +152,5 @@ class BLEUART:
             self._ble.gap_disconnect(conn_handle)
         self._connections.clear()
 
-    def _advertise(self, interval_us=500000):
+    def _advertise(self, interval_us=200000):
         self._ble.gap_advertise(interval_us, adv_data=self._payload, resp_data=self._resp)
