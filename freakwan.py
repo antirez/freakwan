@@ -20,7 +20,7 @@ from fci import ImageFCI
 from keychain import Keychain
 from networking import IRC, WiFiConnection
 
-Version="0.33"
+Version="0.34"
 
 # The application itself, including all the WAN routing logic.
 class FreakWAN:

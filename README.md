@@ -427,3 +427,96 @@ message just saving its UID in the messages cache.
 * Because of the device and LoRa packets size and bandwidth limitations, the IV is shorter than one would hope. However it is partially compensated by the fact that the message UID is also part of the set of bytes used as initialization vector (see the encryption algorithm above). So the IV is actually at least 64 bits of pseudorandom data. For the attacker, it will be very hard to find two messages with the same IV, and even so the information disclosed would be minimal.
 * The final digest of 64 bits looks short, however in the case of LoRa the bandwidth of the network is so small that a brute force attack sounds extremely hard to mount. It is very unlikely that a forged packet will be sensed as matching some key, and even so probably it will be discarded for other reasons (packet type, wrong data format, ...).
 * The `sender` field of the message is part of the encrypted part, thus encrypted messages don't discose nor the sender, that is encrypted, nor the received, that is implicit (has the key) of the message.
+
+# Packets fragmentation
+
+LoRa packets are limited to 256 bytes. There is no way to go over such
+limitation (it is hardcoded in the hardware), and it would also be useless,
+since the long time on air means that, after a certain length, it is hard to
+take a good frequency reference: communication errors would be inevitable.
+
+So the FreakWAN protocol supports fragmentation, for use cases when it is
+useful to transmit messages up to a few kilobytes at max. Fragmentation is
+only supported for DATA type message (the other message types don't need,
+to be larger than the LoRa packet size), and works both for clear text
+and encrypted messages.
+
+In the sender size, when the total length of the packet would be more than
+`MAXPACKET` total bytes (that may be configured inside the app), the data
+payload is split in roughly equally sized packets. The last packet may have a
+byte more in case the data length is not multiple of the number of packets.
+
+**Important**: `MAXPACKET` must be choosen so that it is always possible to transmit
+two bytes more than its value, since the data section will have two additional
+bytes used for the fragmentation metadata.
+
+So, for instance, if the data section (nick + data o media) of a DATA packet
+is 1005 bytes, and `MAXPACKET` is set to 200 bytes, the number of total packets
+required is the integer result of the following division:
+
+    NUMPACKETS = (DATALEN+MAXPACKET-1) / MAXPACKET
+
+That is:
+
+    NUMPACKETS = (1005+199)/200 = 6
+
+Each of the packets will have the following size:
+
+    BASESIZE = 1005/6 = 167
+
+However `167*6` = just 1002 bytes. So we also calculate a reminder size:
+
+    REM = DATALEN - BASESIZE*NUMPACKETS
+    REM = 1005 - (167*6) = 3
+
+And we add a single additional byte of data to the first REM packets
+we generate during the fragmentation, so the length of the packets
+will be:
+
+* Packet 1: 168
+* Packet 2: 168
+* Packet 3: 168
+* Packet 4: 167
+* Packet 5: 167
+* Packet 6: 167
+
+That is a total of 1005 bytes. The strategy used attempts at generating packets
+of roughly the same size, so that each packet has a better probability of
+being transmitted correctly. For our use case, to transmit the first N-1 full
+packets at the maximum length, and then a final small packet, would not be
+optimal.
+
+## Fragment header and data section
+
+Each fragment will be sent as a DATA message is exactly like a normal DATA
+message, with the following differences:
+
+1. The `Fragment` flag is set in the header flags section.
+2. At the end of the fragment data, there are two 8 bit unsigned integers, appended to the data itself.
+
+For instance, in the example above, the first packet would have 168 bytes
+of data terminated by two additional bytes:
+
+```
+//-----------------------+------------+-------------+
+... 168 byts of data ... | frag-num:8 | tot-frags:8 |
+/.-----------------------+------------+-------------+
+```
+
+Where `frag-num` is the number of the fragment, identifying its position
+among all the fragmnets, and `tot-frags` is the total number of
+fragments. The total length of the data is implicit, and is not direcly
+available.
+
+The receiver will accumulate (for a given maximum time) message fragments
+having the same Message ID field value. Once all the fragments are
+received, the origianl message is generated from the fragments, where the
+fragment flag is cleared, the data sections of all the fragments are glued
+together (but discarding the last two bytes of each packet), and finally the
+message is passed for processing to the normal FreakWAN path inside the
+FreakWAN stack. The software should make sure that fragments don't accumulate
+forever in case some fragment is missing: after a given time, if no full
+reassembly was possible, fargments should expire and the memory should be
+freed.
+
+
