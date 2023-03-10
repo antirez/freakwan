@@ -165,8 +165,9 @@ Bits have the following meaning:
 
 * Bit 0: `Ralayed`. Set if the message was repeated by some node that is not the originator of the message. Relayed messages are not acknowledged.
 * Bit 1: `PleaseRelay`. If this flag is set, other receivers of the message will try to repeat the message, so that it can travel further in the WAN.
-* Bit 2: `Fragment`. This flag means that this message is a fragment of many, that should be reassembled in order to retrieve the full Data message. This specification does not yet cover fragmentation, it will be added later.
+* Bit 2: `Fragment`. This flag means that this message is a fragment of many, that should be reassembled in order to retrieve the full Data message.
 * Bit 3: `Media`. For message of type 'Data' this flag means that the message is not text, but some kind of media. See the Data messages section for more information.
+* Bit 4: `Encr`. For messages of type 'Data' this flag means that the message is encrypted.
 * Bit 1-7: Reserved for future uses. Should be 0.
 
 Currently not all the message types are implemented.
@@ -364,7 +365,7 @@ encrypted at all: receivers, even without a key at hand, need to be able to
 check the message type and flags, the TTL (in case of relay), the message UID
 (to avoid reprocessing) and so forth. The only difference between the first
 7 bytes (message type, flags, UID, TTL) of an ecrpyted and unencrypted message
-is that the flag `MessageFlagsEncr` flag is set. Then, if such
+is that the `Encr` flag is set. Then, if such
 flag is set and the packet is thus encrypted, a 4 bytes initialization
 vector (IV) follows. This is the unencrypted part of the packet. The
 encrypted part is as the usual data as found in the DATA packet type: 6 bytes
@@ -511,7 +512,7 @@ available.
 The receiver will accumulate (for a given maximum time) message fragments
 having the same Message ID field value. Once all the fragments are
 received, the origianl message is generated from the fragments, where the
-fragment flag is cleared, the data sections of all the fragments are glued
+`Fragment` flag is cleared, the data sections of all the fragments are glued
 together (but discarding the last two bytes of each packet), and finally the
 message is passed for processing to the normal FreakWAN path inside the
 FreakWAN stack. The software should make sure that fragments don't accumulate
