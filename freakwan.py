@@ -170,6 +170,10 @@ class FreakWAN:
         # handler, without blocking the program.
         self.lora.receive()
 
+    # Restart
+    def reset(self):
+        machine.reset()
+
     # Load settings.txt, with certain changes overriding our
     # self.config values.
     def load_settings(self):

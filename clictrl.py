@@ -252,6 +252,7 @@ class CommandsController:
             send_reply("Settings file removed.")
         else:
             send_reply("Valid subcommands: save, reset")
+        return True
 
     def cmd_bat(self,argv,argc,send_reply):
         if argc != 1: return False
@@ -336,6 +337,11 @@ class CommandsController:
         send_reply(", ".join(self.fw.keychain.list_keys()))
         return True
 
+    def cmd_reset(self,argv,argc,send_reply):
+        if argc != 1: return False
+        self.fw.reset()
+        return True
+
     def cmd_wifi(self,argv,argc,send_reply):
         if argc == 1:
             defnet = self.fw.config.get('wifi_default_network')
@@ -362,6 +368,7 @@ class CommandsController:
             send_reply("WiFi turned off")
         else:
             send_reply("Usage: wifi | wifi add <net> <pass> | wifi del <net> | wifi start <net> | wifi <stop>")
+        return True
 
     def cmd_irc(self,argv,argc,send_reply):
         if argc == 2 and argv[1] == 'stop':
@@ -372,6 +379,7 @@ class CommandsController:
             send_reply("IRC started")
         else:
             send_reply("Usage: irc start | stop")
+        return True
 
     def cmd_image(self,argv,argc,send_reply):
         if argc != 2: return False
