@@ -5,17 +5,9 @@ SX1262          radio     = nullptr;        // LoRa radio object
 
 void LoRaPacketReceived(void)
 {
-    Serial.println("[SX1262] Got packet");
-
-    size_t len = radio.getPacketLength();
-    Serial.print("[SX1262] packet len:");
-    Serial.println(len);
-
     unsigned char packet[256];
+    size_t len = radio.getPacketLength();
     int state = radio.readData(packet,len);
-    for (int j = 0; j < len; j++)
-        Serial.println(packet[j]);
-
     protoProcessPacket(packet,len);
 
     // Put the chip back in receive mode.
