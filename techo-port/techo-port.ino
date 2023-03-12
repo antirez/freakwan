@@ -114,7 +114,7 @@ void setupLoRa() {
 
     SerialMon.print("[SX1262] Initializing ...  ");
     int state = radio.begin(869.5);
-    if (state != ERR_NONE) {
+    if (state != RADIOLIB_ERR_NONE) {
         SerialMon.print("[SX1262] Initialization failed: ");
         SerialMon.println(state);
     } else {
@@ -126,6 +126,7 @@ void setupLoRa() {
         radio.setCodingRate(8);
         radio.setPreambleLength(12);
         radio.setCRC(true);
+        radio.setRxBoostedGainMode(RADIOLIB_SX126X_RX_GAIN_BOOSTED,true);
         //radio.setTCXO(2.4);
         
         radio.setCurrentLimit(80);
