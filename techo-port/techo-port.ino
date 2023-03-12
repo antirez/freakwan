@@ -1,41 +1,33 @@
-#include "hwconfig.h"
 #include <SPI.h>
 #include <Wire.h>
-
-#include <GxEPD.h>
-#include <GxDEPG0150BN/GxDEPG0150BN.h>  // 1.54" b/w LILYGO T-ECHO display
-
-#include <Fonts/FreeMonoBold12pt7b.h>
-#include <Fonts/FreeSans9pt7b.h>
-#include <GxIO/GxIO_SPI/GxIO_SPI.h>
-#include <GxIO/GxIO.h>
-
 #include <RadioLib.h>
 
-void setupDisplay();
-void setDisplayBacklight();
+#include "hwconfig.h"
+#include "eink.h"
+
 void configVDD(void);
 void boardInit();
-void LilyGo_logo(void);
 void setupLoRa();
 
-GxEPD_Class     *display   = nullptr;       // e-ink display object
 SX1262          radio     = nullptr;        // LoRa radio object
 
 uint32_t        blinkMillis = 0;
 uint8_t rgb = 0;
 
-void setup()
-{
+void setup() {
     Serial.begin(115200);
     delay(200);
     boardInit();
     delay(200);
-    LilyGo_logo();
+    displayPrint("FreakWAN started");
 }
 
-void loop()
-{
+/* Go into deep sleep. */
+void NRFDeepSleep(void) {
+    NRF_POWER->SYSTEMOFF = 1;
+}
+
+void loop() {
     static int total_loops = 0;
     
     if (millis() - blinkMillis > 300) {
@@ -65,61 +57,8 @@ void loop()
         SerialMon.print("Looping: ");
         SerialMon.println(total_loops);
 
-        if (total_loops++ == 1000) NRF_POWER->SYSTEMOFF = 1;
+        if (total_loops++ == 10000) NRFDeepSleep();
     }
-}
-
-void LilyGo_logo(void)
-{
-    display->setFont(&FreeMonoBold12pt7b);
-    display->setRotation(3);
-    display->fillScreen(GxEPD_WHITE);
-    display->drawChar(100, 100, 'P', GxEPD_BLACK, GxEPD_WHITE, 2);
-    display->update();
-    
-    display->fillRect(50, 50, 50, 50, GxEPD_BLACK);
-    display->drawChar(20, 40, 'a', GxEPD_BLACK, GxEPD_WHITE, 1);
-    display->setFont(&FreeSans9pt7b);
-    display->drawChar(35, 40, 'b', GxEPD_BLACK, GxEPD_WHITE, 1);
-    display->drawChar(50, 40, 'c', GxEPD_BLACK, GxEPD_WHITE, 1);
-    
-    // display->updateWindow(0,0,200,200,false);
-    display->updateWindow(0,0,100,100,true);
-    delay(2000);
-    display->fillRect(20, 20, 50, 50, GxEPD_WHITE);
-    display->updateWindow(0,0,100,100,true);
-    delay(2000);
-    display->update();
-}
-
-void setDisplayBacklight(bool en) {
-    digitalWrite(ePaper_Backlight, en);
-}
-
-void setupDisplay()
-{
-    SPIClass *dispPort = new SPIClass(
-        /*SPIPORT*/NRF_SPIM2,
-        /*MISO*/ ePaper_Miso,
-        /*SCLK*/ePaper_Sclk,
-        /*MOSI*/ePaper_Mosi);
-
-    GxIO_Class *io = new GxIO_Class(
-        *dispPort,
-        /*CS*/ ePaper_Cs,
-        /*DC*/ ePaper_Dc,
-        /*RST*/ePaper_Rst);
-
-    display = new GxEPD_Class(
-        *io,
-        /*RST*/ ePaper_Rst,
-        /*BUSY*/ ePaper_Busy);
-
-    dispPort->begin();
-    display->init(/*115200*/);
-    display->setRotation(2);
-    display->fillScreen(GxEPD_WHITE);
-    display->setTextColor(GxEPD_BLACK);
 }
 
 void configVDD(void)
@@ -153,6 +92,9 @@ void LoRaPacketReceived(void)
     int state = radio.readData(packet,len);
     for (int j = 0; j < len; j++)
         Serial.println(packet[j]);
+
+
+    displayPrint("Packet");
 
     // Put the chip back in receive mode.
     radio.startReceive();
