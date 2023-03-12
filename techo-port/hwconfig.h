@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <Arduino.h>
 
 // #define VERSION_1
@@ -40,14 +39,12 @@
 #define LoRa_Dio5           //_PINNUM(0,3)
 #define LoRa_Busy           _PINNUM(0,17)
 
-
 #define Flash_Cs            _PINNUM(1,15)
 #define Flash_Miso          _PINNUM(1,13)
 #define Flash_Mosi          _PINNUM(1,12)
 #define Flash_Sclk          _PINNUM(1,14)
 #define Flash_HOLD          _PINNUM(0,5)
 #define Flash_WP            _PINNUM(0,7)
-
 
 #define Touch_Pin           _PINNUM(0,11)
 #define Adc_Pin             _PINNUM(0,4)
@@ -69,8 +66,6 @@
 #define Gps_pps_Pin         _PINNUM(1,4)
 #endif
 
-
-
 #define UserButton_Pin      _PINNUM(1,10)
 
 #if defined(VERSION_1)
@@ -79,7 +74,6 @@
 #define Power_Enable_Pin    _PINNUM(0,12)
 //#define Power_Enable1_Pin   _PINNUM(0,13)
 #endif
-
 
 #if defined(VERSION_1)
 #define GreenLed_Pin        _PINNUM(0,13)
@@ -95,8 +89,3 @@
 #define SerialGPS           Serial2
 
 #define MONITOR_SPEED       115200
-
-
-
-
-

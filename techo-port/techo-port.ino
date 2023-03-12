@@ -19,11 +19,11 @@ void boardInit();
 void LilyGo_logo(void);
 void setupLoRa();
 
-SPIClass        *dispPort  = nullptr;
-SPIClass        *rfPort    = nullptr;
+SPIClass        *dispPort  = nullptr;       // SPI to e-ink display
+SPIClass        *rfPort    = nullptr;       // SPI to SX1262
 GxIO_Class      *io        = nullptr;
-GxEPD_Class     *display   = nullptr;
-SX1262          radio     = nullptr;
+GxEPD_Class     *display   = nullptr;       // e-ink display object
+SX1262          radio     = nullptr;        // LoRa radio object
 
 uint32_t        blinkMillis = 0;
 uint8_t rgb = 0;
@@ -71,7 +71,6 @@ void loop()
         if (total_loops++ == 1000) NRF_POWER->SYSTEMOFF = 1;
     }
 }
-
 
 void LilyGo_logo(void)
 {
@@ -128,7 +127,6 @@ void setupDisplay()
     display->setTextColor(GxEPD_BLACK);
 }
 
-
 void configVDD(void)
 {
     // Configure UICR_REGOUT0 register only if it is set to default value.
@@ -150,10 +148,18 @@ void configVDD(void)
 
 void LoRaPacketReceived(void)
 {
-    // we got a packet, set the flag
-    String str;
-    int state = radio.readData(str);
     Serial.println("[SX1262] Got packet");
+
+    size_t len = radio.getPacketLength();
+    Serial.print("[SX1262] packet len:");
+    Serial.println(len);
+
+    unsigned char packet[256];
+    int state = radio.readData(packet,len);
+    for (int j = 0; j < len; j++)
+        Serial.println(packet[j]);
+
+    // Put the chip back in receive mode.
     radio.startReceive();
 }
 
