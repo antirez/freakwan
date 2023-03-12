@@ -13,15 +13,12 @@
 #include <RadioLib.h>
 
 void setupDisplay();
-void enableBacklight();
+void setDisplayBacklight();
 void configVDD(void);
 void boardInit();
 void LilyGo_logo(void);
 void setupLoRa();
 
-SPIClass        *dispPort  = nullptr;       // SPI to e-ink display
-SPIClass        *rfPort    = nullptr;       // SPI to SX1262
-GxIO_Class      *io        = nullptr;
 GxEPD_Class     *display   = nullptr;       // e-ink display object
 SX1262          radio     = nullptr;        // LoRa radio object
 
@@ -93,23 +90,21 @@ void LilyGo_logo(void)
     display->updateWindow(0,0,100,100,true);
     delay(2000);
     display->update();
-    setupLoRa();
 }
 
-void enableBacklight(bool en)
-{
+void setDisplayBacklight(bool en) {
     digitalWrite(ePaper_Backlight, en);
 }
 
 void setupDisplay()
 {
-    dispPort = new SPIClass(
+    SPIClass *dispPort = new SPIClass(
         /*SPIPORT*/NRF_SPIM2,
         /*MISO*/ ePaper_Miso,
         /*SCLK*/ePaper_Sclk,
         /*MOSI*/ePaper_Mosi);
 
-    io = new GxIO_Class(
+    GxIO_Class *io = new GxIO_Class(
         *dispPort,
         /*CS*/ ePaper_Cs,
         /*DC*/ ePaper_Dc,
@@ -164,7 +159,7 @@ void LoRaPacketReceived(void)
 }
 
 void setupLoRa() {
-    rfPort = new SPIClass(
+    SPIClass *rfPort = new SPIClass(
         /*SPIPORT*/NRF_SPIM3,
         /*MISO*/ LoRa_Miso,
         /*SCLK*/LoRa_Sclk,
@@ -221,8 +216,7 @@ void boardInit()
     digitalWrite(Power_Enable_Pin, HIGH);
 
     pinMode(ePaper_Backlight, OUTPUT);
-    //enableBacklight(true); //ON backlight
-    enableBacklight(false); //OFF  backlight
+    setDisplayBacklight(false);
 
     pinMode(GreenLed_Pin, OUTPUT);
     pinMode(RedLed_Pin, OUTPUT);
@@ -231,11 +225,11 @@ void boardInit()
     pinMode(UserButton_Pin, INPUT_PULLUP);
     pinMode(Touch_Pin, INPUT_PULLUP);
 
-    
-    digitalWrite(GreenLed_Pin, HIGH);
-    digitalWrite(RedLed_Pin, HIGH);
-    digitalWrite(BlueLed_Pin, HIGH);
+    // Make sure all teh leds are off at start-up
+    digitalWrite(GreenLed_Pin, LOW);
+    digitalWrite(RedLed_Pin, LOW);
+    digitalWrite(BlueLed_Pin, LOW);
 
     setupDisplay();
-    // setupLoRa();
+    setupLoRa();
 }
