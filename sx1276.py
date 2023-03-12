@@ -204,6 +204,12 @@ class SX1276:
         self.dio0_pin.irq(handler=self.txrxdone, trigger=Pin.IRQ_RISING)
         self.spi_write(RegIrqFlagsMask, 0) # Don't mask any IRQ.
 
+        # Set sync word to 0x12 (private network).
+        # Line is commented for now since 0x12 is already the default
+        # and we will likely just use this setting forever.
+        #
+        # self.spi_write(0x39,0x12)
+
         # Put the chip in standby in order to initialize the config.
         # We will change the mode later, to do rx or tx. The
         # configure() method should be called after the begin() method,
