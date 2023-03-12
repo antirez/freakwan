@@ -4,6 +4,7 @@
 
 #include "hwconfig.h"
 #include "eink.h"
+#include "proto.h"
 
 void configVDD(void);
 void boardInit();
@@ -93,8 +94,7 @@ void LoRaPacketReceived(void)
     for (int j = 0; j < len; j++)
         Serial.println(packet[j]);
 
-
-    displayPrint("Packet");
+    protoProcessPacket(packet,len);
 
     // Put the chip back in receive mode.
     radio.startReceive();
