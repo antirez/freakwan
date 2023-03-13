@@ -36,7 +36,10 @@ void setDisplayBacklight(bool en) {
 
 /* State of our terminal-alike display abstraction. */
 struct {
-    int font_height = 13; // Font height (including spacing).
+    int xres = 200;
+    int yres = 200;
+    int font_height = 13;   // Font height (including spacing).
+    int font_width = 10;    // Font width (including spacing).
     int y = 0;  // Y coordinate of last line written.
 } Scroller;
 
@@ -44,20 +47,37 @@ void displayPrint(const char *str) {
     display->setFont(&FreeMono9pt7b);
     display->setRotation(3);
 
-    int x = 0;
-    Scroller.y += Scroller.font_height;
-    const char *p = str;
+    int len = strlen(str);
+    int cols = Scroller.xres / Scroller.font_width;
+    int rows = Scroller.yres / Scroller.font_height;
+    int rows_needed = (len+cols-1)/cols;
+    int rows_avail = (Scroller.yres-Scroller.y)/Scroller.font_height;
 
-    /* Screen full? Clean it and start from top. */
-    if (Scroller.y > 200) {
-        Scroller.y = Scroller.font_height;
+    SerialMon.print("Needed: "); SerialMon.println(rows_needed);
+    SerialMon.print("Avail : "); SerialMon.println(rows_avail);
+
+    /* Screen is full? Clean it and start from top. */
+    if (rows_avail < rows_needed) {
+        Scroller.y = 0;
         display->fillScreen(GxEPD_WHITE);
     }
 
-    while(*p) {
-        display->drawChar(x, Scroller.y, p[0], GxEPD_BLACK, GxEPD_WHITE, 1);
-        p++;
+    /* String too long for the screen? Trim it. */
+    if (rows_needed > rows) {
+        int maxchars = rows*cols;
+        str += len-maxchars;
+    }
+
+    int x = 0;
+    Scroller.y += Scroller.font_height;
+    while(*str) {
+        display->drawChar(x, Scroller.y, str[0], GxEPD_BLACK, GxEPD_WHITE, 1);
+        str++;
         x += 10;
+        if (x+10 >= Scroller.xres) {
+            x = 0;
+            Scroller.y += Scroller.font_height;
+        }
     }
     display->update();
 }

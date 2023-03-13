@@ -24,9 +24,10 @@ void NRFDeepSleep(void) {
 void loop() {
     static int total_loops = 0;
 
-    digitalWrite(BlueLed_Pin, HIGH);
-    delay(50);
+    digitalWrite(GreenLed_Pin, HIGH);
+    delay(25);
     digitalWrite(GreenLed_Pin, LOW);
+    delay(25);
     uint8_t packet[256];
     float rssi;
     size_t len = PacketsQueueGet(packet, &rssi);
