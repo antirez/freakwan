@@ -1,15 +1,72 @@
 #include <RadioLib.h>
-#include "proto.h"
 
-SX1262          radio     = nullptr;        // LoRa radio object
+/* Packets are written by the IRQ handler of the LoRa chip event
+ * into the packets queue. But they are also accessed from the normal
+ * program flow in order to process them. The IRQ will fill the following
+ * pre-allocated (global) indexed structure, and the main task will
+ * fetch data periodically. */
 
-void LoRaPacketReceived(void)
-{
-    unsigned char packet[256];
+#define QUEUE_MAX_LEN 8 // Use a power of 2 to optimized modulo operation.
+
+typedef struct PQPacket {
+    float rssi;             // Received packet RSSI
+    uint8_t len;            // Packet len
+    uint8_t packet[256];    // Packet bytes
+} PQPacket;
+
+typedef struct PQ {
+    unsigned int len;    // Queue len (used slots).
+    unsigned int idx;    // Next packet to fill inside the 'packets' array.
+    struct PQPacket packets[QUEUE_MAX_LEN];
+} PQ;
+
+PQ PacketsQueue;                // Our global queue;
+SX1262 radio = nullptr;         // LoRa radio object
+
+/* Add a packet to the packets queue. Should be called only from the LoRa
+ * chip IRQ, since does not disable interrupts. To call it from elsewhere
+ * protect the call with noInterrupts() / interrupts(). */
+void PacketsQueueAdd(uint8_t *packet, size_t len, float rssi) {
+    PQ *q = &PacketsQueue;
+    PQPacket *p;
+
+    p = q->packets+q->idx;
+    memcpy(p->packet,packet,len);
+    p->len = len;
+    p->rssi = rssi;
+    q->idx = (q->idx+1) % QUEUE_MAX_LEN;
+    if (q->len < QUEUE_MAX_LEN) q->len++;
+}
+
+/* Fetch the oldest packet inside the queue, if any. Populate data by
+ * reference and return the packet length. If the queue is empty, zero
+ * is returned. */
+size_t PacketsQueueGet(uint8_t *packet, float *rssi) {
+    PQ *q = &PacketsQueue;
+    noInterrupts();
+    if (q->len == 0) {
+        interrupts();
+        return 0;
+    }
+    unsigned int idx = (q->idx + QUEUE_MAX_LEN - q->len) % QUEUE_MAX_LEN;
+    int len = q->packets[idx].len;
+    memcpy(packet,q->packets[idx].packet,len);
+    *rssi = q->packets[idx].rssi;
+    q->len--;
+    interrupts();
+    return len;
+}
+
+/* IRQ handler of the LoRa chip. Called when the current operation was
+ * completed (either packet received or transmitted). */
+void LoRaPacketReceived(void) {
+    uint8_t packet[256];
     size_t len = radio.getPacketLength();
     int state = radio.readData(packet,len);
-    protoProcessPacket(packet,len);
+    float rssi = radio.getRSSI();
 
+    PacketsQueueAdd(packet,len,rssi);
+    
     // Put the chip back in receive mode.
     radio.startReceive();
 }

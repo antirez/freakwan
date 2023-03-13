@@ -18,7 +18,7 @@ struct msg {
     };
 };
 
-void protoProcessPacket(const unsigned char *packet, size_t len) {
+void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
     struct msg *m = (struct msg*) packet;
     if (len < 2) return;    // No room for commmon header.
 
@@ -26,7 +26,7 @@ void protoProcessPacket(const unsigned char *packet, size_t len) {
     if (m->type == 0) {
         if (len < 14) return;   // No room for data header.
         char buf[256+32];
-        snprintf(buf,sizeof(buf),"%.*s> %.*s",(int)m->data.nicklen,m->data.payload,(int)len-14-m->data.nicklen,m->data.payload+m->data.nicklen);
+        snprintf(buf,sizeof(buf),"%.*s> %.*s (rssi: %02.f)",(int)m->data.nicklen,m->data.payload,(int)len-14-m->data.nicklen,m->data.payload+m->data.nicklen,(double)rssi);
         displayPrint(buf);
     }
 }

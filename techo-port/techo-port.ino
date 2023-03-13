@@ -24,12 +24,13 @@ void NRFDeepSleep(void) {
 void loop() {
     static int total_loops = 0;
 
-    digitalWrite(GreenLed_Pin, HIGH);
-    digitalWrite(RedLed_Pin, HIGH);
     digitalWrite(BlueLed_Pin, HIGH);
-    delay(300);
+    delay(50);
     digitalWrite(GreenLed_Pin, LOW);
-    delay(20);
+    uint8_t packet[256];
+    float rssi;
+    size_t len = PacketsQueueGet(packet, &rssi);
+    if (len) protoProcessPacket(packet,len,rssi);
 
     SerialMon.print("Looping: ");
     SerialMon.println(total_loops);
