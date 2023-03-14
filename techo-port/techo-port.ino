@@ -25,9 +25,9 @@ void loop() {
     static int total_loops = 0;
 
     digitalWrite(GreenLed_Pin, HIGH);
-    delay(25);
+    delay(45);
     digitalWrite(GreenLed_Pin, LOW);
-    delay(25);
+    delay(5);
     uint8_t packet[256];
     float rssi;
     size_t len = PacketsQueueGet(packet, &rssi);
@@ -35,7 +35,10 @@ void loop() {
 
     SerialMon.print("Looping: ");
     SerialMon.println(total_loops);
-    if (total_loops++ == 10000) NRFDeepSleep();
+    if (total_loops++ == 10000) {
+        digitalWrite(GreenLed_Pin, HIGH);
+        NRFDeepSleep();
+    }
 }
 
 void boardInit()

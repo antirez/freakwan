@@ -41,6 +41,7 @@ struct {
     int font_height = 13;   // Font height (including spacing).
     int font_width = 10;    // Font width (including spacing).
     int y = 0;  // Y coordinate of last line written.
+    int first_update_needed = true; // Full update never did so far.
 } Scroller;
 
 void displayPrint(const char *str) {
@@ -52,14 +53,13 @@ void displayPrint(const char *str) {
     int rows = Scroller.yres / Scroller.font_height;
     int rows_needed = (len+cols-1)/cols;
     int rows_avail = (Scroller.yres-Scroller.y)/Scroller.font_height;
-
-    SerialMon.print("Needed: "); SerialMon.println(rows_needed);
-    SerialMon.print("Avail : "); SerialMon.println(rows_avail);
+    int full_update = false; // True if we need a full screen update cycle.
 
     /* Screen is full? Clean it and start from top. */
     if (rows_avail < rows_needed) {
         Scroller.y = 0;
         display->fillScreen(GxEPD_WHITE);
+        full_update = true;
     }
 
     /* String too long for the screen? Trim it. */
@@ -79,5 +79,15 @@ void displayPrint(const char *str) {
             Scroller.y += Scroller.font_height;
         }
     }
-    display->update();
+
+    if (full_update || Scroller.first_update_needed) {
+        display->update();
+        Scroller.first_update_needed = false;
+    } else {
+        int start_y = Scroller.y - Scroller.font_height * rows_needed;
+        int stop_y = Scroller.y;
+        if (start_y < 0) start_y = 0;
+        if (stop_y > 199) stop_y = 199;
+        display->updateWindow(0,start_y,200,stop_y,true);
+    }
 }
