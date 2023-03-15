@@ -4,6 +4,7 @@
 #include "hwconfig.h"
 #include "eink.h"
 #include "radio.h"
+#include "ble.h"
 
 void configVDD(void);
 void boardInit();
@@ -22,7 +23,7 @@ void NRFDeepSleep(void) {
 }
 
 void loop() {
-    static int total_loops = 0;
+    static int ticks = 0;
 
     digitalWrite(GreenLed_Pin, HIGH);
     delay(45);
@@ -30,20 +31,33 @@ void loop() {
     delay(5);
     uint8_t packet[256];
     float rssi;
-    size_t len = PacketsQueueGet(packet, &rssi);
-    if (len) protoProcessPacket(packet,len,rssi);
 
-    SerialMon.print("Looping: ");
-    SerialMon.println(total_loops);
-    if (total_loops++ == 10000) {
+    /* Process incoming LoRa packets. */
+    while(1) {
+        size_t len = PacketsQueueGet(packet, &rssi);
+        if (len)
+            protoProcessPacket(packet,len,rssi);
+        else
+            break;
+    }
+
+    /* Process commands from BLU UART. */
+    BLEProcessCommands();
+
+    if (!(ticks % 10)) {
+        SerialMon.print("Looping: ");
+        SerialMon.println(ticks);
+    }
+
+    if (ticks == 50000) {
         digitalWrite(GreenLed_Pin, HIGH);
         NRFDeepSleep();
     }
+
+    ticks++;
 }
 
-void boardInit()
-{
-
+void boardInit() {
     uint8_t rlst = 0;
 
     SerialMon.begin(MONITOR_SPEED);
@@ -73,4 +87,5 @@ void boardInit()
 
     setupDisplay();
     setupLoRa();
+    setupBLE();
 }
