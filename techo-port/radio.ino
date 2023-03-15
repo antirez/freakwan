@@ -71,6 +71,17 @@ void LoRaPacketReceived(void) {
     radio.startReceive();
 }
 
+void setLoRaParams(void) {
+    radio.standby(); // Configuration should be modified in standby.
+    radio.setFrequency(FW.lora_freq);
+    radio.setBandwidth(FW.lora_bw);
+    radio.setSpreadingFactor(FW.lora_sp);
+    radio.setCodingRate(FW.lora_cr);
+    radio.setOutputPower(FW.lora_tx_power);
+    radio.setCurrentLimit(80);
+    radio.setDio1Action(LoRaPacketReceived);
+}
+
 void setupLoRa(void) {
     SPIClass *rfPort = new SPIClass(
         /*SPIPORT*/NRF_SPIM3,
@@ -90,19 +101,12 @@ void setupLoRa(void) {
         SerialMon.println(state);
     } else {
         SerialMon.println("[SX1262] Initialization succeeded.");
-        radio.setOutputPower(10);
         radio.setSyncWord(0x12);
-        radio.setBandwidth(250.0);
-        radio.setSpreadingFactor(12);
-        radio.setCodingRate(8);
         radio.setPreambleLength(12);
         radio.setCRC(true);
         radio.setRxBoostedGainMode(RADIOLIB_SX126X_RX_GAIN_BOOSTED,true);
+        setLoRaParams();
         //radio.setTCXO(2.4);
-        
-        radio.setCurrentLimit(80);
-        radio.setDio1Action(LoRaPacketReceived);
-        radio.standby();
         radio.startReceive();
     }
 }

@@ -67,9 +67,12 @@ void BLEProcessCommands(void) {
     if (BLEConnected == false) return;
     // Forward from BLEUART to HW Serial
     while (bleuart.available()) {
-        uint8_t ch;
-        ch = (uint8_t) bleuart.read();
-        Serial.write(ch);
+        uint8_t buf[256];
+        int len = bleuart.read(buf,sizeof(buf));
+        if (len) {
+            Serial.write(buf,len);
+            bleuart.write("hey!",4);
+        }
     }
 }
 

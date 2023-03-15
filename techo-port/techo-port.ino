@@ -5,16 +5,27 @@
 #include "eink.h"
 #include "radio.h"
 #include "ble.h"
+#include "settings.h"
 
-void configVDD(void);
+struct FreakWANGlobalSettings FW;
+
 void boardInit();
 
 void setup() {
+    initGlobalConfig();
     Serial.begin(115200);
     delay(200);
     boardInit();
     delay(200);
     displayPrint("FreakWAN started");
+}
+
+void initGlobalConfig(void) {
+    FW.lora_freq = 869.5;
+    FW.lora_sp = 12;
+    FW.lora_cr = 8;
+    FW.lora_bw = 250;
+    FW.lora_tx_power = 10;
 }
 
 /* Go into deep sleep. */
