@@ -46,9 +46,10 @@ void loop() {
     /* Process incoming LoRa packets. */
     while(1) {
         size_t len = ReceiveLoRaPacket(packet, &rssi);
-        if (len)
+        if (len) {
+            SerialMon.println("Got Packet");
             protoProcessPacket(packet,len,rssi);
-        else
+        } else
             break;
     }
 
@@ -56,8 +57,10 @@ void loop() {
     BLEProcessCommands();
 
     if (!(ticks % 10)) {
-        SerialMon.print("Looping: ");
-        SerialMon.println(ticks);
+        char buf[128];
+        snprintf(buf,sizeof(buf),"~Loop:%d, Used memory:%d",
+            ticks,dbgHeapUsed());
+        SerialMon.println(buf);
     }
 
     if (ticks == 50000) {

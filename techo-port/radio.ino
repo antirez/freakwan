@@ -58,7 +58,6 @@ void PacketsQueueAdd(struct PacketsQueue *q, uint8_t *packet, size_t len, float 
     p->len = len;
     p->rssi = rssi;
     p->next = NULL;
-    q->len++;
     if (q->len == 0) {
         q->tail = p;
         q->head = p;
@@ -66,6 +65,7 @@ void PacketsQueueAdd(struct PacketsQueue *q, uint8_t *packet, size_t len, float 
         q->tail->next = p;
         q->tail = p;
     }
+    q->len++;
 }
 
 /* Fetch the oldest packet inside the queue, if any. Freeing the packet
@@ -92,7 +92,7 @@ size_t ReceiveLoRaPacket(uint8_t *packet, float *rssi) {
     interrupts();
     size_t retval = 0;
     if (p) {
-        size_t retval = p->len;
+        retval = p->len;
         memcpy(packet,p->packet,p->len);
         *rssi = p->rssi;
         free(p);
