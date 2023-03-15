@@ -45,7 +45,7 @@ void loop() {
 
     /* Process incoming LoRa packets. */
     while(1) {
-        size_t len = PacketsQueueGet(packet, &rssi);
+        size_t len = ReceiveLoRaPacket(packet, &rssi);
         if (len)
             protoProcessPacket(packet,len,rssi);
         else

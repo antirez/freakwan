@@ -1,5 +1,7 @@
 #include <RadioLib.h>
 
+/* ============================ Data structures ============================= */
+
 /* Packets are written by the IRQ handler of the LoRa chip event
  * into the packets queue. But they are also accessed from the normal
  * program flow in order to process them. The IRQ will fill the following
@@ -8,53 +10,94 @@
 
 #define QUEUE_MAX_LEN 8 // Use a power of 2 to optimized modulo operation.
 
-typedef struct PQPacket {
-    float rssi;             // Received packet RSSI
-    uint8_t len;            // Packet len
-    uint8_t packet[256];    // Packet bytes
-} PQPacket;
+struct DataPacket {
+    struct DataPacket *next;    // Next packet in queue.
+    float rssi;                 // Received packet RSSI
+    uint8_t len;                // Packet len
+    uint8_t packet[0];          // Packet bytes
+};
 
-typedef struct PQ {
-    unsigned int len;    // Queue len (used slots).
-    unsigned int idx;    // Next packet to fill inside the 'packets' array.
-    struct PQPacket packets[QUEUE_MAX_LEN];
-} PQ;
+/* We push packets to the tail, and fetch from the head, so this
+ * queue is a FIFO. */
+struct PacketsQueue {
+    unsigned int len;           // Queue len.
+    DataPacket *head, *tail;
+};
 
-PQ PacketsQueue;                // Our global queue;
+enum RadioStates {
+    RadioStateStandby,
+    RadioStateRx,
+    RadioStateTx,
+    RadioStateSleep
+};
+
+/* ============================== Global state ============================== */
+
+struct PacketsQueue *RXQueue;   // Queue of received packets.
+struct PacketsQueue *TXQueue;   // Queue of packets to transmit.
 SX1262 radio = nullptr;         // LoRa radio object
+RadioStates RadioState = RadioStateStandby;
+
+/* ============================== Implementation ============================ */
+
+/* Create a new queue. */
+struct PacketsQueue *createPacketsQueue(void) {
+    struct PacketsQueue *q = (struct PacketsQueue*) malloc(sizeof(*q));
+    q->len = 0;
+    q->head = NULL;
+    q->tail = NULL;
+    return q;
+}
 
 /* Add a packet to the packets queue. Should be called only from the LoRa
  * chip IRQ, since does not disable interrupts. To call it from elsewhere
  * protect the call with noInterrupts() / interrupts(). */
-void PacketsQueueAdd(uint8_t *packet, size_t len, float rssi) {
-    PQ *q = &PacketsQueue;
-    PQPacket *p;
-
-    p = q->packets+q->idx;
+void PacketsQueueAdd(struct PacketsQueue *q, uint8_t *packet, size_t len, float rssi) {
+    struct DataPacket *p = (struct DataPacket*) malloc(sizeof(*p)+len);
     memcpy(p->packet,packet,len);
     p->len = len;
     p->rssi = rssi;
-    q->idx = (q->idx+1) % QUEUE_MAX_LEN;
-    if (q->len < QUEUE_MAX_LEN) q->len++;
+    p->next = NULL;
+    q->len++;
+    if (q->len == 0) {
+        q->tail = p;
+        q->head = p;
+    } else {
+        q->tail->next = p;
+        q->tail = p;
+    }
 }
 
-/* Fetch the oldest packet inside the queue, if any. Populate data by
- * reference and return the packet length. If the queue is empty, zero
- * is returned. */
-size_t PacketsQueueGet(uint8_t *packet, float *rssi) {
-    PQ *q = &PacketsQueue;
-    noInterrupts();
-    if (q->len == 0) {
-        interrupts();
-        return 0;
-    }
-    unsigned int idx = (q->idx + QUEUE_MAX_LEN - q->len) % QUEUE_MAX_LEN;
-    int len = q->packets[idx].len;
-    memcpy(packet,q->packets[idx].packet,len);
-    *rssi = q->packets[idx].rssi;
+/* Fetch the oldest packet inside the queue, if any. Freeing the packet
+ * once no longer used is up to the caller. */
+struct DataPacket *PacketsQueueGet(PacketsQueue *q) {
+    if (q->len == 0) return NULL;
+    struct DataPacket *p = q->head;
+    q->head = p->next;
     q->len--;
+    if (q->len == 0) {
+        q->head = NULL;
+        q->tail = NULL;
+    }
+    return p;
+}
+
+/* This is the exported API to get packets that arrived via the LoRa
+ * RF link. */
+size_t ReceiveLoRaPacket(uint8_t *packet, float *rssi) {
+    /* Disable interrupts since the LoRa radio interrupt is the one
+     * writes packets to the same queue we are accessing here. */
+    noInterrupts();
+    struct DataPacket *p = PacketsQueueGet(RXQueue);
     interrupts();
-    return len;
+    size_t retval = 0;
+    if (p) {
+        size_t retval = p->len;
+        memcpy(packet,p->packet,p->len);
+        *rssi = p->rssi;
+        free(p);
+    }
+    return retval;
 }
 
 /* IRQ handler of the LoRa chip. Called when the current operation was
@@ -65,7 +108,7 @@ void LoRaPacketReceived(void) {
     int state = radio.readData(packet,len);
     float rssi = radio.getRSSI();
 
-    PacketsQueueAdd(packet,len,rssi);
+    PacketsQueueAdd(RXQueue,packet,len,rssi);
     
     // Put the chip back in receive mode.
     radio.startReceive();
@@ -83,6 +126,9 @@ void setLoRaParams(void) {
 }
 
 void setupLoRa(void) {
+    RXQueue = createPacketsQueue();
+    TXQueue = createPacketsQueue();
+
     SPIClass *rfPort = new SPIClass(
         /*SPIPORT*/NRF_SPIM3,
         /*MISO*/ LoRa_Miso,
