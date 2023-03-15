@@ -42,24 +42,20 @@ void loop() {
     delay(5);
     uint8_t packet[256];
     float rssi;
+    size_t len;
 
     /* Process incoming LoRa packets. */
-    while(1) {
-        size_t len = ReceiveLoRaPacket(packet, &rssi);
-        if (len) {
-            SerialMon.println("Got Packet");
-            protoProcessPacket(packet,len,rssi);
-        } else
-            break;
-    }
+    while((len = ReceiveLoRaPacket(packet, &rssi)) != 0)
+        protoProcessPacket(packet,len,rssi);
 
     /* Process commands from BLU UART. */
     BLEProcessCommands();
 
     if (!(ticks % 10)) {
         char buf[128];
-        snprintf(buf,sizeof(buf),"~Loop:%d, Used memory:%d",
-            ticks,dbgHeapUsed());
+        int free_memory = dbgHeapTotal()-dbgHeapUsed();
+        snprintf(buf,sizeof(buf),"~Loop:%d, FreeMem:%d",
+            ticks,free_memory);
         SerialMon.println(buf);
     }
 
