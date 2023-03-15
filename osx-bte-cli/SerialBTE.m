@@ -174,7 +174,9 @@ didDiscoverServices:(NSError *)error
     for (CBService *aService in aPeripheral.services)
     {
         NSLog(@"Service: %@", aService.UUID);
-        [aPeripheral discoverCharacteristics:nil forService:aService];
+        if ([aService.UUID isEqual:serviceUuid]) {
+            [aPeripheral discoverCharacteristics:nil forService:aService];
+        }
     }
 }
 
@@ -192,10 +194,12 @@ didDiscoverServices:(NSError *)error
             [aPeripheral readValueForCharacteristic:aChar];
             readChar = aChar;
             [readChar retain];
+            NSLog(@"Notify Char: %@ about service %@", readChar.UUID, service.UUID);
         } else if (aChar.properties & CBCharacteristicPropertyWrite) {
             writeChar = aChar;
             [writeChar retain];
             printf("Write characteristic found.\n");
+            NSLog(@"Write Char: %@ about service %@", writeChar.UUID, service.UUID);
         }
     }
 }
