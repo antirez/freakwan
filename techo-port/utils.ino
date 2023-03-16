@@ -1,3 +1,9 @@
+/* Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com>
+ * All Rights Reserved
+ *
+ * This code is released under the BSD 2 clause license.
+ * See the LICENSE file for more information. */
+
 #include <limits.h>
 
 /* Given a time obtained with millis(), the function returns how

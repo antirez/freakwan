@@ -1,3 +1,9 @@
+/* Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com>
+ * All Rights Reserved
+ *
+ * This code is released under the BSD 2 clause license.
+ * See the LICENSE file for more information. */
+
 #include <SPI.h>
 #include <Wire.h>
 
@@ -8,25 +14,6 @@
 #include "settings.h"
 
 struct FreakWANGlobalSettings FW;
-
-void boardInit();
-
-void setup() {
-    initGlobalConfig();
-    Serial.begin(115200);
-    delay(200);
-    boardInit();
-    delay(200);
-    displayPrint("FreakWAN started");
-}
-
-void initGlobalConfig(void) {
-    FW.lora_freq = 869.5;
-    FW.lora_sp = 12;
-    FW.lora_cr = 8;
-    FW.lora_bw = 250;
-    FW.lora_tx_power = 10;
-}
 
 /* Go into deep sleep. */
 void NRFDeepSleep(void) {
@@ -62,8 +49,12 @@ void loop() {
         SerialMon.println(buf);
     }
 
-    if (!(ticks % 100)) {
-        protoSendDataMessage("T-Echo", "Hi there!", 9, 0);
+    if (!(ticks % 1000)) {
+        static int hicount = 0;
+        char msg[32];
+        snprintf(msg,sizeof(msg),"Hi %d",hicount);
+        protoSendDataMessage(FW.nick,msg,strlen(msg),0);
+        hicount++;
     }
 
     if (ticks == 50000) {
@@ -72,6 +63,39 @@ void loop() {
     }
 
     ticks++;
+}
+
+/* ================================ Initialization ========================== */
+
+/* Create a human readable random nickname for the device using
+ * the device unique ID. */
+void setRandomNick(char *s, size_t len) {
+    const char consonants[] = "kvprmnzflst";
+    const char vowels[] = "aeiou";
+    if (len == 0) return;
+    len--; // Make space for null term.
+    int nicklen = 8;
+    uint32_t val = NRF_FICR->DEVICEID[0];
+    while(len-- && nicklen--) {
+        if (nicklen & 1) {
+            *s = vowels[val%(sizeof(vowels)-1)];
+            val /= (sizeof(vowels)-1);
+        } else {
+            *s = consonants[val%(sizeof(consonants)-1)];
+            val /= (sizeof(consonants)-1);
+        }
+        s++;
+    }
+    *s = 0;
+}
+
+void initGlobalConfig(void) {
+    FW.lora_freq = 869.5;
+    FW.lora_sp = 12;
+    FW.lora_cr = 8;
+    FW.lora_bw = 250;
+    FW.lora_tx_power = 10;
+    setRandomNick(FW.nick,sizeof(FW.nick));
 }
 
 void boardInit() {
@@ -105,4 +129,13 @@ void boardInit() {
     setupDisplay();
     setupLoRa();
     setupBLE();
+}
+
+void setup() {
+    initGlobalConfig();
+    Serial.begin(115200);
+    delay(200);
+    boardInit();
+    delay(200);
+    displayPrint("FreakWAN started");
 }

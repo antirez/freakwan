@@ -1,3 +1,9 @@
+/* Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com>
+ * All Rights Reserved
+ *
+ * This code is released under the BSD 2 clause license.
+ * See the LICENSE file for more information. */
+
 #include <GxEPD.h>
 #include <GxDEPG0150BN/GxDEPG0150BN.h>  // 1.54" b/w LILYGO T-ECHO display
 #include <Fonts/FreeMono9pt7b.h>

@@ -1,3 +1,6 @@
+/* This code comes from the LILYGO GitHub repository and
+ * defines all the external device connections. */
+
 #pragma once
 
 #include <Arduino.h>

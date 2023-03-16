@@ -1,17 +1,11 @@
-/*********************************************************************
- This is an example for our nRF52 based Bluefruit LE modules
+/* Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com>
+ * All Rights Reserved
+ *
+ * This code is released under the BSD 2 clause license.
+ * See the LICENSE file for more information. */
 
- Pick one up today in the adafruit shop!
-
- Adafruit invests time and resources providing this open source code,
- please support Adafruit and open-source hardware by purchasing
- products from Adafruit!
-
- MIT license, check LICENSE for more information
- All text above, and the splash screen below must be included in
- any redistribution
-*********************************************************************/
 #include <bluefruit.h>
+#include "settings.h"
 
 // BLE Service
 BLEDfu  bledfu;  // OTA DFU service
@@ -21,12 +15,14 @@ BLEBas  blebas;  // battery
 bool BLEConnected = false;
 
 void setupBLE(void) {
-  Bluefruit.autoConnLed(true);
+  Bluefruit.autoConnLed(false); // Don't use the led to show BLE connection.
   Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
 
   Bluefruit.begin();
-  Bluefruit.setTxPower(4);    // Check bluefruit.h for supported values
-  //Bluefruit.setName(getMcuUniqueID()); // useful testing with multiple central connections
+  Bluefruit.setTxPower(4);
+  char btname[16];
+  snprintf(btname,sizeof(btname),"FW_%s",FW.nick);
+  Bluefruit.setName(btname);
   Bluefruit.Periph.setConnectCallback(connect_callback);
   Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
 
@@ -78,7 +74,7 @@ void BLEProcessCommands(void) {
 
 void connect_callback(uint16_t conn_handle) {
     BLEConnected = true;
-    BLEConnection* connection = Bluefruit.Connection(conn_handle);
+    BLEConnection *connection = Bluefruit.Connection(conn_handle);
     char central_name[32] = { 0 };
     connection->getPeerName(central_name, sizeof(central_name));
     Serial.print("Connected to ");
@@ -87,10 +83,7 @@ void connect_callback(uint16_t conn_handle) {
 
 void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
     (void) conn_handle;
-    (void) reason;
-
     BLEConnected = false;
-    Serial.println();
     Serial.print("Disconnected, reason = 0x");
     Serial.println(reason, HEX);
 }
