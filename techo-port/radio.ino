@@ -176,6 +176,13 @@ void sendLoRaPacket(uint8_t *packet, size_t len) {
 void processLoRaSendQueue(void) {
     if (RadioState == RadioStateTx) return; /* Already transmitting. */
     if (packetOnAir()) return;              /* Channel is busy. */
+
+    struct DataPacket *p = packetsQueueGet(TXQueue);
+    if (p) {
+        RadioState = RadioStateTx;
+        radio.startTransmit(p->packet,p->len);
+        free(p);
+    }
 }
 
 void setLoRaParams(void) {

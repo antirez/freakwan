@@ -48,6 +48,9 @@ void loop() {
     while((len = receiveLoRaPacket(packet, &rssi)) != 0)
         protoProcessPacket(packet,len,rssi);
 
+    /* Send packets from the queue. */
+    processLoRaSendQueue();
+
     /* Process commands from BLU UART. */
     BLEProcessCommands();
 
@@ -57,6 +60,10 @@ void loop() {
         snprintf(buf,sizeof(buf),"~Loop:%d, FreeMem:%d",
             ticks,free_memory);
         SerialMon.println(buf);
+    }
+
+    if (!(ticks % 100)) {
+        protoSendDataMessage("T-Echo", "Hi there!", 9, 0);
     }
 
     if (ticks == 50000) {

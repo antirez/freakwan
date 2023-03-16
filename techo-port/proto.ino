@@ -1,5 +1,7 @@
 #include <stdint.h>
+#include "proto.h"
 #include "eink.h"
+#include "radio.h"
 
 struct msg {
     /* Common header */
@@ -13,7 +15,7 @@ struct msg {
             uint8_t ttl;    // Time to live.
             uint8_t sender[6];  // Sender address.
             uint8_t nicklen;    // Nick length.
-            uint8_t payload[1]; // Nick + text.
+            uint8_t payload[0]; // Nick + text.
         } data;
     };
 };
@@ -23,10 +25,32 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
     if (len < 2) return;    // No room for commmon header.
 
     /* Process data packet. */
-    if (m->type == 0) {
+    if (m->type == MSG_TYPE_DATA) {
         if (len < 14) return;   // No room for data header.
         char buf[256+32];
         snprintf(buf,sizeof(buf),"%.*s> %.*s (rssi: %02.f)",(int)m->data.nicklen,m->data.payload,(int)len-14-m->data.nicklen,m->data.payload+m->data.nicklen,(double)rssi);
         displayPrint(buf);
     }
+}
+
+void protoSendDataMessage(const char *nick, const char *msg, size_t msglen, uint8_t flags) {
+    unsigned char buf[256];
+    struct msg *m = (struct msg*) buf;
+    m->type = MSG_TYPE_DATA;
+    m->flags = flags;
+    m->data.id[0] = 0x1;
+    m->data.id[1] = 0x2;
+    m->data.id[2] = 0x3;
+    m->data.id[3] = 0x4;
+    m->data.ttl = 15;
+    m->data.sender[0] = 0xfa;
+    m->data.sender[1] = 0xfb;
+    m->data.sender[2] = 0xfc;
+    m->data.sender[3] = 0xfd;
+    m->data.sender[4] = 0xfe;
+    m->data.sender[5] = 0xff;
+    m->data.nicklen = strlen(nick);
+    memcpy(m->data.payload,nick,m->data.nicklen);
+    memcpy(m->data.payload+m->data.nicklen,msg,msglen);
+    sendLoRaPacket(buf, 14+m->data.nicklen+msglen);
 }
