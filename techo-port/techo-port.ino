@@ -45,7 +45,7 @@ void loop() {
     size_t len;
 
     /* Process incoming LoRa packets. */
-    while((len = ReceiveLoRaPacket(packet, &rssi)) != 0)
+    while((len = receiveLoRaPacket(packet, &rssi)) != 0)
         protoProcessPacket(packet,len,rssi);
 
     /* Process commands from BLU UART. */

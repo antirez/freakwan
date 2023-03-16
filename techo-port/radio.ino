@@ -1,4 +1,5 @@
 #include <RadioLib.h>
+#include "utils.h"
 
 /* ============================ Data structures ============================= */
 
@@ -14,6 +15,7 @@ struct DataPacket {
     struct DataPacket *next;    // Next packet in queue.
     float rssi;                 // Received packet RSSI
     uint8_t len;                // Packet len
+    uint8_t bad_crc;            // CRC mismatch if non zero.
     uint8_t packet[0];          // Packet bytes
 };
 
@@ -37,6 +39,10 @@ struct PacketsQueue *RXQueue;   // Queue of received packets.
 struct PacketsQueue *TXQueue;   // Queue of packets to transmit.
 SX1262 radio = nullptr;         // LoRa radio object
 RadioStates RadioState = RadioStateStandby;
+volatile unsigned long PreambleStartTime = 0;
+
+/* RxDone, PreambleDetected, Timeout, CrcErr, HeaderErr. */
+uint16_t RadioIRQMask = 0b0000001001100110;
 
 /* ============================== Implementation ============================ */
 
@@ -52,12 +58,13 @@ struct PacketsQueue *createPacketsQueue(void) {
 /* Add a packet to the packets queue. Should be called only from the LoRa
  * chip IRQ, since does not disable interrupts. To call it from elsewhere
  * protect the call with noInterrupts() / interrupts(). */
-void PacketsQueueAdd(struct PacketsQueue *q, uint8_t *packet, size_t len, float rssi) {
+void packetsQueueAdd(struct PacketsQueue *q, uint8_t *packet, size_t len, float rssi, int bad_crc) {
     struct DataPacket *p = (struct DataPacket*) malloc(sizeof(*p)+len);
     memcpy(p->packet,packet,len);
     p->len = len;
     p->rssi = rssi;
     p->next = NULL;
+    p->bad_crc = bad_crc;
     if (q->len == 0) {
         q->tail = p;
         q->head = p;
@@ -70,7 +77,7 @@ void PacketsQueueAdd(struct PacketsQueue *q, uint8_t *packet, size_t len, float 
 
 /* Fetch the oldest packet inside the queue, if any. Freeing the packet
  * once no longer used is up to the caller. */
-struct DataPacket *PacketsQueueGet(PacketsQueue *q) {
+struct DataPacket *packetsQueueGet(PacketsQueue *q) {
     if (q->len == 0) return NULL;
     struct DataPacket *p = q->head;
     q->head = p->next;
@@ -82,13 +89,61 @@ struct DataPacket *PacketsQueueGet(PacketsQueue *q) {
     return p;
 }
 
+/* IRQ handler of the LoRa chip. Called when the current operation was
+ * completed (either packet received or transmitted). */
+void LoRaIRQHandler(void) {
+    int status = radio.getIrqStatus();
+
+    if (status & RADIOLIB_SX126X_IRQ_RX_DONE) {
+        uint8_t packet[256];
+        size_t len = radio.getPacketLength();
+        int state = radio.readData(packet,len);
+        float rssi = radio.getRSSI();
+        int bad_crc = (status & RADIOLIB_SX126X_IRQ_CRC_ERR) != 0;
+
+        packetsQueueAdd(RXQueue,packet,len,rssi,bad_crc);
+    } else if (status & RADIOLIB_SX126X_IRQ_TX_DONE) {
+        RadioState = RadioStateRx;
+    }
+
+    /* In order to know if the radio is busy receiving, and avoid starting
+     * a transmission while a packet is on the air, we remember if we
+     * are receiving some packet right now, and at which time the
+     * preamble started. */
+    if (status & 0b100 /* Preamble detected. */) {
+        PreambleStartTime = millis();
+    } else {
+        /* For any other event, that is packet received, packet error and
+         * so forth, we want to reset the variable to report we
+         * are no longer receiving a packet. */
+        PreambleStartTime = 0;
+    }
+
+    // Put the chip back in receive mode.
+    radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF,RadioIRQMask,RadioIRQMask);
+}
+
+/* Return true if we are currently in the process of receiving a packet. */
+#define MAX_TIME_ON_AIR 30000
+bool packetOnAir(void) {
+    if (PreambleStartTime == 0) return false;
+    if (timeElapsedSince(PreambleStartTime) > MAX_TIME_ON_AIR) {
+        PreambleStartTime = 0;
+        return false;
+    } else {
+        return true;
+    }
+}
+
+/* =============================== Exported API ============================= */
+
 /* This is the exported API to get packets that arrived via the LoRa
  * RF link. */
-size_t ReceiveLoRaPacket(uint8_t *packet, float *rssi) {
+size_t receiveLoRaPacket(uint8_t *packet, float *rssi) {
     /* Disable interrupts since the LoRa radio interrupt is the one
      * writes packets to the same queue we are accessing here. */
     noInterrupts();
-    struct DataPacket *p = PacketsQueueGet(RXQueue);
+    struct DataPacket *p = packetsQueueGet(RXQueue);
     interrupts();
     size_t retval = 0;
     if (p) {
@@ -100,18 +155,27 @@ size_t ReceiveLoRaPacket(uint8_t *packet, float *rssi) {
     return retval;
 }
 
-/* IRQ handler of the LoRa chip. Called when the current operation was
- * completed (either packet received or transmitted). */
-void LoRaPacketReceived(void) {
-    uint8_t packet[256];
-    size_t len = radio.getPacketLength();
-    int state = radio.readData(packet,len);
-    float rssi = radio.getRSSI();
+/* Put the packet in the send queue. Will actually send it in
+ * ProcessLoRaSendQueue(). */
+#define TX_QUEUE_MAX_LEN 128
+void sendLoRaPacket(uint8_t *packet, size_t len) {
+    if (len > 256) {
+        Serial.println("[LoRa] too long packet discarded by SendLoRaPacket()");
+        return;
+    }
+    if (TXQueue->len == TX_QUEUE_MAX_LEN) {
+        struct DataPacket *oldest = packetsQueueGet(TXQueue);
+        free(oldest);
+        Serial.println("[LoRa] WARNING: TX queue overrun. "
+                       "Old packet discarded.");
+    }
+    packetsQueueAdd(TXQueue,packet,len,0,0);
+}
 
-    PacketsQueueAdd(RXQueue,packet,len,rssi);
-    
-    // Put the chip back in receive mode.
-    radio.startReceive();
+/* Try to send the next packet in queue, if */
+void processLoRaSendQueue(void) {
+    if (RadioState == RadioStateTx) return; /* Already transmitting. */
+    if (packetOnAir()) return;              /* Channel is busy. */
 }
 
 void setLoRaParams(void) {
@@ -122,8 +186,10 @@ void setLoRaParams(void) {
     radio.setCodingRate(FW.lora_cr);
     radio.setOutputPower(FW.lora_tx_power);
     radio.setCurrentLimit(80);
-    radio.setDio1Action(LoRaPacketReceived);
+    radio.setDio1Action(LoRaIRQHandler);
 }
+
+/* ============================== Initialization ============================ */
 
 void setupLoRa(void) {
     RXQueue = createPacketsQueue();
@@ -153,6 +219,7 @@ void setupLoRa(void) {
         radio.setRxBoostedGainMode(RADIOLIB_SX126X_RX_GAIN_BOOSTED,true);
         setLoRaParams();
         //radio.setTCXO(2.4);
-        radio.startReceive();
+        RadioState = RadioStateRx;
+        radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF,RadioIRQMask,RadioIRQMask);
     }
 }

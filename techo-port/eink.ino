@@ -3,6 +3,7 @@
 #include <Fonts/FreeMono9pt7b.h>
 #include <GxIO/GxIO_SPI/GxIO_SPI.h>
 #include <GxIO/GxIO.h>
+#include <ctype.h>
 
 GxEPD_Class *display   = nullptr;       // E-ink display object.
 
@@ -71,7 +72,8 @@ void displayPrint(const char *str) {
     int x = 0;
     Scroller.y += Scroller.font_height;
     while(*str) {
-        display->drawChar(x, Scroller.y, str[0], GxEPD_BLACK, GxEPD_WHITE, 1);
+        if (isprint(str[0]))
+            display->drawChar(x, Scroller.y, str[0], GxEPD_BLACK, GxEPD_WHITE, 1);
         str++;
         x += 10;
         if (x+10 >= Scroller.xres) {
