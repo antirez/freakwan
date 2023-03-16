@@ -33,24 +33,41 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
     }
 }
 
+/* Write six bytes of the device ID to the target string. */
+void protoFillSenderAddress(uint8_t *sender) {
+    uint32_t id0 = NRF_FICR->DEVICEID[0];
+    uint32_t id1 = NRF_FICR->DEVICEID[1];
+    sender[0] = id0 & 0xff;
+    sender[1] = (id0 >> 8) & 0xff;
+    sender[2] = (id0 >> 16) & 0xff;
+    sender[3] = (id0 >> 24) & 0xff;
+    sender[4] = id1 & 0xff;
+    sender[5] = (id1 >> 8) & 0xff;
+}
+
+/* Send a data message with the specified nick, message and flags. */
 void protoSendDataMessage(const char *nick, const char *msg, size_t msglen, uint8_t flags) {
     unsigned char buf[256];
     struct msg *m = (struct msg*) buf;
+    int nicklen = strlen(nick);
+    int hdrlen = 14; /* Data header + 1 nick len byte. */
+
+    /* Trim nick and len to never go over max packet size. */
+    if (hdrlen+nicklen > sizeof(buf))
+        nicklen = sizeof(buf)-hdrlen;
+    if (hdrlen+nicklen+msglen > sizeof(buf))
+        msglen = sizeof(buf)-hdrlen-nicklen;
+
     m->type = MSG_TYPE_DATA;
     m->flags = flags;
-    m->data.id[0] = 0x1;
-    m->data.id[1] = 0x2;
-    m->data.id[2] = 0x3;
-    m->data.id[3] = 0x4;
+    m->data.id[0] = random(256);
+    m->data.id[1] = random(256);
+    m->data.id[2] = random(256);
+    m->data.id[3] = random(256);
     m->data.ttl = 15;
-    m->data.sender[0] = 0xfa;
-    m->data.sender[1] = 0xfb;
-    m->data.sender[2] = 0xfc;
-    m->data.sender[3] = 0xfd;
-    m->data.sender[4] = 0xfe;
-    m->data.sender[5] = 0xff;
-    m->data.nicklen = strlen(nick);
+    protoFillSenderAddress(m->data.sender);
+    m->data.nicklen = nicklen;
     memcpy(m->data.payload,nick,m->data.nicklen);
     memcpy(m->data.payload+m->data.nicklen,msg,msglen);
-    sendLoRaPacket(buf, 14+m->data.nicklen+msglen);
+    sendLoRaPacket(buf, hdrlen+m->data.nicklen+msglen);
 }
