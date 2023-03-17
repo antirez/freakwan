@@ -130,6 +130,7 @@ void LoRaIRQHandler(void) {
         fw_debug("Preamble detected\n");
         PreambleStartTime = millis();
         ValidHeaderFound = false;
+        return; // Return ASAP to avoid resetting the radio.
     } else if (status & 0b10000 /* Valid Header. */) {
         /* After the preamble, the LoRa radio may also detect that the
          * packet has a good looking header. We set this state, since, 
@@ -138,9 +139,10 @@ void LoRaIRQHandler(void) {
          * RX DONE event, and set PreambleStartTime to zero again. */
         fw_debug("Valid header found\n");
         ValidHeaderFound = true;
+        return; // Return ASAP to avoid resetting the radio.
     } else {
-        /* For any other event, that is packet received, packet error and
-         * so forth, we want to reset the variable to report we
+        /* For any other event, that is packet received, sent, packet error
+         * and so forth, we want to reset the variable to report we
          * are no longer receiving a packet. */
         PreambleStartTime = 0;
         ValidHeaderFound = false;
