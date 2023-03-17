@@ -45,10 +45,13 @@ struct PacketsQueue *RXQueue;   // Queue of received packets.
 struct PacketsQueue *TXQueue;   // Queue of packets to transmit.
 SX1262 radio = nullptr;         // LoRa radio object
 RadioStates RadioState = RadioStateStandby;
-volatile unsigned long PreambleStartTime = 0;
 
-/* RxDone, PreambleDetected, Timeout, CrcErr, HeaderErr. */
-uint16_t RadioIRQMask = 0b0000001001100111;
+/* Variables used to detect "busy channel" condition for Listen Before Talk. */
+volatile unsigned long PreambleStartTime = 0;
+volatile bool ValidHeaderFound = false;
+
+/* RxDone, PreambleDetected, Timeout, CrcErr, HeaderOk, HeaderErr. */
+uint16_t RadioIRQMask = 0b0000001001110111;
 
 /* ============================== Implementation ============================ */
 
@@ -96,12 +99,15 @@ struct DataPacket *packetsQueueGet(PacketsQueue *q) {
 }
 
 /* IRQ handler of the LoRa chip. Called when the current operation was
- * completed (either packet received or transmitted). */
+ * completed (either packet received or transmitted).
+ * Note that inside the IRQ it is not safe to write to the serial,
+ * however this is disabled by default, and is only used for debugging. */
 void LoRaIRQHandler(void) {
     int status = radio.getIrqStatus();
+    const bool debug = false;
 
-    Serial.print("IRQ ");
-    Serial.println(status,BIN);
+    if (debug) Serial.print("IRQ ");
+    if (debug) Serial.println(status,BIN);
     if (status & RADIOLIB_SX126X_IRQ_RX_DONE) {
         uint8_t packet[256];
         size_t len = radio.getPacketLength();
@@ -111,6 +117,7 @@ void LoRaIRQHandler(void) {
 
         packetsQueueAdd(RXQueue,packet,len,rssi,bad_crc);
     } else if (status & RADIOLIB_SX126X_IRQ_TX_DONE) {
+        digitalWrite(RedLed_Pin, HIGH);
         RadioState = RadioStateRx;
     }
 
@@ -119,31 +126,51 @@ void LoRaIRQHandler(void) {
      * are receiving some packet right now, and at which time the
      * preamble started. */
     if (status & 0b100 /* Preamble detected. */) {
-        Serial.println("Preamble detected");
+        if (debug) Serial.println("Preamble detected");
         PreambleStartTime = millis();
+        ValidHeaderFound = false;
+    } else if (status & 0b10000 /* Valid Header. */) {
+        /* After the preamble, the LoRa radio may also detect that the
+         * packet has a good looking header. We set this state, since, 
+         * in this case, we are willing to wait for a larger timeout to
+         * clear the radio busy condition: we hope we will receive the
+         * RX DONE event, and set PreambleStartTime to zero again. */
+        if (debug) Serial.println("Valid header found");
+        ValidHeaderFound = true;
     } else {
         /* For any other event, that is packet received, packet error and
          * so forth, we want to reset the variable to report we
          * are no longer receiving a packet. */
         PreambleStartTime = 0;
+        ValidHeaderFound = false;
     }
 
     // Put the chip back in receive mode.
     radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF,RadioIRQMask,RadioIRQMask);
 } /* Return true if we are currently in the process of receiving a packet. */
-#define MAX_TIME_ON_AIR 2000
+#define MAX_TIME_ON_AIR_NO_SYNC 2000
+#define MAX_TIME_ON_AIR_SYNC 5000
 bool packetOnAir(void) {
     if (PreambleStartTime == 0) return false;
-    /* We need to reset the state after a given amount of time. Unfortunately
-     * while the SX1276 has a status register that will tell us if somebody
-     * is transmitting a LoRa packet right now, with the SX1262 there is
-     * no way to know this while receiving a packet. Because of this, sometimes,
-     * the radio picks a preamble about a packet that is not really fully
-     * received, or for which the sync word is different than the one we
-     * configured: in this case the RX Done IRQ event will never fire, and the
-     * PreambleStartTime condition will remain true. This is why we use a
-     * timeout and clear the state after it elapsed. */
-    if (timeElapsedSince(PreambleStartTime) > MAX_TIME_ON_AIR) {
+    /* In theory, the channel busy condition provided by the PreambleStartTime
+     * variable should clear automatically, once the RX is done. However
+     * things are a bit harder: sometimes we just detect a preamble, but the
+     * sync word is different, so the condition will never be cleared. For
+     * this reason we take the busy state for a maximum amount of time:
+     *
+     * 1. If we received not just the preamble, but also the header, we
+     *    can hope the RX done event will eventually fire, so we allow for
+     *    a longer time before declaring anyway the channel as free.
+     * 2. If we just received the preamble, not followed by a valid sync word,
+     *    we will clear it faster.
+     *
+     * Note that with the SX1276, there is no such a problem that we have here
+     * with the SX1262. The older chip has a status register that will tell
+     * us if somebody is transmitting a LoRa packet right now. The register is
+     * not implemented in the new chip. */
+     unsigned long max_time = ValidHeaderFound ? MAX_TIME_ON_AIR_SYNC :
+                                                 MAX_TIME_ON_AIR_NO_SYNC;
+    if (timeElapsedSince(PreambleStartTime) > max_time) {
         PreambleStartTime = 0;
         return false;
     } else {
@@ -199,6 +226,7 @@ void processLoRaSendQueue(void) {
     struct DataPacket *p = packetsQueueGet(TXQueue);
     if (p) {
         SerialMon.println("[SX1262] sending packet");
+        digitalWrite(RedLed_Pin, LOW);
         RadioState = RadioStateTx;
         radio.startTransmit(p->packet,p->len);
         free(p);

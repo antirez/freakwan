@@ -56,6 +56,8 @@ void loop() {
         char msg[32];
         snprintf(msg,sizeof(msg),"Hi %d",hicount);
         protoSendDataMessage(FW.nick,msg,strlen(msg),0);
+        snprintf(msg,sizeof(msg),"you> Hi %d",hicount);
+        displayPrint(msg);
         hicount++;
     }
 
