@@ -48,7 +48,7 @@ RadioStates RadioState = RadioStateStandby;
 volatile unsigned long PreambleStartTime = 0;
 
 /* RxDone, PreambleDetected, Timeout, CrcErr, HeaderErr. */
-uint16_t RadioIRQMask = 0b0000001001100110;
+uint16_t RadioIRQMask = 0b0000001001100111;
 
 /* ============================== Implementation ============================ */
 
@@ -100,6 +100,8 @@ struct DataPacket *packetsQueueGet(PacketsQueue *q) {
 void LoRaIRQHandler(void) {
     int status = radio.getIrqStatus();
 
+    Serial.print("IRQ ");
+    Serial.println(status,BIN);
     if (status & RADIOLIB_SX126X_IRQ_RX_DONE) {
         uint8_t packet[256];
         size_t len = radio.getPacketLength();
@@ -117,6 +119,7 @@ void LoRaIRQHandler(void) {
      * are receiving some packet right now, and at which time the
      * preamble started. */
     if (status & 0b100 /* Preamble detected. */) {
+        Serial.println("Preamble detected");
         PreambleStartTime = millis();
     } else {
         /* For any other event, that is packet received, packet error and
@@ -127,12 +130,19 @@ void LoRaIRQHandler(void) {
 
     // Put the chip back in receive mode.
     radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF,RadioIRQMask,RadioIRQMask);
-}
-
-/* Return true if we are currently in the process of receiving a packet. */
-#define MAX_TIME_ON_AIR 30000
+} /* Return true if we are currently in the process of receiving a packet. */
+#define MAX_TIME_ON_AIR 2000
 bool packetOnAir(void) {
     if (PreambleStartTime == 0) return false;
+    /* We need to reset the state after a given amount of time. Unfortunately
+     * while the SX1276 has a status register that will tell us if somebody
+     * is transmitting a LoRa packet right now, with the SX1262 there is
+     * no way to know this while receiving a packet. Because of this, sometimes,
+     * the radio picks a preamble about a packet that is not really fully
+     * received, or for which the sync word is different than the one we
+     * configured: in this case the RX Done IRQ event will never fire, and the
+     * PreambleStartTime condition will remain true. This is why we use a
+     * timeout and clear the state after it elapsed. */
     if (timeElapsedSince(PreambleStartTime) > MAX_TIME_ON_AIR) {
         PreambleStartTime = 0;
         return false;
@@ -181,14 +191,23 @@ void sendLoRaPacket(uint8_t *packet, size_t len) {
 /* Try to send the next packet in queue, if */
 void processLoRaSendQueue(void) {
     if (RadioState == RadioStateTx) return; /* Already transmitting. */
-    if (packetOnAir()) return;              /* Channel is busy. */
+    if (packetOnAir()) {
+        SerialMon.println("[SX1262] channel busy");
+        return;              /* Channel is busy. */
+    }
 
     struct DataPacket *p = packetsQueueGet(TXQueue);
     if (p) {
+        SerialMon.println("[SX1262] sending packet");
         RadioState = RadioStateTx;
         radio.startTransmit(p->packet,p->len);
         free(p);
     }
+}
+
+/* Return the number of packets waiting to be sent. */
+int getLoRaSendQueueLen(void) {
+    return TXQueue->len;
 }
 
 void setLoRaParams(void) {

@@ -20,18 +20,20 @@ void NRFDeepSleep(void) {
     NRF_POWER->SYSTEMOFF = 1;
 }
 
+#define TICK_DUR 50
+#define MS_TO_TICKS(ms) ((ms)/TICK_DUR)
 void loop() {
     static int ticks = 0;
 
     digitalWrite(GreenLed_Pin, HIGH);
-    delay(45);
+    delay(TICK_DUR-1);
     digitalWrite(GreenLed_Pin, LOW);
-    delay(5);
+    delay(1);
+
+    /* Process incoming LoRa packets. */
     uint8_t packet[256];
     float rssi;
     size_t len;
-
-    /* Process incoming LoRa packets. */
     while((len = receiveLoRaPacket(packet, &rssi)) != 0)
         protoProcessPacket(packet,len,rssi);
 
@@ -41,15 +43,15 @@ void loop() {
     /* Process commands from BLU UART. */
     BLEProcessCommands();
 
-    if (!(ticks % 10)) {
+    if (!(ticks % MS_TO_TICKS(5000))) {
         char buf[128];
         int free_memory = dbgHeapTotal()-dbgHeapUsed();
-        snprintf(buf,sizeof(buf),"~Loop:%d, FreeMem:%d",
-            ticks,free_memory);
+        snprintf(buf,sizeof(buf),"~%s, FreeMem:%d, SendQueueLen:%d",
+            FW.nick,free_memory,getLoRaSendQueueLen());
         SerialMon.println(buf);
     }
 
-    if (!(ticks % 1000)) {
+    if (!(ticks % MS_TO_TICKS(10000))) {
         static int hicount = 0;
         char msg[32];
         snprintf(msg,sizeof(msg),"Hi %d",hicount);
@@ -57,7 +59,7 @@ void loop() {
         hicount++;
     }
 
-    if (ticks == 50000) {
+    if (ticks >= MS_TO_TICKS(600*1000)) {
         digitalWrite(GreenLed_Pin, HIGH);
         NRFDeepSleep();
     }
