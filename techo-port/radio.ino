@@ -6,6 +6,7 @@
 
 #include <RadioLib.h>
 #include "utils.h"
+#include "fw_debug.h"
 
 /* ============================ Data structures ============================= */
 
@@ -100,14 +101,14 @@ struct DataPacket *packetsQueueGet(PacketsQueue *q) {
 
 /* IRQ handler of the LoRa chip. Called when the current operation was
  * completed (either packet received or transmitted).
- * Note that inside the IRQ it is not safe to write to the serial,
- * however this is disabled by default, and is only used for debugging. */
+ *
+ * Note that inside the IRQ it is not safe to write to the serial (via the
+ * fw_debug() calls), however this is disabled by default, and is only used
+ * for debugging. */
 void LoRaIRQHandler(void) {
     int status = radio.getIrqStatus();
-    const bool debug = false;
 
-    if (debug) Serial.print("IRQ ");
-    if (debug) Serial.println(status,BIN);
+    fw_debug("IRQ: %x\n",status);
     if (status & RADIOLIB_SX126X_IRQ_RX_DONE) {
         uint8_t packet[256];
         size_t len = radio.getPacketLength();
@@ -126,7 +127,7 @@ void LoRaIRQHandler(void) {
      * are receiving some packet right now, and at which time the
      * preamble started. */
     if (status & 0b100 /* Preamble detected. */) {
-        if (debug) Serial.println("Preamble detected");
+        fw_debug("Preamble detected\n");
         PreambleStartTime = millis();
         ValidHeaderFound = false;
     } else if (status & 0b10000 /* Valid Header. */) {
@@ -135,7 +136,7 @@ void LoRaIRQHandler(void) {
          * in this case, we are willing to wait for a larger timeout to
          * clear the radio busy condition: we hope we will receive the
          * RX DONE event, and set PreambleStartTime to zero again. */
-        if (debug) Serial.println("Valid header found");
+        fw_debug("Valid header found\n");
         ValidHeaderFound = true;
     } else {
         /* For any other event, that is packet received, packet error and
@@ -219,8 +220,8 @@ void sendLoRaPacket(uint8_t *packet, size_t len) {
 void processLoRaSendQueue(void) {
     if (RadioState == RadioStateTx) return; /* Already transmitting. */
     if (packetOnAir()) {
-        SerialMon.println("[SX1262] channel busy");
-        return;              /* Channel is busy. */
+        fw_debug(".");
+        return; /* Channel is busy, we can't send. */
     }
 
     struct DataPacket *p = packetsQueueGet(TXQueue);
