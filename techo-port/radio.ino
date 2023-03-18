@@ -4,6 +4,7 @@
  * This code is released under the BSD 2 clause license.
  * See the LICENSE file for more information. */
 
+#define RADIOLIB_GODMODE
 #include <RadioLib.h>
 #include "utils.h"
 #include "fw_debug.h"
@@ -51,8 +52,16 @@ RadioStates RadioState = RadioStateStandby;
 volatile unsigned long PreambleStartTime = 0;
 volatile bool ValidHeaderFound = false;
 
-/* RxDone, PreambleDetected, Timeout, CrcErr, HeaderOk, HeaderErr. */
-uint16_t RadioIRQMask = 0b0000001001110111;
+/* IRQ mask:
+ * Bit 0 TxDone,
+ * Bit 1 RxDone,
+ * Bit 2 PreambleDetected
+ * Bit 3 (not used by LoRa)
+ * Bit 4 HeaderValid
+ * Bit 5 HeaderErr
+ * Bit 6 CrcErr
+ */
+uint16_t RadioIRQMask = 0b1110111;
 
 /* ============================== Implementation ============================ */
 
@@ -112,25 +121,33 @@ void LoRaIRQHandler(void) {
     if (status & RADIOLIB_SX126X_IRQ_RX_DONE) {
         uint8_t packet[256];
         size_t len = radio.getPacketLength();
-        int state = radio.readData(packet,len);
+        int state = radio.readBuffer(packet,len);
         float rssi = radio.getRSSI();
         int bad_crc = (status & RADIOLIB_SX126X_IRQ_CRC_ERR) != 0;
 
         packetsQueueAdd(RXQueue,packet,len,rssi,bad_crc);
+
+        /* Reset the SX1262 state to receive the next packet: note that
+         * it will stay in RX mode, since we initialized the chip with
+         * "infinite" timeout. */
+        radio.setBufferBaseAddress();
+        PreambleStartTime = 0;
+        ValidHeaderFound = false;
     } else if (status & RADIOLIB_SX126X_IRQ_TX_DONE) {
         digitalWrite(RedLed_Pin, HIGH);
         RadioState = RadioStateRx;
-    }
-
-    /* In order to know if the radio is busy receiving, and avoid starting
-     * a transmission while a packet is on the air, we remember if we
-     * are receiving some packet right now, and at which time the
-     * preamble started. */
-    if (status & 0b100 /* Preamble detected. */) {
+        // Put the chip back in receive mode.
+        radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF,RadioIRQMask,RadioIRQMask);
+        PreambleStartTime = 0;
+        ValidHeaderFound = false;
+    } else if (status & 0b100 /* Preamble detected. */) {
+        /* In order to know if the radio is busy receiving, and avoid starting
+         * a transmission while a packet is on the air, we remember if we
+         * are receiving some packet right now, and at which time the
+         * preamble started. */
         fw_debug("Preamble detected\n");
         PreambleStartTime = millis();
         ValidHeaderFound = false;
-        return; // Return ASAP to avoid resetting the radio.
     } else if (status & 0b10000 /* Valid Header. */) {
         /* After the preamble, the LoRa radio may also detect that the
          * packet has a good looking header. We set this state, since, 
@@ -139,18 +156,17 @@ void LoRaIRQHandler(void) {
          * RX DONE event, and set PreambleStartTime to zero again. */
         fw_debug("Valid header found\n");
         ValidHeaderFound = true;
-        return; // Return ASAP to avoid resetting the radio.
     } else {
-        /* For any other event, that is packet received, sent, packet error
-         * and so forth, we want to reset the variable to report we
-         * are no longer receiving a packet. */
+        /* Header error event. Clear the packet on air state. */
         PreambleStartTime = 0;
         ValidHeaderFound = false;
+        radio.clearIrqStatus();
+        radio.setBufferBaseAddress();
     }
+    radio.clearIrqStatus();
+}
 
-    // Put the chip back in receive mode.
-    radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF,RadioIRQMask,RadioIRQMask);
-} /* Return true if we are currently in the process of receiving a packet. */
+/* Return true if we are currently in the process of receiving a packet. */
 #define MAX_TIME_ON_AIR_NO_SYNC 2000
 #define MAX_TIME_ON_AIR_SYNC 5000
 bool packetOnAir(void) {
