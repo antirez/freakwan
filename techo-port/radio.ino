@@ -117,8 +117,8 @@ struct DataPacket *packetsQueueGet(PacketsQueue *q) {
 void LoRaIRQHandler(void) {
     int status = radio.getIrqStatus();
 
-    fw_debug("IRQ: %x\n",status);
     if (status & RADIOLIB_SX126X_IRQ_RX_DONE) {
+        fw_debug("RX done\n");
         uint8_t packet[256];
         size_t len = radio.getPacketLength();
         int state = radio.readBuffer(packet,len);
@@ -134,6 +134,7 @@ void LoRaIRQHandler(void) {
         PreambleStartTime = 0;
         ValidHeaderFound = false;
     } else if (status & RADIOLIB_SX126X_IRQ_TX_DONE) {
+        fw_debug("TX done\n");
         digitalWrite(RedLed_Pin, HIGH);
         RadioState = RadioStateRx;
         // Put the chip back in receive mode.
@@ -158,6 +159,7 @@ void LoRaIRQHandler(void) {
         ValidHeaderFound = true;
     } else {
         /* Header error event. Clear the packet on air state. */
+        fw_debug("Bad header\n");
         PreambleStartTime = 0;
         ValidHeaderFound = false;
         radio.clearIrqStatus();
