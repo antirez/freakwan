@@ -59,15 +59,23 @@ void startAdv(void) {
   Bluefruit.Advertising.start(0);               // Never stop advertising.
 }
 
+/* Reply callback to pass to the CLI handling code, so that we can
+ * see CLI command replies in the BLE shell. */
+void BLEReplyCallback(const char *msg) {
+    if (BLEConnected == false) return;
+    bleuart.write(msg,strlen(msg));
+}
+
 void BLEProcessCommands(void) {
     if (BLEConnected == false) return;
     // Forward from BLEUART to HW Serial
     while (bleuart.available()) {
         uint8_t buf[256];
-        int len = bleuart.read(buf,sizeof(buf));
+        int len = bleuart.read(buf,sizeof(buf)-1);
         if (len) {
+            buf[len] = 0;
+            cliHandleCommand((const char*)buf,BLEReplyCallback);
             Serial.write(buf,len);
-            bleuart.write("hey!",4);
         }
     }
 }

@@ -19,6 +19,7 @@ struct FreakWANGlobalSettings {
     int lora_cr;                /* LoRa coding rate. */
     int lora_bw;                /* LoRa bandwidth. */
     int lora_tx_power;          /* LoRa TX power in dbm. */
+    bool automsg;               /* Send periodic automatic messages. */
 };
 
 extern struct FreakWANGlobalSettings FW;

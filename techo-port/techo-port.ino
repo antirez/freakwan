@@ -51,7 +51,7 @@ void loop() {
         SerialMon.println(buf);
     }
 
-    if (!(ticks % MS_TO_TICKS(10000))) {
+    if (FW.automsg && !(ticks % MS_TO_TICKS(10000))) {
         static int hicount = 0;
         char msg[32];
         snprintf(msg,sizeof(msg),"Hi %d",hicount);
@@ -99,6 +99,7 @@ void initGlobalConfig(void) {
     FW.lora_cr = 8;
     FW.lora_bw = 250;
     FW.lora_tx_power = 10;
+    FW.automsg = true;
     setRandomNick(FW.nick,sizeof(FW.nick));
 }
 
