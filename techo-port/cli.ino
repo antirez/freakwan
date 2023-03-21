@@ -178,7 +178,7 @@ void cliFreeArgs(char **argv, int argc) {
     free(argv);
 }
 
-/* ========================= CLI commands handling ========================== */
+/* ========================== CLI commands helpers ========================== */
 
 /* Invoke the CLI reply callback with the string composed using printf-alike
  * format. */
@@ -191,9 +191,12 @@ void cliReplyPrintf(void(*reply_callback)(const char*),const char *fmt,...) {
     reply_callback(buffer);
 }
 
+/* ========================= CLI commands callbacks ========================= */
+
 /* Settings that are just boolean values that can be turned on/off all need
  * the same code, so we abstract away their handling in this function. */
-void cliHandleBoolSetting(bool *field, char **argv, int argc, void(*reply_callback)(const char*)) {
+void cliCommandBoolSetting(const char **argv, int argc, void(*reply_callback)(const char*), void *aux) {
+    bool *field = (bool*)aux;
     const char *name = argv[0];
     if (argc != 1 && argc != 2) {
         cliReplyPrintf(reply_callback,"Wrong # of args for setting: %s", name);
@@ -206,6 +209,26 @@ void cliHandleBoolSetting(bool *field, char **argv, int argc, void(*reply_callba
     }
     cliReplyPrintf(reply_callback,"%s is set to %d", name, *field ? 1 : 0);
 }
+
+/* !loglevel <level> */
+void cliCommandLogLevel(const char **argv, int argc, void(*reply_callback)(const char*), void *aux) {
+    reply_callback(fwSetLogLevel(argv[1]) == true ?
+        "Ok" : "Invalid log level");
+}
+
+/* ====================== Commands table and dispatch ======================= */
+
+struct {
+    const char *name;           // Command name.
+    int min_args, max_args;     // Minimum and maximum number of arguments.
+    void(*callback)(const char **argv, int argc, void(*reply_callback)(const char*),void*);                     // Callback implementing the command
+    void *aux;                  // Aux data the command may require, such as
+                                // a reference to a global setting.
+} CliCommandTable[] = {
+    {"automsg",  1, 2, cliCommandBoolSetting, (void*)&FW.automsg},
+    {"loglevel", 2, 2, cliCommandLogLevel, NULL},
+    {NULL,0,0,NULL,NULL}    // End of commands.
+};
 
 void cliHandleCommand(const char *cmd, void(*reply_callback)(const char *)) {
     if (cmd[0] == '!') {
@@ -221,14 +244,16 @@ void cliHandleCommand(const char *cmd, void(*reply_callback)(const char *)) {
             return;
         }
 
-        if (!strcasecmp(argv[0],"automsg")) {
-            cliHandleBoolSetting(&FW.automsg,argv,argc,reply_callback);
-        } else if (!strcasecmp(argv[0],"loglevel") && argc == 2) {
-            reply_callback(fwSetLogLevel(argv[1]) == true ?
-                "Ok" : "Invalid log level");
-        } else {
-            reply_callback("Unknown command or wrong number of arguments");
+        for (int j = 0; CliCommandTable[j].name; j++) {
+            if (!strcasecmp(argv[0],CliCommandTable[j].name) && 
+                argc >= CliCommandTable[j].min_args &&
+                argc <= CliCommandTable[j].max_args)
+            {
+                CliCommandTable[j].callback((const char**)argv,argc,reply_callback,CliCommandTable[j].aux);
+                return;
+            }
         }
+        reply_callback("Unknown command or wrong number of arguments");
     } else {
         protoSendDataMessage(FW.nick,cmd,strlen(cmd),0);
         char msg[128];
