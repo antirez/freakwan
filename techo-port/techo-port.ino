@@ -46,9 +46,9 @@ void loop() {
     if (!(ticks % MS_TO_TICKS(5000))) {
         char buf[128];
         int free_memory = dbgHeapTotal()-dbgHeapUsed();
-        snprintf(buf,sizeof(buf),"~%s, FreeMem:%d, SendQueueLen:%d",
+        snprintf(buf,sizeof(buf),"I:~%s, FreeMem:%d, SendQueueLen:%d",
             FW.nick,free_memory,getLoRaSendQueueLen());
-        SerialMon.println(buf);
+        fwLog(buf);
     }
 
     if (FW.automsg && !(ticks % MS_TO_TICKS(10000))) {
@@ -106,8 +106,6 @@ void initGlobalConfig(void) {
 void boardInit() {
     uint8_t rlst = 0;
 
-    SerialMon.begin(MONITOR_SPEED);
-
     uint32_t reset_reason;
     sd_power_reset_reason_get(&reset_reason);
     SerialMon.print("sd_power_reset_reason_get:");
@@ -138,7 +136,8 @@ void boardInit() {
 
 void setup() {
     initGlobalConfig();
-    Serial.begin(115200);
+    SerialMon.begin(MONITOR_SPEED);
+    fwSetLogLevel("info");
     delay(200);
     boardInit();
     delay(200);

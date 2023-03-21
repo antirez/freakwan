@@ -6,6 +6,7 @@
 #include "proto.h"
 #include "settings.h"
 #include "eink.h"
+#include "log.h"
 
 /* ========================= Arguments splitting code ======================= */
 
@@ -222,6 +223,9 @@ void cliHandleCommand(const char *cmd, void(*reply_callback)(const char *)) {
 
         if (!strcasecmp(argv[0],"automsg")) {
             cliHandleBoolSetting(&FW.automsg,argv,argc,reply_callback);
+        } else if (!strcasecmp(argv[0],"loglevel") && argc == 2) {
+            reply_callback(fwSetLogLevel(argv[1]) == true ?
+                "Ok" : "Invalid log level");
         } else {
             reply_callback("Unknown command or wrong number of arguments");
         }

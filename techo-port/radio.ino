@@ -7,7 +7,7 @@
 #define RADIOLIB_GODMODE
 #include <RadioLib.h>
 #include "utils.h"
-#include "fw_debug.h"
+#include "log.h"
 
 /* ============================ Data structures ============================= */
 
@@ -112,13 +112,13 @@ struct DataPacket *packetsQueueGet(PacketsQueue *q) {
  * completed (either packet received or transmitted).
  *
  * Note that inside the IRQ it is not safe to write to the serial (via the
- * fw_debug() calls), however this is disabled by default, and is only used
+ * fwLog() calls), however this is disabled by default, and is only used
  * for debugging. */
 void LoRaIRQHandler(void) {
     int status = radio.getIrqStatus();
 
     if (status & RADIOLIB_SX126X_IRQ_RX_DONE) {
-        fw_debug("RX done\n");
+        fwLog("D:RX done");
         uint8_t packet[256];
         size_t len = radio.getPacketLength();
         int state = radio.readBuffer(packet,len);
@@ -134,7 +134,7 @@ void LoRaIRQHandler(void) {
         PreambleStartTime = 0;
         ValidHeaderFound = false;
     } else if (status & RADIOLIB_SX126X_IRQ_TX_DONE) {
-        fw_debug("TX done\n");
+        fwLog("D:TX done");
         digitalWrite(RedLed_Pin, HIGH);
         RadioState = RadioStateRx;
         // Put the chip back in receive mode.
@@ -146,7 +146,7 @@ void LoRaIRQHandler(void) {
          * a transmission while a packet is on the air, we remember if we
          * are receiving some packet right now, and at which time the
          * preamble started. */
-        fw_debug("Preamble detected\n");
+        fwLog("D:Preamble detected");
         PreambleStartTime = millis();
         ValidHeaderFound = false;
     } else if (status & 0b10000 /* Valid Header. */) {
@@ -155,11 +155,11 @@ void LoRaIRQHandler(void) {
          * in this case, we are willing to wait for a larger timeout to
          * clear the radio busy condition: we hope we will receive the
          * RX DONE event, and set PreambleStartTime to zero again. */
-        fw_debug("Valid header found\n");
+        fwLog("D:Valid header found");
         ValidHeaderFound = true;
     } else {
         /* Header error event. Clear the packet on air state. */
-        fw_debug("Bad header\n");
+        fwLog("D:Bad header");
         PreambleStartTime = 0;
         ValidHeaderFound = false;
         radio.clearIrqStatus();
@@ -224,14 +224,13 @@ size_t receiveLoRaPacket(uint8_t *packet, float *rssi) {
 #define TX_QUEUE_MAX_LEN 128
 void sendLoRaPacket(uint8_t *packet, size_t len) {
     if (len > 256) {
-        Serial.println("[LoRa] too long packet discarded by SendLoRaPacket()");
+        fwLog("W:[LoRa] too long packet discarded by SendLoRaPacket()");
         return;
     }
     if (TXQueue->len == TX_QUEUE_MAX_LEN) {
         struct DataPacket *oldest = packetsQueueGet(TXQueue);
         free(oldest);
-        Serial.println("[LoRa] WARNING: TX queue overrun. "
-                       "Old packet discarded.");
+        fwLog("W:[LoRa] WARNING: TX queue overrun. Old packet discarded.");
     }
     packetsQueueAdd(TXQueue,packet,len,0,0);
 }
@@ -240,13 +239,13 @@ void sendLoRaPacket(uint8_t *packet, size_t len) {
 void processLoRaSendQueue(void) {
     if (RadioState == RadioStateTx) return; /* Already transmitting. */
     if (packetOnAir()) {
-        fw_debug(".");
+        fwLog("T:.");
         return; /* Channel is busy, we can't send. */
     }
 
     struct DataPacket *p = packetsQueueGet(TXQueue);
     if (p) {
-        SerialMon.println("[SX1262] sending packet");
+        fwLog("V:[SX1262] sending packet");
         digitalWrite(RedLed_Pin, LOW);
         RadioState = RadioStateTx;
         radio.startTransmit(p->packet,p->len);
@@ -287,13 +286,12 @@ void setupLoRa(void) {
 
     radio = new Module(LoRa_Cs, LoRa_Dio1, LoRa_Rst, LoRa_Busy, *rfPort, spiSettings);
 
-    SerialMon.print("[SX1262] Initializing ...  ");
+    fwLog("V:[SX1262] Initializing ...");
     int state = radio.begin(869.5);
     if (state != RADIOLIB_ERR_NONE) {
-        SerialMon.print("[SX1262] Initialization failed: ");
-        SerialMon.println(state);
+        fwLog("W:[SX1262] Initialization failed: %d",state);
     } else {
-        SerialMon.println("[SX1262] Initialization succeeded.");
+        fwLog("V:[SX1262] Initialization succeeded.");
         radio.setSyncWord(0x12);
         radio.setPreambleLength(12);
         radio.setCRC(true);
