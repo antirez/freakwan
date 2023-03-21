@@ -73,9 +73,14 @@ void BLEProcessCommands(void) {
         uint8_t buf[256];
         int len = bleuart.read(buf,sizeof(buf)-1);
         if (len) {
+            /* Null term and strip final newlines if any. */
             buf[len] = 0;
-            cliHandleCommand((const char*)buf,BLEReplyCallback);
-            Serial.write(buf,len);
+            while(len && (buf[len-1] == '\r' || buf[len-1] == '\n'))
+                buf[--len] = 0;
+            if (len) {
+                cliHandleCommand((const char*)buf,BLEReplyCallback);
+                Serial.write(buf,len);
+            }
         }
     }
 }
