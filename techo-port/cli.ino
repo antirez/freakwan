@@ -216,7 +216,20 @@ void cliCommandLogLevel(const char **argv, int argc, void(*reply_callback)(const
         "Ok" : "Invalid log level");
 }
 
+/* !help */
+void cliCommandHelp(const char **argv, int argc, void(*reply_callback)(const char*), void *aux) {
+    const char *help[] = {
+"!automsg on|off",
+"!loglevel warning|info|verbose|debug|tracing",
+NULL
+    };
+    for (int j = 0; help[j]; j++)
+        reply_callback(help[j]);
+}
+
 /* ====================== Commands table and dispatch ======================= */
+
+#define NUMARGS_MAX 0xffff // Any high value will do.
 
 struct {
     const char *name;           // Command name.
@@ -227,6 +240,7 @@ struct {
 } CliCommandTable[] = {
     {"automsg",  1, 2, cliCommandBoolSetting, (void*)&FW.automsg},
     {"loglevel", 2, 2, cliCommandLogLevel, NULL},
+    {"help", 1, NUMARGS_MAX, cliCommandHelp, NULL},
     {NULL,0,0,NULL,NULL}    // End of commands.
 };
 
