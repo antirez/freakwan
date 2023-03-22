@@ -267,6 +267,17 @@ void setLoRaParams(void) {
     radio.setOutputPower(FW.lora_tx_power);
     radio.setCurrentLimit(80);
     radio.setDio1Action(LoRaIRQHandler);
+
+    /* Put the radio back in RX mode, unless we were in standby
+     * already. Note that even if we were transmitting when the
+     * parameters changed, we want to go in RX mode, as anyway
+     * the transmission was aborted as soon as we went into standby
+     * mode to set the new parameters. */
+    if (RadioState != RadioStateStandby) {
+        radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF,
+            RadioIRQMask,RadioIRQMask);
+        RadioState = RadioStateRx;
+    }
 }
 
 /* ============================== Initialization ============================ */
@@ -296,9 +307,8 @@ void setupLoRa(void) {
         radio.setPreambleLength(12);
         radio.setCRC(true);
         radio.setRxBoostedGainMode(RADIOLIB_SX126X_RX_GAIN_BOOSTED,true);
+        RadioState = RadioStateRx;
         setLoRaParams();
         //radio.setTCXO(2.4);
-        RadioState = RadioStateRx;
-        radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF,RadioIRQMask,RadioIRQMask);
     }
 }
