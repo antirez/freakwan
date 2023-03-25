@@ -9,5 +9,6 @@
 
 void setupBLE(void);
 void BLEProcessCommands(void);
+void BLEReply(const char *msg);
 
 #endif

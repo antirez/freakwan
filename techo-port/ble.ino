@@ -61,7 +61,7 @@ void startAdv(void) {
 
 /* Reply callback to pass to the CLI handling code, so that we can
  * see CLI command replies in the BLE shell. */
-void BLEReplyCallback(const char *msg) {
+void BLEReply(const char *msg) {
     if (BLEConnected == false) return;
     bleuart.write(msg,strlen(msg));
 }
@@ -78,7 +78,7 @@ void BLEProcessCommands(void) {
             while(len && (buf[len-1] == '\r' || buf[len-1] == '\n'))
                 buf[--len] = 0;
             if (len) {
-                cliHandleCommand((const char*)buf,BLEReplyCallback);
+                cliHandleCommand((const char*)buf,BLEReply);
                 Serial.write(buf,len);
             }
         }

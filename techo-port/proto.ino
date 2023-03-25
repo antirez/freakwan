@@ -8,6 +8,7 @@
 #include "proto.h"
 #include "eink.h"
 #include "radio.h"
+#include "ble.h"
 
 struct msg {
     /* Common header */
@@ -36,6 +37,7 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
         char buf[256+32];
         snprintf(buf,sizeof(buf),"%.*s> %.*s (rssi: %02.f)",(int)m->data.nicklen,m->data.payload,(int)len-14-m->data.nicklen,m->data.payload+m->data.nicklen,(double)rssi);
         displayPrint(buf);
+        BLEReply(buf);
     }
 }
 
