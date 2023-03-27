@@ -142,7 +142,7 @@ char LineNoiseBuffer[1024];
 didDisconnectPeripheral: (CBPeripheral *)aPeripheral
                   error: (NSError *)error
 {
-    fprintf(stderr,"\nDevice disconnected. Exiting...\n");
+    fprintf(stderr,"\r\nDevice disconnected. Exiting...\r\n");
     exit(1);
 }
 
