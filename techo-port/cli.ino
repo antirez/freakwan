@@ -227,6 +227,25 @@ NULL
         reply_callback(help[j]);
 }
 
+/* !bw */
+void cliCommandBw(const char **argv, int argc, void(*reply_callback)(const char*), void *aux) {
+    int valid_bws[] = {7800,10400,15600,20800,31250,41700,
+                     62500,125000,250000,500000,0};
+    if (argc > 1) {
+        int bw = atoi(argv[1]), j;
+        for (j = 0; valid_bws[j]; j++) {
+            if (valid_bws[j] == bw) break;
+        }
+        if (valid_bws[j] == 0) {
+            cliReplyPrintf(reply_callback,"Invalid bandwidth %s", argv[1]);
+            return;
+        }
+        FW.lora_bw = bw / 1000;
+        setLoRaParams();
+    }
+    cliReplyPrintf(reply_callback,"Bandwidth set to %d", FW.lora_bw);
+}
+
 /* ====================== Commands table and dispatch ======================= */
 
 #define NUMARGS_MAX 0xffff // Any high value will do.
@@ -240,6 +259,7 @@ struct {
 } CliCommandTable[] = {
     {"automsg",  1, 2, cliCommandBoolSetting, (void*)&FW.automsg},
     {"loglevel", 2, 2, cliCommandLogLevel, NULL},
+    {"bw", 1, 2, cliCommandBw, NULL},
     {"help", 1, NUMARGS_MAX, cliCommandHelp, NULL},
     {NULL,0,0,NULL,NULL}    // End of commands.
 };
