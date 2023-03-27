@@ -4,9 +4,13 @@
  * This code is released under the BSD 2 clause license.
  * See the LICENSE file for more information. */
 
-#import "SerialBTE.h"
 #include <stdio.h>
 #include <unistd.h>
+#import "SerialBTE.h"
+#include "linenoise.h"
+
+struct linenoiseState LineNoiseState;
+char LineNoiseBuffer[1024];
 
 @implementation SerialBTE
 @synthesize discoveredDevices;
@@ -18,6 +22,7 @@
 
 - (instancetype)initWithNamePattern:(NSString *) pattern
 {
+    linenoiseEditStart(&LineNoiseState,-1,-1,LineNoiseBuffer,sizeof(LineNoiseBuffer),"serial> ");
     self = [super init];
     if (self) {
         self.discoveredDevices = [NSMutableArray array];
@@ -26,12 +31,39 @@
         writeChar = nil;
         peripheral = nil;
         namepat = pattern;
-        btequeue = dispatch_queue_create("centralmanager", DISPATCH_QUEUE_SERIAL);
+        btequeue = dispatch_get_main_queue();
         _manager = [[CBCentralManager alloc] initWithDelegate: self
                                                         queue: btequeue];
     }
-    [self performSelectorInBackground:@selector(CBThread:)
-                           withObject:nil];
+
+    /* Register a callback() for when there is data in the standard input,
+     * that is, the user typed something. */
+    int fileDescriptor = fileno(stdin);
+    dispatch_source_t stdinSource =
+	    dispatch_source_create(DISPATCH_SOURCE_TYPE_READ,
+	    fileDescriptor, 0, dispatch_get_main_queue());
+    dispatch_source_set_event_handler(stdinSource, ^{
+        char *line = linenoiseEditFeed(&LineNoiseState);
+        if (line == linenoiseEditMore) return;
+        linenoiseEditStop(&LineNoiseState);
+        if (line == NULL) exit(0);
+
+        /* Write what the user typed to the device BLE serial. */
+        if (peripheral != nil && writeChar != nil) {
+            size_t l = strlen(line);
+            if (l > 1 && line[l-1] == '\n') line[l-1] = 0;
+            NSString *stringValue = [NSString stringWithCString:line encoding:NSUTF8StringEncoding];
+            NSData *dataValue = [stringValue dataUsingEncoding:NSUTF8StringEncoding];
+            [peripheral writeValue:dataValue forCharacteristic:writeChar type:CBCharacteristicWriteWithResponse];
+        }
+
+        /* Reset line editing state. */
+        linenoiseFree(line);
+        linenoiseEditStart(&LineNoiseState,-1,-1,LineNoiseBuffer,sizeof(LineNoiseBuffer),"serial> ");
+
+    });
+    dispatch_resume(stdinSource);
+
     return self;
 }
 
@@ -90,17 +122,23 @@
     const char *localName = localNameValue != nil ? [localNameValue cStringUsingEncoding:NSASCIIStringEncoding] : NULL;
 
     if (deviceName) {
+        linenoiseHide(&LineNoiseState);
         printf("Found: %s (%s): ", deviceName, localName ? localName : "?");
+        linenoiseShow(&LineNoiseState);
         if (namepat != nil) {
             const char *pat = [namepat cStringUsingEncoding:NSASCIIStringEncoding];
             if (strcasestr(deviceName,pat) == NULL &&
                 strcasestr(localName,pat) == NULL)
             {
+                linenoiseHide(&LineNoiseState);
                 printf("Discarding (name mismatch)\n");
+                linenoiseShow(&LineNoiseState);
                 return;
             }
         }
+        linenoiseHide(&LineNoiseState);
         printf("Connecting...\n");
+        linenoiseShow(&LineNoiseState);
     } else {
         return;
     }
@@ -116,7 +154,9 @@
 - (void) centralManager: (CBCentralManager *)central
    didConnectPeripheral: (CBPeripheral *)aPeripheral
 {
+    linenoiseHide(&LineNoiseState);
     printf("Connected.\n");
+    linenoiseShow(&LineNoiseState);
     [aPeripheral setDelegate:self];
     [aPeripheral discoverServices:nil];
 }
@@ -133,13 +173,19 @@ didDisconnectPeripheral: (CBPeripheral *)aPeripheral
 /* Called on connection error. */
 - (void) centralManager: (CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)aPeripheral error:(NSError *)error
 {
+    linenoiseHide(&LineNoiseState);
+    linenoiseHide(&LineNoiseState);
     NSLog(@"Fail to connect to peripheral: %@ with error = %@", aPeripheral, [error localizedDescription]);
+    linenoiseShow(&LineNoiseState);
+    linenoiseShow(&LineNoiseState);
 }
 
 /* Start scanning. */
 - (void) startScan
 {
+    linenoiseHide(&LineNoiseState);
     printf("Start scanning\n");
+    linenoiseShow(&LineNoiseState);
     
     if (!serviceUuid)
     {
@@ -173,7 +219,9 @@ didDiscoverServices:(NSError *)error
 {
     for (CBService *aService in aPeripheral.services)
     {
+        linenoiseHide(&LineNoiseState);
         NSLog(@"Service: %@", aService.UUID);
+        linenoiseShow(&LineNoiseState);
         if ([aService.UUID isEqual:serviceUuid]) {
             [aPeripheral discoverCharacteristics:nil forService:aService];
         }
@@ -189,17 +237,21 @@ didDiscoverServices:(NSError *)error
         // NSLog(@"Service: %@ with Char: %@", [aChar service].UUID, aChar.UUID);
         if (aChar.properties & CBCharacteristicPropertyNotify)
         {
-            printf("Notify characteristic found.\n");
+            linenoiseHide(&LineNoiseState);
+            printf("Notify characteristic found.\r\n");
             [aPeripheral setNotifyValue:YES forCharacteristic:aChar];
             [aPeripheral readValueForCharacteristic:aChar];
             readChar = aChar;
             [readChar retain];
             NSLog(@"Notify Char: %@ about service %@", readChar.UUID, service.UUID);
+            linenoiseShow(&LineNoiseState);
         } else if (aChar.properties & CBCharacteristicPropertyWrite) {
             writeChar = aChar;
             [writeChar retain];
-            printf("Write characteristic found.\n");
+            linenoiseHide(&LineNoiseState);
+            printf("Write characteristic found.\r\n");
             NSLog(@"Write Char: %@ about service %@", writeChar.UUID, service.UUID);
+            linenoiseShow(&LineNoiseState);
         }
     }
 }
@@ -213,13 +265,15 @@ didDiscoverServices:(NSError *)error
         size_t l = [newval length];
         char *p = (char*)newval.bytes;
         while (l && p[l-1] == '\n') l--;
-        printf("%.*s\n", (int)l, p);
+        linenoiseHide(&LineNoiseState);
+        printf("%.*s\r\n", (int)l, p);
+        linenoiseShow(&LineNoiseState);
     }
 }
 
 - (void)peripheral: (CBPeripheral *)peripheral didModifyServices:(NSArray<CBService *> *)invalidatedServices
 {
-    printf("[didModifyServices] called\n");
+    printf("[didModifyServices] called\r\n");
     exit(1);
 }
 

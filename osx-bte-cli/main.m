@@ -28,15 +28,6 @@ int main(int argc, const char **argv) {
     if (namePattern) pattern = [NSString stringWithCString:namePattern encoding:NSUTF8StringEncoding];
 
     [[SerialBTE alloc] initWithNamePattern: pattern];
-    while(1) {
-        /* The program is structured to run in a differnet thread, in case
-         * we want to modify it later so that the bluetooth part is
-         * handled by Objective-C, and we do our stuff in the C side.
-         *
-         * However for this simple application it was more practical to do
-         * everythign in the Objective-C side, so this is now useless
-         * and the main thread will just sleep. */
-        sleep(1);
-    }
+    CFRunLoopRun();
     return 0;
 }
