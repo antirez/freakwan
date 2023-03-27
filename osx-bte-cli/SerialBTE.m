@@ -47,6 +47,7 @@ char LineNoiseBuffer[1024];
         if (line == linenoiseEditMore) return;
         linenoiseEditStop(&LineNoiseState);
         if (line == NULL) exit(0);
+        linenoiseHistoryAdd(line); /* Add to the history. */
 
         /* Write what the user typed to the device BLE serial. */
         if (peripheral != nil && writeChar != nil) {
@@ -65,31 +66,6 @@ char LineNoiseBuffer[1024];
     dispatch_resume(stdinSource);
 
     return self;
-}
-
-- (void) CBThread:(id)arg {
-    NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
-    int tick = 0;
-    while(1) {
-        NSDate *endDate = [[NSDate alloc] initWithTimeIntervalSinceNow:0.1];
-        [runLoop runUntilDate:endDate];
-
-        if (peripheral != nil && writeChar != nil) {
-            printf("> "); fflush(stdout);
-            char buf[256];
-            if (fgets(buf,sizeof(buf),stdin) != NULL) {
-                size_t l = strlen(buf);
-                if (l > 1 && buf[l-1] == '\n') buf[l-1] = 0;
-                NSString *stringValue = [NSString stringWithCString:buf encoding:NSUTF8StringEncoding];
-                NSData *dataValue = [stringValue dataUsingEncoding:NSUTF8StringEncoding];
-                [peripheral writeValue:dataValue forCharacteristic:writeChar type:CBCharacteristicWriteWithResponse];
-                [dataValue release];
-            } else {
-                exit(0);
-            }
-        }
-        usleep(100000);
-    }
 }
 
 - (void)dealloc
