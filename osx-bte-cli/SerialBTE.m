@@ -104,7 +104,7 @@ char LineNoiseBuffer[1024];
         if (namepat != nil) {
             const char *pat = [namepat cStringUsingEncoding:NSASCIIStringEncoding];
             if (strcasestr(deviceName,pat) == NULL &&
-                strcasestr(localName,pat) == NULL)
+                (localName == NULL || strcasestr(localName,pat) == NULL))
             {
                 linenoiseHide(&LineNoiseState);
                 printf("Discarding (name mismatch)\n");
