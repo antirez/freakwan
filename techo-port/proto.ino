@@ -10,6 +10,36 @@
 #include "radio.h"
 #include "ble.h"
 
+#define MSG_ID_LEN 4
+#define SENDER_ID_LEN 6
+
+/* To work properly, a device is required to avoid processing messages multiple
+ * times. This is useful because FreakWAN messages can be retransmitted and
+ * relayed multiple times. The way the receiver knows that a message was
+ * already processed, is by using the fact each message has a random 32 bit
+ * message ID stored inside the header. In the C implementation of the FreakWAN
+ * protocol, we use just a fixed length hash table of 512 entries, where new
+ * entries (of processed messages IDs) replace the old ones, and there is never
+ * any cleanup.
+ *
+ * In the following table of 512 messages, each message ID is stored at
+ * offset INDEX*4, where the INDEX is computed as the XOR of all the
+ * four bytes of the message ID, taking the first two bytes shifted on
+ * the left by 1 bit (in order to have a 9 bits output).
+ *
+ * Note that while very efficient, this approach has two limitations:
+ * 1. Two messages sent at a near time may have colliding message IDs.
+ *    In this case messages could be reprocessed. However there is only
+ *    0.2% of probability of this happening with two messages, and the
+ *    effects are not so bad.
+ * 2. Another issue is that entries are never cleaned up, so it is possible
+ *    that a message sent much later in time, having the same message ID
+ *    of a seen message, is not processed at all. This is even less likely
+ *    because if we consider a full table of 512 random messages, the
+ *    probability of a message being already inside is only 0.00001%.
+ */
+char MessageCache[512*MSG_ID_LEN] = {0};
+
 struct msg {
     /* Common header */
     uint8_t type;       // Packet type.
@@ -18,14 +48,32 @@ struct msg {
     /* Type specifid header. */
     union {
         struct {
-            uint8_t id[4];  // Message ID.
+            uint8_t id[MSG_ID_LEN]; // Message ID.
             uint8_t ttl;    // Time to live.
-            uint8_t sender[6];  // Sender address.
+            uint8_t sender[SENDER_ID_LEN]; // Sender address.
             uint8_t nicklen;    // Nick length.
             uint8_t payload[0]; // Nick + text.
         } data;
     };
 };
+
+/* Given the message ID, return the index in the message cache table. */
+unsigned int MessageCacheHash(uint8_t *mid) {
+    return (mid[0]<<1) ^ (mid[1]<<1) ^ mid[2] ^ mid[3];
+}
+
+/* Add the message ID into the message cache. */
+void MessageCacheAdd(uint8_t *mid) {
+    unsigned int offset = MessageCacheHash(mid)*MSG_ID_LEN;
+    memcpy(MessageCache+offset,mid,MSG_ID_LEN);
+}
+
+/* Look for the message ID in the message cache. Returns 1 if the ID
+ * is found, otherwise 0. */
+int MessageCacheFind(uint8_t *mid) {
+    unsigned int offset = MessageCacheHash(mid)*MSG_ID_LEN;
+    return memcmp(MessageCache+offset,mid,MSG_ID_LEN) == 0;
+}
 
 void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
     struct msg *m = (struct msg*) packet;
@@ -34,6 +82,11 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
     /* Process data packet. */
     if (m->type == MSG_TYPE_DATA) {
         if (len < 14) return;   // No room for data header.
+
+        /* Was the message already processed? */
+        if (MessageCacheFind(m->data.id)) return;
+        MessageCacheAdd(m->data.id);
+
         char buf[256+32];
         snprintf(buf,sizeof(buf),"%.*s> %.*s (rssi: %02.f)",(int)m->data.nicklen,m->data.payload,(int)len-14-m->data.nicklen,m->data.payload+m->data.nicklen,(double)rssi);
         displayPrint(buf);
