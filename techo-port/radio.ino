@@ -22,6 +22,8 @@
 struct DataPacket {
     struct DataPacket *next;    // Next packet in queue.
     float rssi;                 // Received packet RSSI
+    unsigned long tx_time;      // Time at which transmit the packet (0 = ASAP).
+    uint8_t tx_num;             // How many times to retransmit the packet.
     uint8_t len;                // Packet len
     uint8_t bad_crc;            // CRC mismatch if non zero.
     uint8_t packet[0];          // Packet bytes
@@ -74,16 +76,11 @@ struct PacketsQueue *createPacketsQueue(void) {
     return q;
 }
 
-/* Add a packet to the packets queue. Should be called only from the LoRa
- * chip IRQ, since does not disable interrupts. To call it from elsewhere
- * protect the call with noInterrupts() / interrupts(). */
-void packetsQueueAdd(struct PacketsQueue *q, uint8_t *packet, size_t len, float rssi, int bad_crc) {
-    struct DataPacket *p = (struct DataPacket*) malloc(sizeof(*p)+len);
-    memcpy(p->packet,packet,len);
-    p->len = len;
-    p->rssi = rssi;
-    p->next = NULL;
-    p->bad_crc = bad_crc;
+/* Low level function to add an already allocated packet to a queue.
+ * Warning: the RXQueue is handled by the interrupt, so make sure to
+ * protect access disabling interrupts if you want to access it from
+ * other sections. */
+struct DataPacket *packetsQueueAdd(struct PacketsQueue *q, struct DataPacket *p) {
     if (q->len == 0) {
         q->tail = p;
         q->head = p;
@@ -92,6 +89,23 @@ void packetsQueueAdd(struct PacketsQueue *q, uint8_t *packet, size_t len, float 
         q->tail = p;
     }
     q->len++;
+    return p;
+}
+
+/* Allocate and add a packet to the packets queue. If the target is the
+ * RX queue, this function should be called only from the LoRa chip IRQ, since
+ * does not disable interrupts. To call it from elsewhere protect the call
+ * with noInterrupts() / interrupts(). */
+struct DataPacket *packetsQueueAddPacket(struct PacketsQueue *q, uint8_t *packet, size_t len, float rssi, int bad_crc) {
+    struct DataPacket *p = (struct DataPacket*) malloc(sizeof(*p)+len);
+    memcpy(p->packet,packet,len);
+    p->tx_time = 0; // ASAP by default.
+    p->tx_num = 1;  // Just once by default.
+    p->len = len;
+    p->rssi = rssi;
+    p->next = NULL;
+    p->bad_crc = bad_crc;
+    return packetsQueueAdd(q,p);
 }
 
 /* Fetch the oldest packet inside the queue, if any. Freeing the packet
@@ -106,6 +120,11 @@ struct DataPacket *packetsQueueGet(PacketsQueue *q) {
         q->tail = NULL;
     }
     return p;
+}
+
+/* Return the length of the queue. */
+unsigned int packetsQueueLength(PacketsQueue *q) {
+    return q->len;
 }
 
 /* IRQ handler of the LoRa chip. Called when the current operation was
@@ -125,7 +144,7 @@ void LoRaIRQHandler(void) {
         float rssi = radio.getRSSI();
         int bad_crc = (status & RADIOLIB_SX126X_IRQ_CRC_ERR) != 0;
 
-        packetsQueueAdd(RXQueue,packet,len,rssi,bad_crc);
+        packetsQueueAddPacket(RXQueue,packet,len,rssi,bad_crc);
 
         /* Reset the SX1262 state to receive the next packet: note that
          * it will stay in RX mode, since we initialized the chip with
@@ -232,7 +251,7 @@ void sendLoRaPacket(uint8_t *packet, size_t len) {
         free(oldest);
         fwLog("W:[LoRa] WARNING: TX queue overrun. Old packet discarded.");
     }
-    packetsQueueAdd(TXQueue,packet,len,0,0);
+    packetsQueueAddPacket(TXQueue,packet,len,0,0);
 }
 
 /* Try to send the next packet in queue, if */
@@ -243,13 +262,30 @@ void processLoRaSendQueue(void) {
         return; /* Channel is busy, we can't send. */
     }
 
-    struct DataPacket *p = packetsQueueGet(TXQueue);
-    if (p) {
-        fwLog("V:[SX1262] sending packet");
-        digitalWrite(RedLed_Pin, LOW);
-        RadioState = RadioStateTx;
-        radio.startTransmit(p->packet,p->len);
-        free(p);
+    unsigned int len = packetsQueueLength(TXQueue);
+    while (len--) {
+        struct DataPacket *p = packetsQueueGet(TXQueue);
+        if (!p) return; // Empty queue.
+
+        if (p->tx_time == 0 || timeReached(p->tx_time)) {
+            fwLog("V:[SX1262] sending packet");
+            digitalWrite(RedLed_Pin, LOW);
+            RadioState = RadioStateTx;
+            radio.startTransmit(p->packet,p->len);
+            /* Packet should be sent again? Add it back with modified
+             * send time and tx number. */
+            if (p->tx_num > 1) {
+                p->tx_num--;
+                p->tx_time = millisPlusRandom(3000,10000);
+                packetsQueueAdd(TXQueue,p);
+            } else {
+                free(p);
+            }
+            return; // Now the radio is busy. Return ASAP.
+        } else {
+            // Send time not reached. At it back at the end of the FIFO. */
+            packetsQueueAdd(TXQueue,p);
+        }
     }
 }
 
