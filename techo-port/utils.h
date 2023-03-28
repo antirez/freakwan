@@ -8,5 +8,7 @@
 #define _UTILS_H
 
 unsigned long timeElapsedSince(unsigned long time);
+int timeReached(unsigned long time);
+unsigned long millisPlusRandom(unsigned long minrand, unsigned long maxrand);
 
 #endif
