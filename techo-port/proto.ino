@@ -130,5 +130,5 @@ void protoSendDataMessage(const char *nick, const char *msg, size_t msglen, uint
     m->data.nicklen = nicklen;
     memcpy(m->data.payload,nick,m->data.nicklen);
     memcpy(m->data.payload+m->data.nicklen,msg,msglen);
-    sendLoRaPacket(buf, hdrlen+m->data.nicklen+msglen);
+    sendLoRaPacket(buf, hdrlen+m->data.nicklen+msglen, 3);
 }

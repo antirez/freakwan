@@ -10,5 +10,6 @@
 unsigned long timeElapsedSince(unsigned long time);
 int timeReached(unsigned long time);
 unsigned long millisPlusRandom(unsigned long minrand, unsigned long maxrand);
+unsigned long millisPlus(unsigned long ms);
 
 #endif

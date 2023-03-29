@@ -241,7 +241,7 @@ size_t receiveLoRaPacket(uint8_t *packet, float *rssi) {
 /* Put the packet in the send queue. Will actually send it in
  * ProcessLoRaSendQueue(). */
 #define TX_QUEUE_MAX_LEN 128
-void sendLoRaPacket(uint8_t *packet, size_t len) {
+void sendLoRaPacket(uint8_t *packet, size_t len, int tx_num, unsigned long tx_delay) {
     if (len > 256) {
         fwLog("W:[LoRa] too long packet discarded by SendLoRaPacket()");
         return;
@@ -251,7 +251,9 @@ void sendLoRaPacket(uint8_t *packet, size_t len) {
         free(oldest);
         fwLog("W:[LoRa] WARNING: TX queue overrun. Old packet discarded.");
     }
-    packetsQueueAddPacket(TXQueue,packet,len,0,0);
+    struct DataPacket *p = packetsQueueAddPacket(TXQueue,packet,len,0,0);
+    p->tx_num = tx_num;
+    if (tx_delay) p->tx_time = millisPlus(tx_delay);
 }
 
 /* Try to send the next packet in queue, if */
@@ -276,7 +278,7 @@ void processLoRaSendQueue(void) {
              * send time and tx number. */
             if (p->tx_num > 1) {
                 p->tx_num--;
-                p->tx_time = millisPlusRandom(3000,10000);
+                p->tx_time = millisPlusRandom(8000,15000);
                 packetsQueueAdd(TXQueue,p);
             } else {
                 free(p);

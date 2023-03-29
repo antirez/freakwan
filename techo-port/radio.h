@@ -9,7 +9,7 @@
 
 void setupLoRa(void);
 size_t receiveLoRaPacket(uint8_t *packet, float *rssi);
-void sendLoRaPacket(uint8_t *packet, size_t len);
+void sendLoRaPacket(uint8_t *packet, size_t len, int tx_num=1, unsigned long tx_delay=0);
 void processLoRaSendQueue(void);
 int getLoRaSendQueueLen(void);
 void setLoRaParams(void);

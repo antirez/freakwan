@@ -57,6 +57,11 @@ int timeReached(unsigned long time) {
  * minrand to maxrand. */
 unsigned long millisPlusRandom(unsigned long minrand, unsigned long maxrand) {
     unsigned long delta = maxrand-minrand;
-    unsigned long plus = rand() % (delta+1);
-    return millis() + plus;
+    unsigned long random_diff = rand() % (delta+1);
+    return millis() + minrand + random_diff;
+}
+
+/* Return the current time plus a specified amount of milliseconds. */
+unsigned long millisPlus(unsigned long ms) {
+    return millis() + ms;
 }
