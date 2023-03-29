@@ -54,6 +54,11 @@ struct msg {
             uint8_t nicklen;    // Nick length.
             uint8_t payload[0]; // Nick + text.
         } data;
+        struct {
+            uint8_t id[MSG_ID_LEN]; // Message ID.
+            uint8_t ack_type;       // Type of the acknowledged message.
+            uint8_t sender[SENDER_ID_LEN]; // Sender address.
+        } ack;
     };
 };
 
@@ -86,6 +91,7 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
         /* Was the message already processed? */
         if (MessageCacheFind(m->data.id)) return;
         MessageCacheAdd(m->data.id);
+        if (!FW.quiet) protoSendACK(m->data.id,m->type);
 
         char buf[256+32];
         snprintf(buf,sizeof(buf),"%.*s> %.*s (rssi: %02.f)",(int)m->data.nicklen,m->data.payload,(int)len-14-m->data.nicklen,m->data.payload+m->data.nicklen,(double)rssi);
@@ -131,4 +137,17 @@ void protoSendDataMessage(const char *nick, const char *msg, size_t msglen, uint
     memcpy(m->data.payload,nick,m->data.nicklen);
     memcpy(m->data.payload+m->data.nicklen,msg,msglen);
     sendLoRaPacket(buf, hdrlen+m->data.nicklen+msglen, 3);
+}
+
+/* Send an ACK message with the specified message ID. */
+void protoSendACK(uint8_t *msgid, int ack_type) {
+    unsigned char buf[256];
+    struct msg *m = (struct msg*) buf;
+
+    m->type = MSG_TYPE_ACK;
+    m->flags = 0;
+    memcpy(m->ack.id,msgid,sizeof(m->ack.id));
+    m->ack.ack_type = ack_type;
+    protoFillSenderAddress(m->ack.sender);
+    sendLoRaPacket(buf, 13); // ACKs have a fixed len of 13 bytes.
 }

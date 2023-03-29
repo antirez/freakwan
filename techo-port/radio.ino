@@ -275,8 +275,9 @@ void processLoRaSendQueue(void) {
             RadioState = RadioStateTx;
             radio.startTransmit(p->packet,p->len);
             /* Packet should be sent again? Add it back with modified
-             * send time and tx number. */
-            if (p->tx_num > 1) {
+             * send time and tx number. Note that when quiet mode is on
+             * we transmit packets a single time. */
+            if (!FW.quiet && p->tx_num > 1) {
                 p->tx_num--;
                 p->tx_time = millisPlusRandom(8000,15000);
                 packetsQueueAdd(TXQueue,p);

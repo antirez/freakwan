@@ -23,5 +23,6 @@
 
 void protoProcessPacket(const unsigned char *packet, size_t len, float rssi);
 void protoSendDataMessage(const char *nick, const char *msg, size_t msglen, uint8_t flags);
+void protoSendACK(uint8_t *msgid, int ack_type);
 
 #endif

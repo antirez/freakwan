@@ -220,7 +220,9 @@ void cliCommandLogLevel(const char **argv, int argc, void(*reply_callback)(const
 void cliCommandHelp(const char **argv, int argc, void(*reply_callback)(const char*), void *aux) {
     const char *help[] = {
 "!automsg on|off",
+"!quiet on|off",
 "!loglevel warning|info|verbose|debug|tracing",
+"!bw [<bandwidth>]",
 NULL
     };
     for (int j = 0; help[j]; j++)
@@ -258,6 +260,7 @@ struct {
                                 // a reference to a global setting.
 } CliCommandTable[] = {
     {"automsg",  1, 2, cliCommandBoolSetting, (void*)&FW.automsg},
+    {"quiet",  1, 2, cliCommandBoolSetting, (void*)&FW.quiet},
     {"loglevel", 2, 2, cliCommandLogLevel, NULL},
     {"bw", 1, 2, cliCommandBw, NULL},
     {"help", 1, NUMARGS_MAX, cliCommandHelp, NULL},

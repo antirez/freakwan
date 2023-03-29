@@ -248,7 +248,7 @@ Format:
 
 ```
 +--------+---------+---------------+-----------------+---------------+
-| type:8 | flags:8 | message ID:32 | 8 bits ack type | 46 bit sender |
+| type:8 | flags:8 | message ID:32 | 8 bits ack type | 48 bit sender |
 +--------+---------+---------------+-----------------+---------------+
 ```
 
@@ -280,7 +280,7 @@ Format:
 
 ```
 +--------+---------+---------------+--------+------------\\
-| type:8 | flags:8 | 46 bit sender | seen:8 | status message
+| type:8 | flags:8 | 48 bit sender | seen:8 | status message
 +--------+---------+---------------+--------+------------\\
 ```
 
