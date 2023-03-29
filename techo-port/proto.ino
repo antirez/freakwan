@@ -9,6 +9,7 @@
 #include "eink.h"
 #include "radio.h"
 #include "ble.h"
+#include "rax.h"
 
 #define MSG_ID_LEN 4
 #define SENDER_ID_LEN 6
@@ -40,7 +41,8 @@
  */
 char MessageCache[512*MSG_ID_LEN] = {0};
 
-struct msg {
+/* FreakWAN protocol message structure. */
+struct Message {
     /* Common header */
     uint8_t type;       // Packet type.
     uint8_t flags;      // Packet flags.
@@ -59,29 +61,117 @@ struct msg {
             uint8_t ack_type;       // Type of the acknowledged message.
             uint8_t sender[SENDER_ID_LEN]; // Sender address.
         } ack;
+        struct {
+            uint8_t sender[SENDER_ID_LEN]; // Sender address.
+            uint8_t seen;       // Number of other nodes sensed.
+            uint8_t payload[0]; // Nick + text.
+        } hello;
     };
 };
 
+/* Thanks to hello messages, we are able to sense nearby nodes.
+ * We save the recognized nodes in a table, and each node is
+ * described by the following structure. */
+
+struct Neighbor {
+    float rssi;                 // RSSI of the last HELLO message.
+    unsigned long last_seen_time; // In milliseconds time.
+    uint8_t seen;               // Number of nodes this node can receive.
+    uint8_t id[SENDER_ID_LEN];  // Node ID.
+    char *nick;                 // Nickname.
+    char *status;               // Status message in the last HELLO message.
+};
+
+struct rax *Neighbors = NULL;
+
+/* Called by FreakWAN main initialization function. */
+void protoInit(void) {
+    Neighbors = raxNew();
+}
+
+/* Called periodically by FreakWAN main loop. */
+void protoCron(void) {
+    /* TODO:
+     * 1. Scan the Neighbors list to cleanup too old nodes.
+     * 2. Send HELLO messages if not in quiet mode. */
+}
+
+/* ============================== Prototypss ================================ */
+
+static void protoSendACK(uint8_t *msgid, int ack_type);
+
+/* ========================== Neighbors handling ============================ */
+
+/* Free an heap allocated Neighboor structure. */
+void neighborFree(struct Neighbor *n) {
+    free(n->nick);
+    free(n->status);
+    free(n);
+}
+
+#define MAX_NEIGHBORS 128 // Avoid OOM attack.
+void neighborAdd(uint8_t *nodeid, const char *nick, size_t nick_len,
+                                  const char *status, size_t status_len,
+                                  float rssi, int seen)
+{
+    if (raxSize(Neighbors) > MAX_NEIGHBORS) return;
+    struct Neighbor *n;
+
+    /* Check if this node is already in the table. */
+    n = (struct Neighbor*) raxFind(Neighbors,nodeid,SENDER_ID_LEN);
+    if (n == raxNotFound) {
+        n = (struct Neighbor*) malloc(sizeof(*n));
+        if (!n) return;
+        n->nick = NULL;
+        n->status = NULL;
+        raxInsert(Neighbors,nodeid,SENDER_ID_LEN,n,NULL);
+    } else {
+        /* Update fields that don't need reallocation here. */
+        n->rssi = rssi;
+        n->seen = seen;
+        free(n->nick);
+        free(n->status);
+    }
+
+    /* Both if this is a new node or we are updating an old one,
+     * set the potentially new nick/status values. */
+    n->nick = (char*)malloc(nick_len+1);
+    n->status = (char*)malloc(status_len+1);
+    if (!n->nick || !n->status) {
+        neighborFree(n);
+        raxRemove(Neighbors,nodeid,SENDER_ID_LEN,NULL);
+    } else {
+        memcpy(n->nick,nick,nick_len);
+        memcpy(n->status,status,status_len);
+        n->nick[nick_len] = 0;
+        n->status[status_len] = 0;
+    }
+}
+
+/* ============================ Messages cache ============================== */
+
 /* Given the message ID, return the index in the message cache table. */
-unsigned int MessageCacheHash(uint8_t *mid) {
+static unsigned int messageCacheHash(uint8_t *mid) {
     return (mid[0]<<1) ^ (mid[1]<<1) ^ mid[2] ^ mid[3];
 }
 
 /* Add the message ID into the message cache. */
-void MessageCacheAdd(uint8_t *mid) {
-    unsigned int offset = MessageCacheHash(mid)*MSG_ID_LEN;
+static void messageCacheAdd(uint8_t *mid) {
+    unsigned int offset = messageCacheHash(mid)*MSG_ID_LEN;
     memcpy(MessageCache+offset,mid,MSG_ID_LEN);
 }
 
 /* Look for the message ID in the message cache. Returns 1 if the ID
  * is found, otherwise 0. */
-int MessageCacheFind(uint8_t *mid) {
-    unsigned int offset = MessageCacheHash(mid)*MSG_ID_LEN;
+static int messageCacheFind(uint8_t *mid) {
+    unsigned int offset = messageCacheHash(mid)*MSG_ID_LEN;
     return memcmp(MessageCache+offset,mid,MSG_ID_LEN) == 0;
 }
 
+/* ========================== Messages processing =========================== */
+
 void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
-    struct msg *m = (struct msg*) packet;
+    struct Message *m = (struct Message*) packet;
     if (len < 2) return;    // No room for commmon header.
 
     /* Process data packet. */
@@ -89,8 +179,8 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
         if (len < 14) return;   // No room for data header.
 
         /* Was the message already processed? */
-        if (MessageCacheFind(m->data.id)) return;
-        MessageCacheAdd(m->data.id);
+        if (messageCacheFind(m->data.id)) return;
+        messageCacheAdd(m->data.id);
         if (!FW.quiet) protoSendACK(m->data.id,m->type);
 
         char buf[256+32];
@@ -100,8 +190,10 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
     }
 }
 
+/* ============================ Messages sending ============================ */
+
 /* Write six bytes of the device ID to the target string. */
-void protoFillSenderAddress(uint8_t *sender) {
+static void protoFillSenderAddress(uint8_t *sender) {
     uint32_t id0 = NRF_FICR->DEVICEID[0];
     uint32_t id1 = NRF_FICR->DEVICEID[1];
     sender[0] = id0 & 0xff;
@@ -115,7 +207,7 @@ void protoFillSenderAddress(uint8_t *sender) {
 /* Send a data message with the specified nick, message and flags. */
 void protoSendDataMessage(const char *nick, const char *msg, size_t msglen, uint8_t flags) {
     unsigned char buf[256];
-    struct msg *m = (struct msg*) buf;
+    struct Message *m = (struct Message*) buf;
     int nicklen = strlen(nick);
     int hdrlen = 14; /* Data header + 1 nick len byte. */
 
@@ -140,9 +232,9 @@ void protoSendDataMessage(const char *nick, const char *msg, size_t msglen, uint
 }
 
 /* Send an ACK message with the specified message ID. */
-void protoSendACK(uint8_t *msgid, int ack_type) {
+static void protoSendACK(uint8_t *msgid, int ack_type) {
     unsigned char buf[256];
-    struct msg *m = (struct msg*) buf;
+    struct Message *m = (struct Message*) buf;
 
     m->type = MSG_TYPE_ACK;
     m->flags = 0;

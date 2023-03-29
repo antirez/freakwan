@@ -21,8 +21,9 @@
 #define MSG_TYPE_BULK_END 5
 #define MSG_TYPE_BULK_REPLY 6
 
+void protoInit(void);
+void protoCron(void);
 void protoProcessPacket(const unsigned char *packet, size_t len, float rssi);
 void protoSendDataMessage(const char *nick, const char *msg, size_t msglen, uint8_t flags);
-void protoSendACK(uint8_t *msgid, int ack_type);
 
 #endif

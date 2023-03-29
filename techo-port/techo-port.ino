@@ -43,6 +43,8 @@ void loop() {
     /* Process commands from BLU UART. */
     BLEProcessCommands();
 
+    if (!(ticks % MS_TO_TICKS(5000))) protoCron();
+
     if (!(ticks % MS_TO_TICKS(5000))) {
         char buf[128];
         int free_memory = dbgHeapTotal()-dbgHeapUsed();
@@ -142,5 +144,6 @@ void setup() {
     delay(200);
     boardInit();
     delay(200);
+    protoInit();
     displayPrint("FreakWAN started");
 }
