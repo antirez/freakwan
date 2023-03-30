@@ -19,13 +19,15 @@
 
 #define QUEUE_MAX_LEN 8 // Use a power of 2 to optimized modulo operation.
 
-struct DataPacket {
+struct __attribute__((packed)) DataPacket {
     struct DataPacket *next;    // Next packet in queue.
     float rssi;                 // Received packet RSSI
     unsigned long tx_time;      // Time at which transmit the packet (0 = ASAP).
     uint8_t tx_num;             // How many times to retransmit the packet.
+    uint8_t abort_send:1;       // If true, the send was cancelled.
+    uint8_t bad_crc:1;          // CRC mismatch if non zero.
+    uint8_t notused:6;          // Other 6 bits for random flags.
     uint8_t len;                // Packet len
-    uint8_t bad_crc;            // CRC mismatch if non zero.
     uint8_t packet[0];          // Packet bytes
 };
 
@@ -105,6 +107,7 @@ struct DataPacket *packetsQueueAddPacket(struct PacketsQueue *q, uint8_t *packet
     p->rssi = rssi;
     p->next = NULL;
     p->bad_crc = bad_crc;
+    p->abort_send = 0;
     return packetsQueueAdd(q,p);
 }
 
@@ -269,11 +272,17 @@ void processLoRaSendQueue(void) {
         struct DataPacket *p = packetsQueueGet(TXQueue);
         if (!p) return; // Empty queue.
 
-        if (p->tx_time == 0 || timeReached(p->tx_time)) {
+        if (p->abort_send) {
+            /* Send was cancelled. Normally because we got ACKs from
+             * all the neighbors and want to cancel resending a message. */
+            free(p);
+        } else if (p->tx_time == 0 || timeReached(p->tx_time)) {
+            /* If the time at which to send this packet was reached, send it. */
             fwLog("V:[SX1262] sending packet");
             digitalWrite(RedLed_Pin, LOW);
             RadioState = RadioStateTx;
             radio.startTransmit(p->packet,p->len);
+
             /* Packet should be sent again? Add it back with modified
              * send time and tx number. Note that when quiet mode is on
              * we transmit packets a single time. */
@@ -286,7 +295,7 @@ void processLoRaSendQueue(void) {
             }
             return; // Now the radio is busy. Return ASAP.
         } else {
-            // Send time not reached. At it back at the end of the FIFO. */
+            // Send time not reached. Add it back at the end of the FIFO. */
             packetsQueueAdd(TXQueue,p);
         }
     }
@@ -295,6 +304,24 @@ void processLoRaSendQueue(void) {
 /* Return the number of packets waiting to be sent. */
 int getLoRaSendQueueLen(void) {
     return TXQueue->len;
+}
+
+/* Scan the send queue for a data packet with matching message ID.
+ * If found, remove it from the queue and return 1, otherwise 0
+ * is returned. */
+int cancelLoRaSend(uint8_t *msgid) {
+    DataPacket *p = TXQueue->head;
+    while(p) {
+        if (p->len >= 14 && // DATA message header len.
+            p->packet[0] == 0 &&    // DATA packet type
+            memcmp(p->packet+2,msgid,4) == 0) // Message ID matches.
+        {
+            p->abort_send = 1;
+            return 1;
+        }
+        p = p->next;
+    }
+    return 0;
 }
 
 void setLoRaParams(void) {

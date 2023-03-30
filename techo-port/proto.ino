@@ -293,7 +293,11 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
         {
             /* Got ACK from all the first-hope nodes? Suppress
              * resending if the packet is still in queue. */
-             // TODO: cancelLoRaSendByID(m->ack.id);
+            if (cancelLoRaSend(m->ack.id)) {
+                fwLog("[proto] All ACKs for %02x%02x%02x%02x. "
+                      "Removed from TX queue.",
+                m->ack.id[0],m->ack.id[1],m->ack.id[2],m->ack.id[3]);
+            }
         }
     }
 }

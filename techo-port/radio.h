@@ -13,5 +13,6 @@ void sendLoRaPacket(uint8_t *packet, size_t len, int tx_num=1, unsigned long tx_
 void processLoRaSendQueue(void);
 int getLoRaSendQueueLen(void);
 void setLoRaParams(void);
+int cancelLoRaSend(uint8_t *msgid);
 
 #endif
