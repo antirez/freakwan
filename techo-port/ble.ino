@@ -79,7 +79,6 @@ void BLEProcessCommands(void) {
                 buf[--len] = 0;
             if (len) {
                 cliHandleCommand((const char*)buf,BLEReply);
-                Serial.write(buf,len);
             }
         }
     }
@@ -90,13 +89,11 @@ void connect_callback(uint16_t conn_handle) {
     BLEConnection *connection = Bluefruit.Connection(conn_handle);
     char central_name[32] = { 0 };
     connection->getPeerName(central_name, sizeof(central_name));
-    Serial.print("Connected to ");
-    Serial.println(central_name);
+    fwLog("[BLE] Connected to %s", central_name);
 }
 
 void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
     (void) conn_handle;
     BLEConnected = false;
-    Serial.print("Disconnected, reason = 0x");
-    Serial.println(reason, HEX);
+    fwLog("[BLE] Disconnected. Reason: %d", reason);
 }

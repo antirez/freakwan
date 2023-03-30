@@ -55,6 +55,20 @@
  */
 char MessageCache[512*MSG_ID_LEN] = {0};
 
+/* This is a dictionary of Neighbor structures (HELLO msg), so
+ * it represents the current set of nodes we are sensing. */
+struct rax *Neighbors = NULL;
+
+/* Dictionary of Message IDs keys, each pointing to sub-dictionaries of
+ * IDs of the nodes that ACKnowledged the message (with such ID). We use this
+ * to understand when to suppress multiple transmissions of the same
+ * message: if we got ACKs from all the known first-hop nodes, we suppress
+ * resending ASAP.
+ *
+ * Each entry, other than the acknowledging node IDs, has a special entry
+ * "ct" storing the creation time, so that we can evict old entries. */
+struct rax *WaitingACK = NULL;
+
 /* FreakWAN protocol message structure. */
 struct Message {
     /* Common header */
@@ -97,11 +111,10 @@ struct Neighbor {
     char *status;               // Status message in the last HELLO message.
 };
 
-struct rax *Neighbors = NULL;
-
 /* Called by FreakWAN main initialization function. */
 void protoInit(void) {
     Neighbors = raxNew();
+    WaitingACK = raxNew();
 }
 
 /* Called periodically by FreakWAN main loop. */
@@ -119,6 +132,46 @@ size_t protoGetNeighborsCount(void) {
 /* ============================== Prototypss ================================ */
 
 static void protoSendACK(uint8_t *msgid, int ack_type);
+
+/* ============================ ACKs collection ============================= */
+
+/* Adds the node ID to the list of nodes that acknowledged the specified
+ * message ID.
+ *
+ * If the ACKs table entry for the specified message does not exist, create
+ * a new entry before adding the new node ID.
+ *
+ * The funciton returns the total amount of ACKs received for the
+ * specified message. */
+#define ACKS_TABLE_MAX_SIZE 128
+#define ACKS_TABLE_ENTRY_TTL 60000 // In milliseconds.
+static int waitingACKAddACK(uint8_t *msgid, uint8_t *nodeid) {
+    if (raxSize(WaitingACK) >= ACKS_TABLE_MAX_SIZE) return 0;
+
+    struct rax *nodes = (struct rax*) raxFind(WaitingACK,msgid,MSG_ID_LEN);
+    if (nodes == raxNotFound) {
+        if ((nodes = raxNew()) == NULL) return 0; /* OOM. */
+        if (raxInsert(WaitingACK,msgid,MSG_ID_LEN,nodes,NULL) == 0) {
+            /* OOM. */
+            raxFree(nodes);
+            return 0;
+        }
+        /* Don't handle failure to add the creation time entry here, but
+         * instead handle the case it is missing when evicting entries. */
+        raxInsert(nodes,(unsigned char*)"ct",2,(void*)millis(),NULL);
+    }
+    /* Insert the new node that acknowledged the message. For now we
+     * don't use the saved ACK time, but saving it costs nothing, since we
+     * just cast it to the value pointer in the dictionary. */
+    if (raxInsert(nodes,nodeid,SENDER_ID_LEN,(void*)millis(),NULL)) {
+        fwLog("D:New ACK for %02x%02x%02x%02x from %02x%02x%02x%02x%02x%02x: "
+              "%d ACKs out of %d nodes received.",
+            msgid[0],msgid[1],msgid[2],msgid[3],
+            nodeid[0],nodeid[1],nodeid[2],nodeid[3],nodeid[4],nodeid[5],
+            (int)raxSize(nodes)-1,(int)raxSize(Neighbors));
+    }
+    return raxSize(nodes)-1; // -1 because of the "ct" extra field.
+}
 
 /* ========================== Neighbors handling ============================ */
 
@@ -150,7 +203,11 @@ int neighborAdd(uint8_t *nodeid, const char *nick, size_t nick_len,
         if (!n) return 0;
         n->nick = NULL;
         n->status = NULL;
-        raxInsert(Neighbors,nodeid,SENDER_ID_LEN,n,NULL);
+        if (raxInsert(Neighbors,nodeid,SENDER_ID_LEN,n,NULL) == 0) {
+            /* Out of memory adding item. */
+            neighborFree(n);
+            return 0;
+        }
     }
 
     /* Update fields we set both for new and known nodes. */
@@ -225,9 +282,18 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
             len-10-m->hello.nicklen,
             rssi, m->hello.seen))
         {
-            fwLog("[LoRa] New node sensed: %02x%02x%02x%02x%02x%02x",
+            fwLog("[proto] New node sensed: %02x%02x%02x%02x%02x%02x",
                 m->hello.sender[0], m->hello.sender[1], m->hello.sender[2],
                 m->hello.sender[3], m->hello.sender[4], m->hello.sender[5]);
+        }
+    } else if (m->type == MSG_TYPE_ACK) {
+        if (len != 13) return;   // ACKs are fixed length.
+        if (waitingACKAddACK(m->ack.id,m->ack.sender) >=
+            protoGetNeighborsCount())
+        {
+            /* Got ACK from all the first-hope nodes? Suppress
+             * resending if the packet is still in queue. */
+             // TODO: cancelLoRaSendByID(m->ack.id);
         }
     }
 }

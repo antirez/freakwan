@@ -56,7 +56,7 @@ void loop() {
         fwLog(buf);
     }
 
-    if (FW.automsg && !(ticks % MS_TO_TICKS(10000))) {
+    if (FW.automsg && !(ticks % MS_TO_TICKS(20000))) {
         static int hicount = 0;
         char msg[32];
         snprintf(msg,sizeof(msg),"Hi %d",hicount);

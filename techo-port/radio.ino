@@ -137,7 +137,7 @@ void LoRaIRQHandler(void) {
     int status = radio.getIrqStatus();
 
     if (status & RADIOLIB_SX126X_IRQ_RX_DONE) {
-        fwLog("D:RX done");
+        fwLog("D:[SX1262] RX done");
         uint8_t packet[256];
         size_t len = radio.getPacketLength();
         int state = radio.readBuffer(packet,len);
@@ -153,7 +153,7 @@ void LoRaIRQHandler(void) {
         PreambleStartTime = 0;
         ValidHeaderFound = false;
     } else if (status & RADIOLIB_SX126X_IRQ_TX_DONE) {
-        fwLog("D:TX done");
+        fwLog("D:[SX1262] TX done");
         digitalWrite(RedLed_Pin, HIGH);
         RadioState = RadioStateRx;
         // Put the chip back in receive mode.
@@ -165,7 +165,7 @@ void LoRaIRQHandler(void) {
          * a transmission while a packet is on the air, we remember if we
          * are receiving some packet right now, and at which time the
          * preamble started. */
-        fwLog("D:Preamble detected");
+        fwLog("D:[SX1262] Preamble detected");
         PreambleStartTime = millis();
         ValidHeaderFound = false;
     } else if (status & 0b10000 /* Valid Header. */) {
@@ -174,11 +174,11 @@ void LoRaIRQHandler(void) {
          * in this case, we are willing to wait for a larger timeout to
          * clear the radio busy condition: we hope we will receive the
          * RX DONE event, and set PreambleStartTime to zero again. */
-        fwLog("D:Valid header found");
+        fwLog("D:[SX1262] Valid header found");
         ValidHeaderFound = true;
     } else {
         /* Header error event. Clear the packet on air state. */
-        fwLog("D:Bad header");
+        fwLog("D:[SX1262] Bad header");
         PreambleStartTime = 0;
         ValidHeaderFound = false;
         radio.clearIrqStatus();

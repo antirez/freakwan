@@ -268,6 +268,7 @@ struct {
 };
 
 void cliHandleCommand(const char *cmd, void(*reply_callback)(const char *)) {
+    fwLog("[CLI] %s",cmd);
     if (cmd[0] == '!') {
         int argc;
         char **argv = cliSplitArgs(cmd+1,&argc);
