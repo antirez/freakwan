@@ -12,6 +12,7 @@
 #include "radio.h"
 #include "ble.h"
 #include "settings.h"
+#include "proto.h"
 
 struct FreakWANGlobalSettings FW;
 
@@ -48,8 +49,10 @@ void loop() {
     if (!(ticks % MS_TO_TICKS(5000))) {
         char buf[128];
         int free_memory = dbgHeapTotal()-dbgHeapUsed();
-        snprintf(buf,sizeof(buf),"I:~%s, FreeMem:%d, SendQueueLen:%d",
-            FW.nick,free_memory,getLoRaSendQueueLen());
+        snprintf(buf,sizeof(buf),
+            "I:~%s, FreeMem:%d, SendQueueLen:%d, Neighbors:%d",
+            FW.nick,free_memory,getLoRaSendQueueLen(),
+            (int)protoGetNeighborsCount());
         fwLog(buf);
     }
 

@@ -11,6 +11,20 @@
 #include "ble.h"
 #include "rax.h"
 
+#define MSG_FLAG_RELAYED (1<<0)
+#define MSG_FLAG_PLEASE_RELAY (1<<1)
+#define MSG_FLAG_FRAGMENT (1<<2)
+#define MSG_FLAG_MEDIA (1<<3)
+#define MSG_FLAG_ENCR (1<<4)
+
+#define MSG_TYPE_DATA 0
+#define MSG_TYPE_ACK 1
+#define MSG_TYPE_HELLO 2
+#define MSG_TYPE_BULK_START 3
+#define MSG_TYPE_BULK_DATA 4
+#define MSG_TYPE_BULK_END 5
+#define MSG_TYPE_BULK_REPLY 6
+
 #define MSG_ID_LEN 4
 #define SENDER_ID_LEN 6
 
@@ -64,6 +78,7 @@ struct Message {
         struct {
             uint8_t sender[SENDER_ID_LEN]; // Sender address.
             uint8_t seen;       // Number of other nodes sensed.
+            uint8_t nicklen;    // Nick length.
             uint8_t payload[0]; // Nick + text.
         } hello;
     };
@@ -96,6 +111,11 @@ void protoCron(void) {
      * 2. Send HELLO messages if not in quiet mode. */
 }
 
+/* Return the number of known nodes. */
+size_t protoGetNeighborsCount(void) {
+    return raxSize(Neighbors);
+}
+
 /* ============================== Prototypss ================================ */
 
 static void protoSendACK(uint8_t *msgid, int ack_type);
@@ -109,35 +129,41 @@ void neighborFree(struct Neighbor *n) {
     free(n);
 }
 
+/* Add a neighbor to our table of sensed nodes (via HELLO messages).
+ * If the node was already in the table 0 is returned, otherwise
+ * the function returns 1. As a side effect, the table is populated or
+ * the existing node is updated. */
 #define MAX_NEIGHBORS 128 // Avoid OOM attack.
-void neighborAdd(uint8_t *nodeid, const char *nick, size_t nick_len,
-                                  const char *status, size_t status_len,
-                                  float rssi, int seen)
+int neighborAdd(uint8_t *nodeid, const char *nick, size_t nick_len,
+                                 const char *status, size_t status_len,
+                                 float rssi, int seen)
 {
-    if (raxSize(Neighbors) > MAX_NEIGHBORS) return;
+    if (raxSize(Neighbors) > MAX_NEIGHBORS) return 0;
     struct Neighbor *n;
+    int newnode = 0;
 
     /* Check if this node is already in the table. */
     n = (struct Neighbor*) raxFind(Neighbors,nodeid,SENDER_ID_LEN);
     if (n == raxNotFound) {
+        newnode = 1;
         n = (struct Neighbor*) malloc(sizeof(*n));
-        if (!n) return;
+        if (!n) return 0;
         n->nick = NULL;
         n->status = NULL;
         raxInsert(Neighbors,nodeid,SENDER_ID_LEN,n,NULL);
-    } else {
-        /* Update fields that don't need reallocation here. */
-        n->rssi = rssi;
-        n->seen = seen;
-        free(n->nick);
-        free(n->status);
     }
 
-    /* Both if this is a new node or we are updating an old one,
-     * set the potentially new nick/status values. */
+    /* Update fields we set both for new and known nodes. */
+    n->rssi = rssi;
+    n->seen = seen;
+    n->last_seen_time = millis();
+
+    free(n->nick);
+    free(n->status);
     n->nick = (char*)malloc(nick_len+1);
     n->status = (char*)malloc(status_len+1);
     if (!n->nick || !n->status) {
+        /* Out of memory setting the string fields. */
         neighborFree(n);
         raxRemove(Neighbors,nodeid,SENDER_ID_LEN,NULL);
     } else {
@@ -146,6 +172,7 @@ void neighborAdd(uint8_t *nodeid, const char *nick, size_t nick_len,
         n->nick[nick_len] = 0;
         n->status[status_len] = 0;
     }
+    return newnode;
 }
 
 /* ============================ Messages cache ============================== */
@@ -176,7 +203,8 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
 
     /* Process data packet. */
     if (m->type == MSG_TYPE_DATA) {
-        if (len < 14) return;   // No room for data header.
+        if (len < 14) return;   // No room for DATA header.
+        if (14+m->data.nicklen > len) return; // Invalid nick len
 
         /* Was the message already processed? */
         if (messageCacheFind(m->data.id)) return;
@@ -187,6 +215,20 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
         snprintf(buf,sizeof(buf),"%.*s> %.*s (rssi: %02.f)",(int)m->data.nicklen,m->data.payload,(int)len-14-m->data.nicklen,m->data.payload+m->data.nicklen,(double)rssi);
         displayPrint(buf);
         BLEReply(buf);
+    } else if (m->type == MSG_TYPE_HELLO) {
+        if (len < 10) return;   // No room for HELLO header.
+        if (10+m->hello.nicklen > len) return; // Invalid nick len
+        if (neighborAdd(m->hello.sender,
+            (const char*)m->hello.payload,
+            m->hello.nicklen,
+            (const char*)m->hello.payload + m->hello.nicklen,
+            len-10-m->hello.nicklen,
+            rssi, m->hello.seen))
+        {
+            fwLog("[LoRa] New node sensed: %02x%02x%02x%02x%02x%02x",
+                m->hello.sender[0], m->hello.sender[1], m->hello.sender[2],
+                m->hello.sender[3], m->hello.sender[4], m->hello.sender[5]);
+        }
     }
 }
 
