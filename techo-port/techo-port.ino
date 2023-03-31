@@ -106,7 +106,10 @@ void initGlobalConfig(void) {
     FW.lora_tx_power = 10;
     FW.automsg = true;
     FW.quiet = false;
-    setRandomNick(FW.nick,sizeof(FW.nick));
+    char buf[16];
+    setRandomNick(buf,sizeof(buf));
+    FW.nick = strdup(buf);
+    FW.status = strdup("Hi there!");
 }
 
 void boardInit() {

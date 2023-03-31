@@ -10,6 +10,7 @@
 #include "radio.h"
 #include "ble.h"
 #include "rax.h"
+#include "utils.h"
 
 #define MSG_FLAG_RELAYED (1<<0)
 #define MSG_FLAG_PLEASE_RELAY (1<<1)
@@ -111,6 +112,14 @@ struct Neighbor {
     char *status;               // Status message in the last HELLO message.
 };
 
+/* ============================== Prototypss ================================ */
+
+static void protoSendACK(uint8_t *msgid, int ack_type);
+static void protoSendHelloMessage(const char *nick, const char *status);
+
+
+/* =================== Initialization and periodic tasks ==================== */
+
 /* Called by FreakWAN main initialization function. */
 void protoInit(void) {
     Neighbors = raxNew();
@@ -119,19 +128,34 @@ void protoInit(void) {
 
 /* Called periodically by FreakWAN main loop. */
 void protoCron(void) {
-    /* TODO:
-     * 1. Scan the Neighbors list to cleanup too old nodes.
-     * 2. Send HELLO messages if not in quiet mode. */
+    static unsigned long next_hello_time = 0;
+
+    /* Send a periodic HELLO message. */
+    if (timeReached(next_hello_time)) {
+        fwLog("V:[proto] sending HELLO message");
+        next_hello_time = millisPlusRandom(60000,120000);
+        protoSendHelloMessage(FW.nick,FW.status);
+    }
+
+    /* Remove neighbors we didn't hear HELLO messages for quite some
+     * time. */
+    struct raxIterator ri;
+    raxStart(&ri,Neighbors);
+    raxSeek(&ri,"^",NULL,0);
+    while(raxNext(&ri)) {
+        struct Neighbor *n = (struct Neighbor*) ri.data;
+        if (timeElapsedSince(n->last_seen_time) > 60*10*1000) {
+            neighborFree(n);
+            raxRemove(Neighbors,ri.key,ri.key_len,NULL);
+            // Seek again after deletion.
+            raxSeek(&ri,">",ri.key,ri.key_len);
+            fwLog("V:[proto] Removing timedout neighbor: "
+                  "%02x%02x%02x%02x%02x%02x",
+                  ri.key[0],ri.key[1],ri.key[2],ri.key[3],ri.key[4],ri.key[5]);
+        }
+    }
+    raxStop(&ri);
 }
-
-/* Return the number of known nodes. */
-size_t protoGetNeighborsCount(void) {
-    return raxSize(Neighbors);
-}
-
-/* ============================== Prototypss ================================ */
-
-static void protoSendACK(uint8_t *msgid, int ack_type);
 
 /* ============================ ACKs collection ============================= */
 
@@ -175,8 +199,13 @@ static int waitingACKAddACK(uint8_t *msgid, uint8_t *nodeid) {
 
 /* ========================== Neighbors handling ============================ */
 
+/* Return the number of known nodes. */
+size_t protoGetNeighborsCount(void) {
+    return raxSize(Neighbors);
+}
+
 /* Free an heap allocated Neighboor structure. */
-void neighborFree(struct Neighbor *n) {
+static void neighborFree(struct Neighbor *n) {
     free(n->nick);
     free(n->status);
     free(n);
@@ -187,7 +216,7 @@ void neighborFree(struct Neighbor *n) {
  * the function returns 1. As a side effect, the table is populated or
  * the existing node is updated. */
 #define MAX_NEIGHBORS 128 // Avoid OOM attack.
-int neighborAdd(uint8_t *nodeid, const char *nick, size_t nick_len,
+static int neighborAdd(uint8_t *nodeid, const char *nick, size_t nick_len,
                                  const char *status, size_t status_len,
                                  float rssi, int seen)
 {
@@ -354,4 +383,29 @@ static void protoSendACK(uint8_t *msgid, int ack_type) {
     m->ack.ack_type = ack_type;
     protoFillSenderAddress(m->ack.sender);
     sendLoRaPacket(buf, 13); // ACKs have a fixed len of 13 bytes.
+}
+
+/* Send a data message with the specified nick, message and flags. */
+static void protoSendHelloMessage(const char *nick, const char *status) {
+    unsigned char buf[256];
+    struct Message *m = (struct Message*) buf;
+    int nicklen = strlen(nick);
+    const char *msg = status;
+    size_t msglen = strlen(status);
+    int hdrlen = 10; /* Data header + 1 nick len byte. */
+
+    /* Trim nick and len to never go over max packet size. */
+    if (hdrlen+nicklen > sizeof(buf))
+        nicklen = sizeof(buf)-hdrlen;
+    if (hdrlen+nicklen+msglen > sizeof(buf))
+        msglen = sizeof(buf)-hdrlen-nicklen;
+
+    m->type = MSG_TYPE_HELLO;
+    m->flags = 0;
+    m->hello.seen = protoGetNeighborsCount();
+    protoFillSenderAddress(m->hello.sender);
+    m->hello.nicklen = nicklen;
+    memcpy(m->hello.payload,nick,m->hello.nicklen);
+    memcpy(m->hello.payload+m->hello.nicklen,msg,msglen);
+    sendLoRaPacket(buf, hdrlen+m->hello.nicklen+msglen, 1);
 }

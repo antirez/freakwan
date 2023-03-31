@@ -13,7 +13,8 @@
  * global vars inside each file handling each specific aspect. */
 
 struct FreakWANGlobalSettings {
-    char nick[16];              /* Chat nickname / ID. */
+    char *nick;                 /* Chat nickname / ID. */
+    char *status;               /* HELLO status message. */
     double lora_freq;           /* LoRa center frequency. */
     int lora_sp;                /* LoRa spreading. */
     int lora_cr;                /* LoRa coding rate. */
