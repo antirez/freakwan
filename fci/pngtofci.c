@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 #define PNG_DEBUG 3
 #include <png.h>
 
@@ -241,73 +242,103 @@ void compress(unsigned char *image, int width, int height) {
                     stats_verb, stats_short, stats_long, stats_escape);
 }
 
-/* Load and uncompress an FCI image. On error abort the program.
- * On success an array of bytes, with white pixels set to 1, is returned.
- * The width and height info are filled by reference in wptr,hptr. */
-unsigned char *load_fci(FILE *fp, int *wptr, int *hptr) {
-    unsigned char hdr[5];
-    if (fread(hdr,1,5,fp) != 5 || memcmp(hdr,"FC0",3)) {
-        fprintf(stderr, "Error loading FCI header.\n");
-        exit(1);
-    }
-    int width = hdr[3];
-    int height = hdr[4];
-    printf("FCI file, %dx%d\n", width, height);
+/* Uncompress an FCI image. On format error, NULL is returned.
+ * On success, a heap allocated array of bytes, with white pixels set to 1, is
+ * returned. The width and height info are filled by reference in wptr,hptr. */
+uint8_t *decode_fci(uint8_t *data, size_t datalen, int *wptr, int *hptr) {
+    size_t left = datalen; // Bytes yet to consume from data.
 
+    /* Load the image header. */
+    if (left < 5) return NULL;
+    if (memcmp(data,"FC0",3)) {
+        errno = EINVAL;
+        return NULL; // Magic mismatch.
+    }
+    int width = data[3];
+    int height = data[4];
+    data += 5; left -= 5;
+
+    /* Allocate the bitmap. */
     int bits = width*height;
     *wptr = width;
     *hptr = height;
-    unsigned char *image = malloc(bits);
+    uint8_t *image = malloc(bits);
     if (image == NULL) {
-        fprintf(stderr, "Out of memory loading FCI image.\n");
-        exit(1);
+        errno = ENOMEM;
+        return NULL;
     }
 
     int idx = 0; // Index inside the image data.
-    while(!feof(fp) && idx < bits) {
-        unsigned char data[2];
-        fread(data,1,1,fp);
+    while(left > 0 && idx < bits) {
+        unsigned char op[2];
+        op[0] = data[0];
+        op[1] = left > 1 ? data[1] : 0;
 
-        /* Long run? */
-        if (data[0] == 0xc3) {
-            fread(data+1,1,1,fp);
-            if (data[1] != 0) {
+        if (op[0] == 0xc3) {
+            /* Long run? */
+            data += 2; left -= 2;
+            if (op[1] != 0) {
                 /* Run len decode. */
-                int runlen = (data[1]&0x7F)+16;
-                int bit = data[1]>>7;
+                int runlen = (op[1]&0x7F)+16;
+                int bit = op[1]>>7;
                 while(runlen-- && idx < bits)
                     image[idx++] = bit;
                 continue;
             } else {
-                // Go to Verbatim code path.
+                // Continue to Verbatim code path.
             }
-        }
-
-        /* Short run? */
-        if (data[0] == 0x3d || data[0] == 0x65) {
-            fread(data+1,1,1,fp);
-            if (data[1] != 0) {
+        } else if (op[0] == 0x3d || op[0] == 0x65) {
+            /* Short run? */
+            data += 2; left -= 2;
+            if (op[1] != 0) {
                 /* W+B or B+W decode. */
-                int runlen1 = ((data[1] & 0xf0)>>4)+1;
-                int runlen2 = (data[1] & 0x0f)+1;
-                int bit = data[0] == 0x3d;
+                int runlen1 = ((op[1] & 0xf0)>>4)+1;
+                int runlen2 = (op[1] & 0x0f)+1;
+                int bit = op[0] == 0x3d;
                 while(runlen1-- && idx < bits)
                     image[idx++] = bit;
                 while(runlen2-- && idx < bits)
                     image[idx++] = !bit;
                 continue;
             } else {
-                // Go to Verbatim code path.
+                // Continue to Verbatim code path.
             }
+        } else {
+            data += 1; left -= 1;
         }
 
         /* Verbatim. */
         for (int bit = 7; bit >= 0; bit--) {
             if (idx < bits)
-                image[idx++] = (data[0] >> bit) & 1;
+                image[idx++] = (op[0] >> bit) & 1;
         }
     }
     return image;
+}
+
+/* Load and uncompress an FCI image. On error abort the program.
+ * On success an array of bytes, with white pixels set to 1, is returned.
+ * The width and height info are filled by reference in wptr,hptr. */
+uint8_t *load_fci(FILE *fp, int *wptr, int *hptr) {
+    /* This implementation targets the embedded systems, likely with
+     * small screens and resources, that will decode FCI images.
+     * Often such devices will receive the image via some RF message,
+     * a socket, and so forth. The image will likely be in a memory
+     * buffer before being loaded, so we design this implementation
+     * to decode the image from a buffer with all the data in. */
+    fseek(fp,0,SEEK_END);
+    long file_size = ftell(fp);
+    fseek(fp,0,SEEK_SET);
+    uint8_t *data = malloc(file_size);
+    if (fread(data,1,file_size,fp) != (size_t)file_size) {
+        fprintf(stderr, "Error loading FCI file in memory.\n");
+        exit(1);
+    }
+    fprintf(stderr,"%d bytes read from file\n", (int)file_size);
+    uint8_t *img = decode_fci(data,file_size,wptr,hptr);
+    if (img) fprintf(stderr,"Image %dx%d\n", *wptr,*hptr);
+    free(data);
+    return img;
 }
 
 /* Show the image on the terminal. */

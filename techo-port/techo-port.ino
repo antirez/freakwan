@@ -68,6 +68,7 @@ void loop() {
 
     if (ticks >= MS_TO_TICKS(600*1000)) {
         digitalWrite(GreenLed_Pin, HIGH);
+        displayPrint("--- Sleeping ---");
         NRFDeepSleep();
     }
 
