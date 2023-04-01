@@ -11,6 +11,7 @@
 #include "ble.h"
 #include "rax.h"
 #include "utils.h"
+#include "fci.h"
 
 #define MSG_FLAG_RELAYED (1<<0)
 #define MSG_FLAG_PLEASE_RELAY (1<<1)
@@ -295,12 +296,36 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
         /* Was the message already processed? */
         if (messageCacheFind(m->data.id)) return;
         messageCacheAdd(m->data.id);
+
+        /* Reply with ACK, if needed. */
         if (!FW.quiet) protoSendACK(m->data.id,m->type);
 
+        int is_media = m->flags & MSG_FLAG_MEDIA;
+        int data_len = (int)len-14-m->data.nicklen;
+        uint8_t *data = m->data.payload+m->data.nicklen;
+
         char buf[256+32];
-        snprintf(buf,sizeof(buf),"%.*s> %.*s (rssi: %02.f)",(int)m->data.nicklen,m->data.payload,(int)len-14-m->data.nicklen,m->data.payload+m->data.nicklen,(double)rssi);
-        displayPrint(buf);
-        BLEReply(buf);
+        if (!is_media) {
+            snprintf(buf,sizeof(buf),"%.*s> %.*s (rssi: %02.f)",(int)m->data.nicklen,m->data.payload,data_len,data,(double)rssi);
+            displayPrint(buf);
+            BLEReply(buf);
+        } else {
+            uint8_t media_type = data[0];
+            data++;
+            data_len--;
+            if (media_type == 0) { /* Image. */
+                int w,h;
+                uint8_t *bitmap = decode_fci(data,data_len,&w,&h);
+                if (!bitmap) {
+                    fwLog("[proto] Corrupted FCI image received");
+                } else {
+                    displayImage(bitmap,w,h);
+                    free(bitmap);
+                }
+            } else {
+                fwLog("[proto] Unknown media type %d received",media_type);
+            }
+        }
     } else if (m->type == MSG_TYPE_HELLO) {
         if (len < 10) return;   // No room for HELLO header.
         if (10+m->hello.nicklen > len) return; // Invalid nick len

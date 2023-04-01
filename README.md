@@ -215,7 +215,7 @@ of the message:
 
 * Bit 3: `Media`.
 
-When this happens, the data inside the message is not some text in the form `nick:message`. Instead the first byte of the message is the media type ID, from 0 to 255. Right now only a media type is defined:
+When this happens, the data inside the message is not some text in the form `nick`+`message`. Instead the first byte of the message is the media type ID, from 0 to 255. Right now only a media type is defined:
 
 * Media type 0: FreakWAN Compressed Image (FCI). Small 1 bit color image.
 
@@ -226,7 +226,7 @@ When this happens, the data inside the message is not some text in the form `nic
 ```
 
 Devices receiving this message should try to show the bitmap on the
-screen, if possible, or if the image is too big or they like any
+screen, if possible, or if the image is too big or they lack any
 graphical display ability, some text should be produced to make the user
 aware that the message contains an image.
 

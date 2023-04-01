@@ -51,6 +51,8 @@ struct {
     int first_update_needed = true; // Full update never did so far.
 } Scroller;
 
+/* Show some text in the device display, wrapping as needed and refreshing
+ * the screen if there is not enough room. */
 void displayPrint(const char *str) {
     display->setFont(&FreeMono9pt7b);
     display->setRotation(3);
@@ -95,7 +97,41 @@ void displayPrint(const char *str) {
         int start_y = Scroller.y - Scroller.font_height * rows_needed;
         int stop_y = Scroller.y;
         if (start_y < 0) start_y = 0;
-        if (stop_y > 199) stop_y = 199;
-        display->updateWindow(0,start_y,200,stop_y,true);
+        if (stop_y >= Scroller.yres) stop_y = Scroller.yres-1;
+        display->updateWindow(0,start_y,Scroller.xres-1,stop_y,true);
     }
+}
+
+/* Show the specified 1-bit per pixel bitmap on the screen. If not enough
+ * vertical space is left, the screen is refreshed. */
+void displayImage(const uint8_t *bitmap, int width, int height) {
+    display->setRotation(3);
+    int height_available = Scroller.yres - Scroller.y;
+    bool full_update = 0;
+
+    /* Check if we have enough room. */
+    if (height_available < height) {
+        Scroller.y = 0;
+        display->fillScreen(GxEPD_WHITE);
+        full_update = true;
+    }
+
+    /* Render pixels on the screen. */
+    for (int h = 0; h < height; h++) {
+        for (int w = 0; w < width; w++) {
+            if (bitmap[h*width+w] && w < Scroller.xres && h < Scroller.yres)
+                display->drawPixel(w,Scroller.y+h,GxEPD_BLACK);
+        }
+    }
+
+    /* Update and adjust y offset. */
+    if (full_update || Scroller.first_update_needed) {
+        display->update();
+        Scroller.first_update_needed = false;
+    } else {
+        int stop_y = Scroller.y + height;
+        if (stop_y >= Scroller.yres) stop_y = Scroller.yres-1;
+        display->updateWindow(0,Scroller.y,Scroller.xres-1,stop_y,true);
+    }
+    Scroller.y += height;
 }

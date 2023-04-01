@@ -10,5 +10,6 @@
 void setupDisplay();
 void setDisplayBacklight();
 void displayPrint(const char *str);
+void displayImage(const uint8_t *bitmap, int width, int height);
 
 #endif
