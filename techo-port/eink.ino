@@ -107,16 +107,18 @@ void displayPrint(const char *str) {
 void displayImage(const uint8_t *bitmap, int width, int height) {
     display->setRotation(3);
     int height_available = Scroller.yres - Scroller.y;
+    int image_spacing = 3;
     bool full_update = 0;
 
     /* Check if we have enough room. */
-    if (height_available < height) {
+    if (height_available < height+image_spacing) {
         Scroller.y = 0;
         display->fillScreen(GxEPD_WHITE);
         full_update = true;
     }
 
     /* Render pixels on the screen. */
+    Scroller.y += image_spacing;
     for (int h = 0; h < height; h++) {
         for (int w = 0; w < width; w++) {
             if (bitmap[h*width+w] && w < Scroller.xres && h < Scroller.yres)

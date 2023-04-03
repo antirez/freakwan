@@ -298,7 +298,8 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
         messageCacheAdd(m->data.id);
 
         /* Reply with ACK, if needed. */
-        if (!FW.quiet) protoSendACK(m->data.id,m->type);
+        if (!FW.quiet && !(m->flags & MSG_FLAG_RELAYED))
+            protoSendACK(m->data.id,m->type);
 
         int is_media = m->flags & MSG_FLAG_MEDIA;
         int data_len = (int)len-14-m->data.nicklen;
