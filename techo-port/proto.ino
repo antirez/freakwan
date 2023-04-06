@@ -301,6 +301,15 @@ void protoProcessPacket(const unsigned char *packet, size_t len, float rssi) {
         if (!FW.quiet && !(m->flags & MSG_FLAG_RELAYED))
             protoSendACK(m->data.id,m->type);
 
+        /* Relay if needed. */
+        if (m->flags & MSG_FLAG_PLEASE_RELAY &&
+            m->data.ttl > 1 && !FW.quiet)
+        {
+            m->data.ttl--;
+            m->flags |= MSG_FLAG_RELAYED;
+            sendLoRaPacket((uint8_t*)packet,len,3);
+        }
+
         int is_media = m->flags & MSG_FLAG_MEDIA;
         int data_len = (int)len-14-m->data.nicklen;
         uint8_t *data = m->data.payload+m->data.nicklen;
