@@ -13,6 +13,7 @@
 #include "ble.h"
 #include "settings.h"
 #include "proto.h"
+#include "gps.h"
 
 struct FreakWANGlobalSettings FW;
 
@@ -43,6 +44,9 @@ void loop() {
 
     /* Process commands from BLU UART. */
     BLEProcessCommands();
+
+    /* Read from GPS. */
+    GPSCron();
 
     if (!(ticks % MS_TO_TICKS(5000))) protoCron();
 
@@ -142,6 +146,7 @@ void boardInit() {
     setupDisplay();
     setupLoRa();
     setupBLE();
+    setupGPS();
 }
 
 void setup() {
