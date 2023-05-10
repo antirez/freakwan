@@ -91,7 +91,7 @@ By default LoRa messages are sent in clear text and will reach every device that
 
 While Alice will do:
 
-    !addkey bob abcd1234
+    !addkey bob abcd123
 
 (Note: they need to use much longer and hard to guess key! A good way to generate a key is to to combine a number of words and numbers together, or just generate a random 256 bit hex string with any available tool).
 
