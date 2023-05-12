@@ -31,6 +31,12 @@ MessageFlagsBadCRC = const(1<<8)          # Message CRC is bad
 
 # Media types
 MessageMediaTypeImageFCI = const(0)
+MessageMediaTypeSensorData = const(1)
+
+# Sensor data media type readings
+MessageSensorDataTemperature = const(0)
+MessageSensorDataAirHumidity = const(1)
+MessageSensorDataGroundHumidity = const(2)
 
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".

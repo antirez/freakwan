@@ -19,6 +19,7 @@ from bt import BLEUART
 from fci import ImageFCI
 from keychain import Keychain
 from networking import IRC, WiFiConnection
+from sensor import Sensor
 
 Version="0.34"
 
@@ -72,10 +73,14 @@ class FreakWAN:
         else:
             self.tx_led = None
 
-        # Check if we are in low battery mode, and if the battery
-        # is still too low to restart, before powering up anything
-        # else.
+        # We can be resumed from deep sleep for two reasons:
+        # 1. We went in deep sleep for low battery.
+        # 2. We are in "sensor mode" and went in deep sleep after
+        #    transmitting the last sensor sample.
         if machine.reset_cause() == machine.DEEPSLEEP_RESET:
+            # Check if we are in low battery mode, and if the battery
+            # is still too low to restart, before powering up anything
+            # else.
             if self.low_battery(try_awake = True):
                 for i in range(3):
                     self.set_tx_led(True)
@@ -169,6 +174,13 @@ class FreakWAN:
         # Start receiving. This will just install the IRQ
         # handler, without blocking the program.
         self.lora.receive()
+
+        # Create the sensor instance if FreakWAN is configured to run
+        # in sensor mode.
+        if self.config['sensor']['enabled']:
+            self.sensor = Sensor(self,self.config['sensor'])
+        else:
+            self.sensor = None
 
     # Restart
     def reset(self):
@@ -663,11 +675,12 @@ class FreakWAN:
     async def cron(self):
         tick = 0
         animation_ticks = 10
+        sensor_state = "start"
 
         while True:
             # Splash screen handling.
             if tick <= animation_ticks:
-                if tick == animation_ticks or self.low_battery():
+                if tick == animation_ticks or self.low_battery() or self.sensor:
                     self.switch_view(self.ScrollerView)
                     self.scroller.print("FreakWAN v"+Version)
                     tick = animation_ticks+1
@@ -677,7 +690,36 @@ class FreakWAN:
                 tick += 1
                 continue
 
-            # Normal loop.
+            ##################### SENSOR MODE HANDLING ########################
+
+            # Send sensor data. After this step, there should be a pending
+            # message in the TX queue, with the encoded readings of the
+            # sensor.
+            if self.sensor and sensor_state == "start":
+                print("[sensor] sending sample")
+                self.sensor.send_sample()
+                sensor_state = "wait_tx"
+
+            # Once the TX queue is empty, we will wait a bit more in order
+            # to receive some data: then we will shut down and enter
+            # in deep sleep.
+            if self.sensor and sensor_state == "wait_tx":
+                if len(self.send_queue) == 0:
+                    print("[sensor] data sent (tx queue is empty)")
+                    # Give it 10 seconds to receive some reply.
+                    poweroff_tick = tick + 100
+                    sensor_state = "wait_poweroff"
+
+            # Finally shut down if we sent the message and the time to
+            # receive some command elapsed.
+            if self.sensor and sensor_state == "wait_poweroff":
+                if tick == poweroff_tick:
+                    print("[sensor] entering deep sleep")
+                    self.power_off(30000) # TODO: make this time configurable
+
+            ###################################################################
+
+            # Normal loop, entered after the splah screen.
             if tick % 10 == 0: gc.collect()
             if tick % 50 == 0: self.show_status_log()
 

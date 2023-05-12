@@ -69,3 +69,14 @@ class UserConfig:
     config['irc'] = {
         'enabled': False
     }
+
+    ################################# SENSOR MODE #############################
+
+    config['sensor'] = {
+        'enabled': False,
+        'type': 'DHT22',
+        'dht_pin': 25,
+        'period': 10000, # In milliseconds
+        'key_name': "sensor_key", # Encryption key for sensor data
+        'key_secret': "123456",
+    }
