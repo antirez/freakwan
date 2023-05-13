@@ -16,6 +16,7 @@ class Sensor:
     def __init__(self,fw,sensor_config):
         self.fw = fw
         self.config = sensor_config
+        self.state = "send_sample"
 
         # We don't want any automatic communication when acting as sensors.
         fw.config['quiet'] = True
@@ -24,6 +25,35 @@ class Sensor:
         # Add the sensor channel key if needed.
         if not self.fw.keychain.has_key(self.config['key_name']):
             self.fw.keychain.add_key(self.config['key_name'],self.config['key_secret'])
+
+    # This method is called from FreakWAN main loop in order to
+    # execute the sensor state machine, that is: send sample, wait
+    # for reply for some time, then go in deep sleep.
+    def exec_state_machine(self,tick):
+        # Send sensor data. After this step, there should be a pending
+        # message in the TX queue, with the encoded readings of the
+        # sensor.
+        if self.state == "send_sample":
+            print("[sensor] sending sample")
+            self.send_sample()
+            self.state = "wait_tx"
+
+        # Once the TX queue is empty, we will wait a bit more in order
+        # to receive some data: then we will shut down and enter
+        # in deep sleep.
+        if self.state == "wait_tx":
+            if len(self.fw.send_queue) == 0:
+                print("[sensor] data sent (tx queue is empty)")
+                # Give it 10 seconds to receive some reply.
+                self.poweroff_tick = tick + 100
+                self.state = "wait_poweroff"
+
+        # Finally shut down if we sent the message and the time to
+        # receive some command elapsed.
+        if self.state == "wait_poweroff":
+            if tick == self.poweroff_tick:
+                print("[sensor] entering deep sleep")
+                self.fw.power_off(self.config['period'])
 
     def send_sample(self):
         if self.config['type'] == 'DHT22':

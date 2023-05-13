@@ -690,34 +690,10 @@ class FreakWAN:
                 tick += 1
                 continue
 
-            ##################### SENSOR MODE HANDLING ########################
-
-            # Send sensor data. After this step, there should be a pending
-            # message in the TX queue, with the encoded readings of the
-            # sensor.
-            if self.sensor and sensor_state == "start":
-                print("[sensor] sending sample")
-                self.sensor.send_sample()
-                sensor_state = "wait_tx"
-
-            # Once the TX queue is empty, we will wait a bit more in order
-            # to receive some data: then we will shut down and enter
-            # in deep sleep.
-            if self.sensor and sensor_state == "wait_tx":
-                if len(self.send_queue) == 0:
-                    print("[sensor] data sent (tx queue is empty)")
-                    # Give it 10 seconds to receive some reply.
-                    poweroff_tick = tick + 100
-                    sensor_state = "wait_poweroff"
-
-            # Finally shut down if we sent the message and the time to
-            # receive some command elapsed.
-            if self.sensor and sensor_state == "wait_poweroff":
-                if tick == poweroff_tick:
-                    print("[sensor] entering deep sleep")
-                    self.power_off(30000) # TODO: make this time configurable
-
-            ###################################################################
+            ### SENSOR MODE HANDLING ###
+            if self.sensor:
+                self.sensor.exec_state_machine(tick)
+            ############################
 
             # Normal loop, entered after the splah screen.
             if tick % 10 == 0: gc.collect()
