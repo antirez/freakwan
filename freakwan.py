@@ -479,6 +479,11 @@ class FreakWAN:
                         self.scroller.print(channel_name+m.nick+"> image:")
                         self.scroller.print(img)
                         user_msg = channel_name+m.nick+"> image"
+                    elif m.media_type == MessageMediaTypeSensorData:
+                        sensor_data = m.sensor_data_to_str()
+                        print("[SENSOR-DATA] channel:%s sensor_id:%s %s" % (channel_name.strip(),m.nick,sensor_data))
+                        user_msg = channel_name+m.nick+"> "+sensor_data
+                        self.scroller.print(user_msg)
                     else:
                         print("[<<< net] Unknown media type %d" % m.media_type)
                         user_msg = channel_name+m.nick+"> unknown media"

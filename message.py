@@ -37,6 +37,7 @@ MessageMediaTypeSensorData = const(1)
 MessageSensorDataTemperature = const(0)
 MessageSensorDataAirHumidity = const(1)
 MessageSensorDataGroundHumidity = const(2)
+MessageSensorDataBattery = const(3)
 
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
@@ -189,3 +190,25 @@ class Message:
         else:
             return False
 
+    # Turn the media data in the message into a string that can be parsed
+    # by other programs.
+    def sensor_data_to_str(self):
+        l = len(self.media_data)
+        off = 0
+        res = ""
+        while l > 0:
+            fieldtype = self.media_data[off]
+            off += 1
+            l -= 1
+            if fieldtype == MessageSensorDataTemperature or \
+               fieldtype == MessageSensorDataAirHumidity or \
+               fieldtype == MessageSensorDataGroundHumidity or \
+               fieldtype == MessageSensorDataBattery:
+                if l < 4: return "field data missing"
+                val = struct.unpack("f",self.media_data[off:])
+                off += 4
+                l -= 4
+                res += "%d:%.2f " % (fieldtype, val[0])
+            else:
+                return "field type error"
+        return res

@@ -67,7 +67,7 @@ class Sensor:
     def encode_data(self,data):
         encoded = bytes()
         for keytype in data:
-            encoded += struct.pack("Bf",keytype,data[keytype])
+            encoded += struct.pack("<Bf",keytype,data[keytype])
         return encoded
 
     def send_sample_dht22(self):
