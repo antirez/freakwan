@@ -113,7 +113,10 @@ class FreakWAN:
         self.splashscreen = SplashScreen(self.display)
         self.SplashScreenView = 0
         self.ScrollerView = 1
-        self.switch_view(self.SplashScreenView)
+        if self.config['sensor']['enabled']:
+            self.switch_view(self.ScrollerView)
+        else:
+            self.switch_view(self.SplashScreenView)
 
         # Init LoRa chip
         self.lora = sx1276.SX1276(self.config['sx1276'],self.receive_lora_packet,self.lora_tx_done)
