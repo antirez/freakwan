@@ -374,6 +374,7 @@ class FreakWAN:
     def send_ack_if_needed(self,m):
         if self.config['quiet']: return          # No ACKs in quiet mode.
         if m.type != MessageTypeData: return     # Acknowledge only data.
+        if m.flags & MessageFlagsMedia: return   # Don't acknowledge media.
         if m.flags & MessageFlagsRelayed: return # Don't acknowledge relayed.
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type)
         self.send_asynchronously(ack,max_delay=0)
