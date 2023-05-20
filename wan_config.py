@@ -31,6 +31,12 @@ class UserConfig:
         'scl_pin': 22
     }
 
+    # Pin configuration for the AXP192
+    #config['axp192']= {
+    #    'sda_pin': 21,
+    #    'scl_pin': 22
+    #}
+
     # For headless display, set it to None
     # config['ssd1306'] = None
 

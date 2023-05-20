@@ -20,6 +20,7 @@ from fci import ImageFCI
 from keychain import Keychain
 from networking import IRC, WiFiConnection
 from sensor import Sensor
+from axp192 import AXP192
 
 Version="0.34"
 
@@ -31,6 +32,7 @@ class FreakWAN:
         self.config = {
             'nick': self.device_hw_nick(),
             'automsg': True,
+            'axp192': False,
             'relay_num_tx': 3,
             'relay_max_delay': 10000,
             'relay_rssi_limit': -60,
@@ -72,6 +74,13 @@ class FreakWAN:
             self.tx_led = Pin(self.config['tx_led']['pin'],Pin.OUT)
         else:
             self.tx_led = None
+
+        # Init the AXP192
+        if self.config['axp192']:
+            axp_i2c = SoftI2C(sda=Pin(self.config['axp192']['sda_pin']), scl=Pin(self.config['axp192']['scl_pin']))
+            self.axp192 = AXP192(axp_i2c)
+        else:
+            self.axp192 = None
 
         # We can be resumed from deep sleep for two reasons:
         # 1. We went in deep sleep for low battery.
@@ -252,10 +261,16 @@ class FreakWAN:
         self.lora.configure(self.config['lora_fr'],self.config['lora_bw'],self.config['lora_cr'],self.config['lora_sp'],self.config['lora_pw'])
         if was_receiving: self.lora.receive()
 
-    # Return the battery voltage. The battery voltage is divided
-    # by two and fed into the ADC at pin 35.
+    # Return the battery voltage. Uses different ways depending on the
+    # configuration.
     def get_battery_microvolts(self):
-        return self.battery_adc.read_uv() * 2
+        if self.axp192:
+            # If the AXP192 is available, query it via i2c.
+            return self.axp192.get_battery_volts()*1000000
+        else:
+            # On the T3, the battery voltage is divided by two and fed
+            # into the ADC at pin 35.
+            return self.battery_adc.read_uv()*2
 
     # Return the battery percentage using the equation of the
     # discharge curve of a typical lipo 3.7v battery.
