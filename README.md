@@ -168,7 +168,7 @@ Bits have the following meaning:
 * Bit 2: `Fragment`. This flag means that this message is a fragment of many, that should be reassembled in order to retrieve the full Data message.
 * Bit 3: `Media`. For message of type 'Data' this flag means that the message is not text, but some kind of media. See the Data messages section for more information.
 * Bit 4: `Encr`. For messages of type 'Data' this flag means that the message is encrypted.
-* Bit 1-7: Reserved for future uses. Should be 0.
+* Bit 5-7: Reserved for future uses. Should be 0.
 
 Currently not all the message types are implemented.
 
@@ -238,7 +238,7 @@ messages of type: DATA, and only if the `Relayed` flag is not set.
 
 The goal of ACK messages are two:
 
-1. They inform the sender of the fact at least some *near* nodes (immediately connected hops) received the message. The sender can't know, just by ACKs, the total reach of the message, but it will now if the number of receivers is non-zero.
+1. They inform the sender of the fact at least some *near* nodes (immediately connected hops) received the message. The sender can't know, just by ACKs, the total reach of the message, but it will know if the number of receivers is non-zero.
 2. Each sender takes a list of directly connected nodes, via the HELLO messages (see later in this document). When a sender transmits some data, it will resend it multiple times, in order to make delivery more likely. To save channel time, when a sender receives an ACK from all the known neighbor nodes, it must suppress further retransmissions of the message. In practice this often means that, out of 3 different transmission attempts, only one will be performed.
 
 The reason why nodes don't acknowledge with ACKs messages that are relayed (and thus have the `Relayed` flag set) is the following:
