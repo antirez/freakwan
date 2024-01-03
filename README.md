@@ -170,7 +170,7 @@ Bits have the following meaning:
 * Bit 4: `Encr`. For messages of type 'Data' this flag means that the message is encrypted.
 * Bit 1-7: Reserved for future uses. Should be 0.
 
-Currently not all the message types are implemented.
+Currently, not all the message types are implemented.
 
 ## DATA message
 
@@ -205,7 +205,7 @@ as already processed, in order to discard duplicates (and there are many
 since the protocol uses broadcasted retransmissions in order to build the WAN).
 
 Note that on retransmissions of the same message by other nodes, with
-the scope of reaaching the whole network, the message sender remains set
+the scope of reaching the whole network, the message sender remains set
 to the *same sender of the original message*, that is, the device that
 created the message the first time. So there is no way to tell who
 sent a given retransmission of a given message.
@@ -346,14 +346,14 @@ receives an encrypted message with such key, it will see:
 Where the first part is `#<keyname>`, and the rest of the message is
 the normal message, nick and text, or media type, as normally displayed.
 
-Similarly if the same key is shared among a group of users, the effect
+Similarly, if the same key is shared among a group of users, the effect
 will be to participate into a group chat.
 
 Keys must be shared using a protected channel: either via messaging
 systems like Whatsapp or Signal, or face to face with the interested
 users. Optionally the system may decide to encrypt local keys using
 a passphrase, so that keys can't be extracted from the device when
-it is non operational.
+it is non-operational.
 
 ## Encrypted packets and algorithm
 
@@ -364,7 +364,7 @@ The first four standard header fields of an encrypted packet are not
 encrypted at all: receivers, even without a key at hand, need to be able to
 check the message type and flags, the TTL (in case of relay), the message UID
 (to avoid reprocessing) and so forth. The only difference between the first
-7 bytes (message type, flags, UID, TTL) of an ecrpyted and unencrypted message
+7 bytes (message type, flags, UID, TTL) of an encrypted and unencrypted message
 is that the `Encr` flag is set. Then, if such
 flag is set and the packet is thus encrypted, a 4 bytes initialization
 vector (IV) follows. This is the unencrypted part of the packet. The
@@ -385,7 +385,7 @@ This is the representation of the message described above:
 ```
 
 The 'IV' is the initialization vector for the CBC mode of AES, that is
-the algorithm used for encryption. However it is used together with all
+the algorithm used for encryption. However, it is used together with all
 the unencrypted header part, from the type field, at byte 0, to the last byte
 of the IV. So the initialization vector used is a total 11 bytes, of which
 at least 64 bits of pseudorandom data.
@@ -404,13 +404,13 @@ initialization vector the first 16 bytes of SHA256 digest of byte from 0 to
 the final byte of the IV (11 total bytes), with TTL set to 0, and as key the
 first 16 bytes of SHA256 of the key stored in the keychain as an utf-8 string.
 
-Decrypting is very similar. However we don't know what is the original
+Decrypting is very similar. However, we don't know what is the original
 length of the payload, since we padded it with zeroes. But we know
 that the last byte of the checksum can never be zero, as the last bit
 is always set as per the algorithm above. So, after decryption, we discard
 all the trailing zeroes, and we have the length of the payload. Then we
 subtract the length of the checksum (9 bytes), and can compute the
-SHA256 digest and check if it matches. Non matching packets are just
+SHA256 digest and check if it matches. Non-matching packets are just
 silently discarded.
 
 ## Relaying of encrypted messages
@@ -447,7 +447,7 @@ In the sender size, when the total length of the packet would be more than
 payload is split in roughly equally sized packets. The last packet may have a
 byte more in case the data length is not multiple of the number of packets.
 
-**Important**: `MAXPACKET` must be choosen so that it is always possible to transmit
+**Important**: `MAXPACKET` must be chosen so that it is always possible to transmit
 two bytes more than its value, since the data section will have two additional
 bytes used for the fragmentation metadata.
 
@@ -505,19 +505,17 @@ of data terminated by two additional bytes:
 ```
 
 Where `frag-num` is the number of the fragment, identifying its position
-among all the fragmnets, and `tot-frags` is the total number of
-fragments. The total length of the data is implicit, and is not direcly
+among all the fragments, and `tot-frags` is the total number of
+fragments. The total length of the data is implicit, and is not directly
 available.
 
 The receiver will accumulate (for a given maximum time) message fragments
 having the same Message ID field value. Once all the fragments are
-received, the origianl message is generated from the fragments, where the
+received, the original message is generated from the fragments, where the
 `Fragment` flag is cleared, the data sections of all the fragments are glued
 together (but discarding the last two bytes of each packet), and finally the
 message is passed for processing to the normal FreakWAN path inside the
 FreakWAN stack. The software should make sure that fragments don't accumulate
 forever in case some fragment is missing: after a given time, if no full
-reassembly was possible, fargments should expire and the memory should be
+reassembly was possible, fragments should expire and the memory should be
 freed.
-
-
