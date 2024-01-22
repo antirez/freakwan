@@ -5,6 +5,7 @@
 # See the LICENSE file for more information
 
 import machine, ssd1306, sx1276, time, urandom, gc, bluetooth, sys, io
+import select
 from machine import Pin, SoftI2C, ADC
 import uasyncio as asyncio
 from wan_config import *
@@ -651,6 +652,27 @@ class FreakWAN:
         # have certain periodic things to do related to the
         # BT connection. For now, just wait in a loop.
         while True: await asyncio.sleep(1)
+
+    # We want to reply to CLI inputs even if written directly in the
+    # UART via USB, so that a user with the REPL open with the device
+    # will be able to send commands directly.
+    async def receive_from_serial(self):
+        buf = "" # Accumulate the CLI command here
+        while True:
+            await asyncio.sleep(0.1)
+            while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                ch = sys.stdin.read(1)
+                sys.stdout.write(ch) # Echo
+                if ch == '\n':
+                    self.cmdctrl.exec_user_command(buf.strip(),self.reply_to_serial)
+                    buf = ""
+                else:
+                    buf += ch
+
+    # Callback to reply to CLI commands when they are received from
+    # the USB serial.
+    def reply_to_serial(self,msg):
+        sys.stdout.write(msg+"\n")
 
     # Start the WiFi subsystem, using an already configured network
     # (if password is None) or a new network.
