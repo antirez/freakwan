@@ -216,7 +216,7 @@ class FreakWAN:
             f.close()
             exec(content,{},{'self':self})
         except Exception as e:
-            print("Loading settings: "+self.get_stack_trace(e))
+            self.serial_log("Loading settings: "+self.get_stack_trace(e))
             pass
 
     # Save certain settings the user is able to modify using
@@ -233,7 +233,7 @@ class FreakWAN:
             f.write(code)
             f.close()
         except Exception as e:
-            print("Saving settings: "+self.get_stack_trace(e))
+            self.serial_log("Saving settings: "+self.get_stack_trace(e))
             pass
 
     # Remove the setting file. After a restar the device will just use
@@ -353,7 +353,7 @@ class FreakWAN:
                 # a very long time, and if so, reset the LoRa radio.
                 if self.lora.tx_in_progress:
                     if self.duty_cycle.get_current_tx_time() > 60000:
-                        print("WARNING: TX watchdog radio reset")
+                        self.serial_log("WARNING: TX watchdog radio reset")
                         self.lora_reset_and_configure()
                         self.lora.receive()
                     # Put back the message, in the same order as
@@ -399,7 +399,7 @@ class FreakWAN:
         if m.flags & MessageFlagsRelayed: return # Don't acknowledge relayed.
         ack = Message(mtype=MessageTypeAck,uid=m.uid,ack_type=m.type)
         self.send_asynchronously(ack,max_delay=0)
-        print("[>> net] Sending ACK about "+("%08x"%m.uid))
+        self.serial_log("[>> net] Sending ACK about "+("%08x"%m.uid))
 
     # Called for data messages we see for the first time. If the
     # originator asked for relay, we schedule a retransmission of
@@ -420,7 +420,7 @@ class FreakWAN:
         m.flags |= MessageFlagsRelayed  # This is a relay. No ACKs, please.
         self.send_asynchronously(m,num_tx=self.config['relay_num_tx'],max_delay=self.config['relay_max_delay'])
         self.scroller.icons.set_relay_visibility(True)
-        print("[>> net] Relaying "+("%08x"%m.uid)+" from "+m.nick)
+        self.serial_log("[>> net] Relaying "+("%08x"%m.uid)+" from "+m.nick)
 
     # Return the message if it was already marked as processed, otherwise
     # None is returned.
@@ -463,7 +463,7 @@ class FreakWAN:
             if age <= maxage:
                 self.processed_b[uid] = m
             else:
-                print("[cache] Evicted: "+"%08x"%uid)
+                self.serial_log("[cache] Evicted: "+"%08x"%uid)
 
         # If we processed all the items of the 'a' dictionary, start again.
         if len(self.processed_a) == 0 and len(self.processed_b) != 0:
@@ -485,7 +485,7 @@ class FreakWAN:
             elif m.type == MessageTypeData:
                 # Already processed? Return ASAP.
                 if self.mark_as_processed(m):
-                    print("[<< net] Ignore duplicated message "+("%08x"%m.uid)+" <"+m.nick+"> "+m.text)
+                    self.serial_log("[<< net] Ignore duplicated message "+("%08x"%m.uid)+" <"+m.nick+"> "+m.text)
                     return
 
                 # Report message to the user.
@@ -502,11 +502,11 @@ class FreakWAN:
                         user_msg = channel_name+m.nick+"> image"
                     elif m.media_type == MessageMediaTypeSensorData:
                         sensor_data = m.sensor_data_to_str()
-                        print("[SENSOR-DATA] channel:%s sensor_id:%s %s" % (channel_name.strip(),m.nick,sensor_data))
+                        self.serial_log("[SENSOR-DATA] channel:%s sensor_id:%s %s" % (channel_name.strip(),m.nick,sensor_data))
                         user_msg = channel_name+m.nick+"> "+sensor_data
                         self.scroller.print(user_msg)
                     else:
-                        print("[<<< net] Unknown media type %d" % m.media_type)
+                        self.serial_log("[<<< net] Unknown media type %d" % m.media_type)
                         user_msg = channel_name+m.nick+"> unknown media"
                 else:
                     user_msg = channel_name+m.nick+"> "+m.text
@@ -516,7 +516,7 @@ class FreakWAN:
                     self.uart.print(user_msg+" "+msg_info)
                     if self.irc: self.irc.reply(user_msg+" "+msg_info)
 
-                print("*** "+channel_name+user_msg+" "+msg_info)
+                self.serial_log("*** "+channel_name+user_msg+" "+msg_info)
                 self.refresh_view()
 
                 # Reply with ACK if needed.
@@ -531,28 +531,28 @@ class FreakWAN:
                 about = self.get_processed_message(m.uid)
                 if about != None:
                     self.scroller.icons.set_ack_visibility(True)
-                    print("[<< net] Got ACK about "+("%08x"%m.uid)+" by "+m.sender_to_str())
+                    self.serial_log("[<< net] Got ACK about "+("%08x"%m.uid)+" by "+m.sender_to_str())
                     about.acks[m.sender] = True
                     # If we received ACKs from all the nodes we know about,
                     # stop retransmitting this message.
                     if len(self.neighbors) and len(about.acks) == len(self.neighbors):
                         about.send_canceled = True
-                        print("[<< net] ACKs received from all the %d known nodes. Suppress resending." % (len(self.neighbors)))
+                        self.serial_log("[<< net] ACKs received from all the %d known nodes. Suppress resending." % (len(self.neighbors)))
             elif m.type == MessageTypeHello:
                 # Limit the number of neighbors to protect against OOM
                 # due to bugs or too many nodes near us.
                 max_neighbors = 32
                 if not m.sender in self.neighbors:
                     msg = "[net] New node sensed: "+m.sender_to_str()
-                    print(msg)
+                    self.serial_log(msg)
                     self.uart.print(msg)
                 self.neighbors[m.sender] = m
                 if len(self.neighbors) > max_neighbors:
                     self.neighbors.popitem()
             else:
-                print("receive_lora_packet(): message type not implemented: %d" % m.type)
+                self.serial_log("receive_lora_packet(): message type not implemented: %d" % m.type)
         else:
-            print("!!! Can't decoded packet: "+repr(packet))
+            self.serial_log("!!! Can't decoded packet: "+repr(packet))
             if self.config['prom']:
                 self.scroller.print("Unrecognized LoRa packet: "+repr(packet))
 
@@ -571,13 +571,13 @@ class FreakWAN:
                 if age <= hello_msg_max_age:
                     new[sender] = m
                 else:
-                    print("[net] Flushing timedout neighbor: "+
+                    self.serial_log("[net] Flushing timedout neighbor: "+
                         m.sender_to_str()+" ("+m.nick+")")
             self.neighbors = new
 
             # Send HELLO, if not in quiet mode.
             if not self.config['quiet']:
-                print("[net] Sending HELLO message")
+                self.serial_log("[net] Sending HELLO message")
                 msg = Message(mtype=MessageTypeHello,
                             nick=self.config['nick'],
                             text=self.config['status'],
@@ -615,7 +615,7 @@ class FreakWAN:
         msg += " CacheLen:"+str(cached_total)
         msg += " FreeMem:"+str(gc.mem_free())
         msg += " DutyCycle: %.2f%%" % self.duty_cycle.get_duty_cycle()
-        print(msg)
+        self.serial_log(msg)
     
     # This is the default callback that handle a message received from BLE.
     # It will:
@@ -668,8 +668,9 @@ class FreakWAN:
                 ch = sys.stdin.read(1)
                 if ch == '\n':
                     sys.stdout.write("\n")
-                    self.cmdctrl.exec_user_command(self.serial_buf.strip(),self.reply_to_serial)
+                    cmd = self.serial_buf.strip()
                     self.serial_buf = ""
+                    self.cmdctrl.exec_user_command(cmd,self.reply_to_serial)
                 elif ord(ch) == 127:
                     # Backslash key.
                     self.serial_buf = self.serial_buf[:-1]
@@ -678,10 +679,22 @@ class FreakWAN:
                     self.serial_buf += ch
                     sys.stdout.write(ch) # Echo
 
+    # This method logs to the serial, but it is aware that we also let the
+    # user write commands to the serial (see receive_from_serial() method).
+    # So when we write to the serial, we hide the user input for a moment,
+    # write the log, then restore the user input. Like an async readline
+    # library would do.
+    def serial_log(self,msg):
+        if len(self.serial_buf):
+            sys.stdout.write("\033[2K\033[G") # Clean line, cursor on the left.
+        sys.stdout.write(msg+"\r\n")
+        if len(self.serial_buf):
+            sys.stdout.write(self.serial_buf)
+
     # Callback to reply to CLI commands when they are received from
     # the USB serial.
     def reply_to_serial(self,msg):
-        sys.stdout.write(msg+"\n")
+        self.serial_log(msg)
 
     # Start the WiFi subsystem, using an already configured network
     # (if password is None) or a new network.
@@ -690,7 +703,7 @@ class FreakWAN:
             password = self.config['wifi'].get(network)
             if not password: return False
         if not self.wifi: self.wifi = WiFiConnection()
-        print("[WiFi] Connecting to %s" % network)
+        self.serial_log("[WiFi] Connecting to %s" % network)
         self.wifi.connect(network,password)
         self.config['wifi_default_network'] = network
         return True
@@ -701,7 +714,7 @@ class FreakWAN:
         # of the application: after a soft reset, the ESP32 will keep
         # the state of the WiFi network.
         if not self.wifi: self.wifi = WiFiConnection()
-        print("[WiFi] Stopping Wifi (if active)")
+        self.serial_log("[WiFi] Stopping Wifi (if active)")
         self.wifi.stop()
         self.config['wifi_default_network'] = False
 
