@@ -200,6 +200,9 @@ class FreakWAN:
         # REPL via UBS serial.
         self.serial_buf = ""
 
+        # If false, disable logging of debug info to serial.
+        self.serial_log_enabled = True
+
     # Restart
     def reset(self):
         machine.reset()
@@ -516,7 +519,7 @@ class FreakWAN:
                     self.uart.print(user_msg+" "+msg_info)
                     if self.irc: self.irc.reply(user_msg+" "+msg_info)
 
-                self.serial_log("*** "+channel_name+user_msg+" "+msg_info)
+                self.serial_log("\033[32m"+channel_name+user_msg+" "+msg_info+"\033[0m", force=True)
                 self.refresh_view()
 
                 # Reply with ACK if needed.
@@ -684,7 +687,8 @@ class FreakWAN:
     # So when we write to the serial, we hide the user input for a moment,
     # write the log, then restore the user input. Like an async readline
     # library would do.
-    def serial_log(self,msg):
+    def serial_log(self,msg,force=False):
+        if not self.serial_log_enabled and not force: return
         if len(self.serial_buf):
             sys.stdout.write("\033[2K\033[G") # Clean line, cursor on the left.
         sys.stdout.write(msg+"\r\n")
@@ -694,7 +698,7 @@ class FreakWAN:
     # Callback to reply to CLI commands when they are received from
     # the USB serial.
     def reply_to_serial(self,msg):
-        self.serial_log(msg)
+        self.serial_log(msg,force=True)
 
     # Start the WiFi subsystem, using an already configured network
     # (if password is None) or a new network.

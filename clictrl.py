@@ -93,7 +93,7 @@ class CommandsController:
         cmd = str(cmd).strip()
         if len(cmd) == 0: return
 
-        print("CLI: %s" % cmd)
+        self.fw.serial_log("CLI: %s" % cmd)
         if cmd[0] == '!':
             # Command call.
             argv = self.split_arguments(cmd[1:])
@@ -397,3 +397,7 @@ class CommandsController:
         except Exception as e:
             send_reply("Error loading the image: "+str(e))
         return True
+
+    def cmd_log(self,argv,argc,send_reply):
+        self.fw.serial_log_enabled = not self.fw.serial_log_enabled
+        send_reply("Serial logging set to: "+str(self.fw.serial_log_enabled))
