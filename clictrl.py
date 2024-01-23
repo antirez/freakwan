@@ -98,6 +98,7 @@ class CommandsController:
             # Command call.
             argv = self.split_arguments(cmd[1:])
             argc = len(argv)
+            if argc == 0: return
             method_name = 'cmd_'+argv[0]
             if not hasattr(self.__class__,method_name):
                 send_reply("Unknown command: "+argv[0])

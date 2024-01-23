@@ -195,6 +195,11 @@ class FreakWAN:
         else:
             self.sensor = None
 
+        # This is the buffer used in order to accumulate the
+        # command the user is typing directly in the MicroPython
+        # REPL via UBS serial.
+        self.serial_buf = ""
+
     # Restart
     def reset(self):
         machine.reset()
@@ -657,17 +662,21 @@ class FreakWAN:
     # UART via USB, so that a user with the REPL open with the device
     # will be able to send commands directly.
     async def receive_from_serial(self):
-        buf = "" # Accumulate the CLI command here
         while True:
             await asyncio.sleep(0.1)
             while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
                 ch = sys.stdin.read(1)
-                sys.stdout.write(ch) # Echo
                 if ch == '\n':
-                    self.cmdctrl.exec_user_command(buf.strip(),self.reply_to_serial)
-                    buf = ""
+                    sys.stdout.write("\n")
+                    self.cmdctrl.exec_user_command(self.serial_buf.strip(),self.reply_to_serial)
+                    self.serial_buf = ""
+                elif ord(ch) == 127:
+                    # Backslash key.
+                    self.serial_buf = self.serial_buf[:-1]
+                    sys.stdout.write("\033[D \033[D") # Cursor back 1 position.
                 else:
-                    buf += ch
+                    self.serial_buf += ch
+                    sys.stdout.write(ch) # Echo
 
     # Callback to reply to CLI commands when they are received from
     # the USB serial.
