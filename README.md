@@ -47,11 +47,37 @@ However changing the pins in the configuration, to adapt it to other ESP32 modul
 
 # Usage
 
+The two simplest ways to send commands to the device, write messages
+that will be broadcasted and also receive messages sent by other
+users, it is to use the USB or Bluetooth serial.
+
+## Serial CLI
+
+To obtain a serial command line interface, make sure the device is connected
+via an USB cable with your computer. Than connect to the device serial with
+`talk32`, `minicom`, `screen` or whatever serial terminal you want to use.
+Normally the bound rate is 115200.
+
+    talk32 /dev/tty.usbserial001 repl # No need to specify bound rate.
+
+or
+
+    screen /dev/tty.usbserial001 115200
+
+Of course the name of the device is just an example. Try `ls /dev/tty*` to see the list of possible device names in your computer.
+
+Once you connect, you will see the device logs, but you will also be able
+to send bang commands or messages to the chat (see below).
+
+## Bluetooth CLI
+
 It is possible to use the device via Bluetooth LE, using one of the following applications:
 * Android: install one of the many BLE UART apps available. We recommend the [Serial Bluetooth Terminal app](https://play.google.com/store/apps/details?id=de.kai_morich.serial_bluetooth_terminal&hl=en&gl=US). It works great out of the box, but for the best experience open the settings, go to the *Send* tab, and select *clear input on send*. An alternative is [nRF Toolbox](https://www.nordicsemi.com/Products/Development-tools/nrf-toolbox), select the UART utility service, connect to the device and send a text message or just `!help`.
 * iPhone: [BLE Terminal HM-10](https://apps.apple.com/it/app/ble-terminal-hm-10/id1398703795?l=en) works well and is free. There are other more costly options.
 * Linux Desktop: install [Freakble](https://github.com/eriol/freakble) following the project README.
-* For MacOS you may try Bluefruit Connect. It is available in the Mac App Store.
+* For MacOS, there is a BLE UART app directly inside this software distribution under the `osx-bte-cli` directory. Please read the README file that is there.
+
+## Sending commands and messages
 
 Using one of the above, you can talk with the device, and chat with other users around, sending CLI commands.
 If you just type some text, it will be sent as message in the network. Messages received from the network are also shown in the serial console.

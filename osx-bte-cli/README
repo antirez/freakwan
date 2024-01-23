@@ -4,4 +4,19 @@ input and writes to the BTE device, and returns what the BTE device sends.
 
 Sorry about the Objective-C part. The code is terrible as I'm not an
 Objective-C programmer. But there is no CoreBluetooth lower-level C API
-so I had to find my way among the Apple stuff.
+so I had to find my way among the Objective-C Apple chain-of-calls stuff.
+
+# Usage
+
+Build with `make`. Then connect with your device simply write:
+
+./btecli
+
+Or, if you want to connect with a specific device as you have multiple ones,
+specify the name of the device (the nick you configured in FreakWAN, or
+if you are using some other BLE UART device, the bluetooth name it has
+when you scan for BLE devices):
+
+./btecli mydevice
+
+You don't need to specify the full device name. Just a substring contained in the name is enough.
