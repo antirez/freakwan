@@ -44,7 +44,7 @@ char *words[256] = {
 /* Compress the string 's' of 'len' bytes and stores the compression
  * result in 'dst' for a maximum of 'dstlen' bytes. Returns the
  * amount of bytes written. */
-unsigned long smaz_compress(unsigned char *dst, unsigned long dstlen, unsigned char *s, unsigned long len)
+unsigned long smax_compress(unsigned char *dst, unsigned long dstlen, unsigned char *s, unsigned long len)
 {
 
     int debug = 0;       // Log debugging messages.
@@ -161,7 +161,7 @@ unsigned long smaz_compress(unsigned char *dst, unsigned long dstlen, unsigned c
 /* Decompress the string 'c' of 'len' bytes and stores the compression
  * result in 'dst' for a maximum of 'dstlen' bytes. Returns the
  * amount of bytes written. */
-unsigned long smaz_decompress(unsigned char *dst, unsigned long dstlen, unsigned char *c, unsigned long len)
+unsigned long smax_decompress(unsigned char *dst, unsigned long dstlen, unsigned char *c, unsigned long len)
 {
     (void) dst;
     (void) dstlen;
@@ -181,13 +181,13 @@ int main(int argc, char **argv) {
     unsigned long olen;
 
     if (argv[1][0] == 'c') {
-        olen = smaz_compress(buf,sizeof(buf),(unsigned char*)argv[2],strlen(argv[2]));
+        olen = smax_compress(buf,sizeof(buf),(unsigned char*)argv[2],strlen(argv[2]));
     } else if (argv[1][0] == 'd') {
-        olen = smaz_decompress(buf,sizeof(buf),(unsigned char*)argv[2],strlen(argv[2]));
+        olen = smax_decompress(buf,sizeof(buf),(unsigned char*)argv[2],strlen(argv[2]));
     } else {
         fprintf(stderr,"Operation should be 'c' or 'd'\n");
         exit(1);
     }
 
-    printf("Compressed length: %.02f%%\n", (float)olen/strlen(argv[2])*100);
+    printf("Compressed length (%lu): %.02f%%\n", olen, (float)olen/strlen(argv[2])*100);
 }
