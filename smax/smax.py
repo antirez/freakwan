@@ -36,6 +36,7 @@ words = [
 
 # SMAX compression function
 def smax_compress(s):
+    s = s.encode()
     dst = bytearray()
     verblen = 0
 
@@ -52,13 +53,16 @@ def smax_compress(s):
 
             if i:
                 if s[0] == ' ':
-                    dst.extend([8,i])
+                    dst.append(8)
+                    dst.append(i)
                     s = s[1:]
                 elif len(s) > wordlen and s[wordlen] == ' ':
-                    dst.extend([7,i])
+                    dst.append(7)
+                    dst.append(i)
                     s = s[1:]
                 else:
-                    dst.extend([6,i])
+                    dst.append(6)
+                    dst.append(i)
 
                 s = s[wordlen:]
                 verblen = 0
@@ -96,9 +100,29 @@ def smax_compress(s):
 
     return bytes(dst)
 
-# SMAX decompression function (stub)
+# SMAX decompression function
 def smax_decompress(c):
-    pass  # Decompression logic goes here
+    i = 0
+    res = bytearray()
+    while i < len(c):
+        if c[i] & 128 != 0: # Emit bigram
+            idx = c[i]&127
+            res.extend(bigrams[idx*2:idx*2+2])
+            i += 1
+            continue
+        elif 0 < c[i] < 6: # Emit verbatim
+            res.extend(c[i+1:i+1+c[i]])
+            i += 1+c[i]
+            continue
+        elif 5 < c[i] < 9: # Emit word
+            if c == 8: res.append(32)
+            res.extend(words[c[i+1]])
+            if c == 7: res.append(32)
+            i += 2
+        else: # Emit byte as it is
+            res.append(c[i])
+            i += 1
+    return res.decode()
 
 # Main function for command-line interface
 if __name__ == "__main__":
@@ -108,9 +132,10 @@ if __name__ == "__main__":
         sys.exit("Usage: {} c|d 'string to c=compress, d=decompress'".format(sys.argv[0]))
 
     if sys.argv[1] == 'c':
-        compressed = smax_compress(sys.argv[2].encode())
+        compressed = smax_compress(sys.argv[2])
         print("Compressed length: {:.02f}%".format(len(compressed) / len(sys.argv[2].encode()) * 100))
         print(compressed)
+        print("Decompress back: ", smax_decompress(compressed))
     elif sys.argv[1] == 'd':
         decompressed = smax_decompress(sys.argv[2].encode())
         # Print decompression results here
