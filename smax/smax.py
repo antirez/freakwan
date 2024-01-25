@@ -1,38 +1,37 @@
 # Define common bigrams and words
 bigrams = "intherreheanonesorteattistenntartondalitseediseangoulecomeneriroderaioicliofasetvetasihamaecomceelllcaurlachhidihofonsotacnarssoprrtsassusnoiltsemctgeloeebetrnipeiepancpooldaadviunamutwimoshyoaiewowosfiepttmiopiaweagsuiddoooirspplscaywaigeirylytuulivimabty"
 words = [
-"that", "this", "with", "from", "your", "have", "more", "will", "home",
-"about", "page", "search", "free", "other", "information", "time", "they",
-"site", "what", "which", "their", "news", "there", "only", "when", "contact",
-"here", "business", "also", "help", "view", "online", "first", "been", "would",
-"were", "services", "some", "these", "click", "like", "service", "than", "find",
-"price", "date", "back", "people", "list", "name", "just", "over", "state",
-"year", "into", "email", "health", "world", "next", "used", "work", "last",
-"most", "products", "music", "data", "make", "them", "should", "product",
-"system", "post", "city", "policy", "number", "such", "please", "available",
-"copyright", "support", "message", "after", "best", "software", "then", "good",
-"video", "well", "where", "info", "rights", "public", "books", "high", "school",
-"through", "each", "links", "review", "years", "order", "very", "privacy",
-"book", "items", "company", "read", "group", "need", "many", "user", "said",
-"does", "under", "general", "research", "university", "january", "mail", "full",
-"reviews", "program", "life", "know", "games", "days", "management", "part",
-"could", "great", "united", "hotel", "real", "item", "international", "center",
-"ebay", "must", "store", "travel", "comments", "made", "development", "report",
-"member", "details", "line", "terms", "before", "hotels", "send", "right",
-"type", "because", "local", "those", "using", "results", "office", "education",
-"national", "design", "take", "posted", "internet", "address", "community",
-"within", "states", "area", "want", "phone", "shipping", "reserved", "subject",
-"between", "forum", "family", "long", "based", "code", "show", "even", "black",
-"check", "special", "prices", "website", "index", "being", "women", "much",
-"sign", "file", "link", "open", "today", "technology", "south", "case",
-"project", "same", "pages", "version", "section", "found", "sports", "house",
-"related", "security", "both", "county", "american", "photo", "game", "members",
-"power", "while", "care", "network", "down", "computer", "systems", "three",
-"total", "place", "following", "download", "without", "access", "think",
-"north", "resources", "current", "posts", "media", "control", "water",
-"history", "pictures", "size", "personal", "since", "including", "guide",
-"shop", "directory", "board", "location", "change", "white", "text", "small",
-"rating", "rate", "government"]
+"have", "that", "with", "this", "they", "from", "that", "what", "their",
+"would", "make", "about", "know", "will", "time", "there", "year", "think",
+"when", "which", "them", "some", "people", "take", "into", "just", "your",
+"come", "could", "than", "like", "other", "then", "more", "these", "want",
+"look", "first", "also", "because", "more", "find", "here", "thing", "give",
+"many", "well", "only", "those", "tell", "very", "even", "back", "good",
+"woman", "through", "life", "child", "there", "work", "down", "after", "should",
+"call", "world", "over", "school", "still", "last", "need", "feel", "three",
+"when", "state", "never", "become", "between", "high", "really", "something",
+"most", "another", "much", "family", "leave", "while", "mean", "keep",
+"student", "great", "same", "group", "begin", "seem", "country", "help", "talk",
+"where", "turn", "problem", "every", "start", "hand", "might", "show", "part",
+"about", "against", "place", "over", "such", "again", "case", "most", "week",
+"company", "where", "system", "each", "right", "program", "hear", "question",
+"during", "work", "play", "government", "small", "number", "always", "move",
+"like", "night", "live", "point", "believe", "hold", "today", "bring", "happen",
+"next", "without", "before", "large", "million", "must", "home", "under",
+"water", "room", "write", "mother", "area", "national", "money", "story",
+"young", "fact", "month", "different", "right", "study", "book", "word",
+"though", "business", "issue", "side", "kind", "four", "head", "black",
+"long", "both", "little", "house", "after", "since", "long", "provide",
+"service", "around", "friend", "important", "father", "away", "until", "power",
+"hour", "game", "often", "line", "political", "among", "ever", "stand",
+"lose", "however", "member", "meet", "city", "almost", "include", "continue",
+"later", "community", "much", "name", "five", "once", "white", "least",
+"president", "learn", "real", "change", "team", "minute", "best", "several",
+"idea", "body", "information", "nothing", "right", "lead", "social",
+"understand", "whether", "back", "watch", "together", "follow", "around",
+"parent", "only", "stop", "face", "anything", "create", "public", "already",
+"speak", "others", "read", "level", "allow", "office", "spend", "door",
+"health", "person", "sure", "such", "history", "party"]
 
 # SMAX compression function
 def smax_compress(s):
@@ -44,7 +43,7 @@ def smax_compress(s):
         if len(s) >= 4:
             for i, w in enumerate(words):
                 wordlen = len(w)
-                space = s[0] == ' '
+                space = s[0] == 32
 
                 if len(s) >= wordlen + space and s[space:wordlen+space] == w.encode():
                     break
@@ -52,11 +51,11 @@ def smax_compress(s):
                 i = False
 
             if i:
-                if s[0] == ' ':
+                if s[0] == 32:
                     dst.append(8)
                     dst.append(i)
                     s = s[1:]
-                elif len(s) > wordlen and s[wordlen] == ' ':
+                elif len(s) > wordlen and s[wordlen] == 32:
                     dst.append(7)
                     dst.append(i)
                     s = s[1:]
@@ -115,9 +114,9 @@ def smax_decompress(c):
             i += 1+c[i]
             continue
         elif 5 < c[i] < 9: # Emit word
-            if c == 8: res.append(32)
+            if c[i] == 8: res.append(32)
             res.extend(words[c[i+1]])
-            if c == 7: res.append(32)
+            if c[i] == 7: res.append(32)
             i += 2
         else: # Emit byte as it is
             res.append(c[i])
