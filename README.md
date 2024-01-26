@@ -241,9 +241,10 @@ of the message:
 
 * Bit 3: `Media`.
 
-When this happens, the data inside the message is not some text in the form `nick`+`message`. Instead the first byte of the message is the media type ID, from 0 to 255. Right now only a media type is defined:
+When this happens, the data inside the message is not some text in the form `nick`+`message`. Instead the first byte of the message is the media type ID, from 0 to 255. Right now only two media types are defined:
 
 * Media type 0: FreakWAN Compressed Image (FCI). Small 1 bit color image.
+* Media type 1: Sensor reading.
 
 ```
 +--------+------//------+-----------+-------------+----//
