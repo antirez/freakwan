@@ -189,7 +189,7 @@ The first byte is the message type byte. The following message types are defined
 The second byte of messages of all the message types is the flag byte.
 Bits have the following meaning:
 
-* Bit 0: `Ralayed`. Set if the message was repeated by some node that is not the originator of the message. Relayed messages are not acknowledged.
+* Bit 0: `Relayed`. Set if the message was repeated by some node that is not the originator of the message. Relayed messages are not acknowledged.
 * Bit 1: `PleaseRelay`. If this flag is set, other receivers of the message will try to repeat the message, so that it can travel further in the WAN.
 * Bit 2: `Fragment`. This flag means that this message is a fragment of many, that should be reassembled in order to retrieve the full Data message.
 * Bit 3: `Media`. For message of type 'Data' this flag means that the message is not text, but some kind of media. See the Data messages section for more information.
