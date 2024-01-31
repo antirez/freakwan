@@ -36,9 +36,8 @@ class DeviceConfig:
         'busy': 7,
         'miso': 4,
         'mosi': 1,
-        'clock': 5,
+        'clock': 3,
         'chipselect': 5,
         'reset': 8,
         'dio': 9,
     }
-
