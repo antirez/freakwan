@@ -154,3 +154,18 @@ class BLEUART:
 
     def _advertise(self, interval_us=200000):
         self._ble.gap_advertise(interval_us, adv_data=self._payload, resp_data=self._resp)
+
+
+
+if  __name__ == "__main__":
+    import time
+
+    def receive_callback():
+        data = uart.read().decode()
+        print("From BLE",data)
+        uart.print(data)
+
+    ble = bluetooth.BLE()
+    uart = BLEUART(ble, name="ble_test")
+    uart.set_callback(receive_callback)
+    while True: time.sleep(1)

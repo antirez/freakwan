@@ -146,10 +146,11 @@ class FreakWAN:
         self.lora_reset_and_configure()
         
         # Init BLE chip
-        if False:
-            ble = bluetooth.BLE()
-            self.uart = BLEUART(ble, name="FW_%s" % self.config['nick'])
-            self.cmdctrl = CommandsController(self)
+        ble = bluetooth.BLE()
+        self.uart = BLEUART(ble, name="FW_%s" % self.config['nick'])
+
+        # Create our CLI commands controller.
+        self.cmdctrl = CommandsController(self)
 
         # Queue of messages we should send ASAP. We append stuff here, so they
         # should be sent in reverse order, from index 0.
@@ -240,7 +241,7 @@ class FreakWAN:
     # band commands. We just save things that we want likely to be
     # reloaded on startup.
     def save_settings(self):
-        settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi','wifi_default_network','quiet','check_crc','ssd1306','tx_led','axp192','sleep_battery_perc','sx1276']
+        settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi','wifi_default_network','quiet','check_crc']
         try:
             f = open("settings.txt","wb")
             code = ""
@@ -651,19 +652,6 @@ class FreakWAN:
         if self.display: self.display.poweroff()
         machine.deepsleep(offtime)
 
-    # This is the event loop of the application where we handle messages
-    # received from BLE using the specified callback.
-    # If the callback is not defined we use the class provided one:
-    # self.ble_receive_callback.
-    async def receive_from_ble(self):
-        self.uart.set_callback(self.ble_receive_callback)
-        # Our callback will be called by the IRQ only when
-        # some BT event happens. We could return, without
-        # staying here in this co-routine, but we'll likely soon
-        # have certain periodic things to do related to the
-        # BT connection. For now, just wait in a loop.
-        while True: await asyncio.sleep(1)
-
     # We want to reply to CLI inputs even if written directly in the
     # UART via USB, so that a user with the REPL open with the device
     # will be able to send commands directly.
@@ -671,7 +659,10 @@ class FreakWAN:
         while True:
             await asyncio.sleep(0.1)
             while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                ch = sys.stdin.read(1)
+                try:
+                    ch = sys.stdin.read(1)
+                except:
+                    continue
                 if ch == '\n':
                     sys.stdout.write("\n")
                     cmd = self.serial_buf.strip()

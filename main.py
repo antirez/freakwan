@@ -19,9 +19,10 @@ if wifi_network:
 asyncio.create_task(fw.cron())
 asyncio.create_task(fw.send_hello_message())
 asyncio.create_task(fw.send_periodic_message())
-asyncio.create_task(fw.receive_from_ble())
 asyncio.create_task(fw.receive_from_serial())
 if fw.config.get('irc') and fw.config['irc']['enabled']: fw.start_irc()
+fw.uart.set_callback(fw.ble_receive_callback)
+
 loop = asyncio.get_event_loop()
 loop.set_exception_handler(fw.crash_handler)
 try:
