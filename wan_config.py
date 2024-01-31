@@ -25,43 +25,7 @@ class UserConfig:
     config['lora_fr']=869500000     # Frequency
     config['lora_pw']=17            # TX power (dbm, range 2-20)
 
-    # Pin configuration for the SSD1306 display.
-    config['ssd1306']= {
-        'sda_pin': 21,
-        'scl_pin': 22
-    }
-
-    # Pin configuration for the AXP192
-    #config['axp192']= {
-    #    'sda_pin': 21,
-    #    'scl_pin': 22
-    #}
-
-    # For headless display, set it to None
-    # config['ssd1306'] = None
-
-    # Pin configuration for the SX1276.
-    config['sx1276'] = {
-        'miso': 19,
-        'mosi': 27,
-        'clock': 5,
-        'chipselect': 18,
-        'reset': 23,
-        'dio0': 26
-    }
-
-    # Pin configuration for the TX led. If missing, set it to None.
-    # config ['tx_led'] = None
-    config['tx_led'] = {
-        'pin': 25,
-        'inverted': False,      # Set to True if pin on = led off
-    }
-
-    # Goes to deep sleep when this percentage is reached, in order to
-    # avoid damaging the battery.
-    config['sleep_battery_perc'] = 20
-
-    # WiFi network, in order to use the IRC interface.
+   # WiFi network, in order to use the IRC interface.
     config['wifi'] = {
         'mynetwork1': 'mypassword',
         'ssid2': 'password2'
@@ -76,13 +40,6 @@ class UserConfig:
         'enabled': False
     }
 
-    ################################# SENSOR MODE #############################
-
-    config['sensor'] = {
-        'enabled': False,
-        'type': 'DHT22',
-        'dht_pin': 25,
-        'period': 30000, # In milliseconds
-        'key_name': "sensor_key", # Encryption key for sensor data
-        'key_secret': "123456",
-    }
+    # Goes to deep sleep when this percentage is reached, in order to
+    # avoid damaging the battery.
+    config['sleep_battery_perc'] = 20

@@ -19,12 +19,12 @@ class Scroller:
     StateDimmed = 1  # Dispaly still active but minimum contrast set
     StateSaver = 2   # Screen saver: only icons at random places on screen.
 
-    def __init__(self, display, icons=None, dim_time=10, ss_time=120):
+    def __init__(self, display, icons=None, dim_time=10, ss_time=120, xres=128, yres=64):
         self.display = display  # Display driver
         self.icons = icons
         self.lines = []
-        self.xres = 128
-        self.yres = 64
+        self.xres = xres
+        self.yres = yres
         # The framebuffer of MicroPython only supports 8x8 fonts so far, so:
         self.select_font("big")
         self.last_update = time.time()

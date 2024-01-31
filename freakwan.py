@@ -1,14 +1,15 @@
-# Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com>
+# Copyright (C) 2023-2024 Salvatore Sanfilippo <antirez@gmail.com>
 # All Rights Reserved
 #
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-import machine, ssd1306, sx1276, time, urandom, gc, bluetooth, sys, io
+import machine, time, urandom, gc, bluetooth, sys, io
 import select
-from machine import Pin, SoftI2C, ADC
+from machine import Pin, SoftI2C, ADC, SPI
 import uasyncio as asyncio
 from wan_config import *
+from device_config import *
 from scroller import Scroller
 from icons import StatusIcons
 from splash import SplashScreen
@@ -21,9 +22,8 @@ from fci import ImageFCI
 from keychain import Keychain
 from networking import IRC, WiFiConnection
 from sensor import Sensor
-from axp192 import AXP192
 
-Version="0.34"
+Version="0.40"
 
 # The application itself, including all the WAN routing logic.
 class FreakWAN:
@@ -33,7 +33,7 @@ class FreakWAN:
         self.config = {
             'nick': self.device_hw_nick(),
             'automsg': True,
-            'axp192': False,
+            'tx_led': False,
             'relay_num_tx': 3,
             'relay_max_delay': 10000,
             'relay_rssi_limit': -60,
@@ -52,6 +52,7 @@ class FreakWAN:
             'check_crc': True, # Discard packets with wrong CRC if False.
         }
         self.config.update(UserConfig.config)
+        self.config.update(DeviceConfig.config)
 
         #################################################################
         # The first thing we need to initialize is the different devices
@@ -61,27 +62,13 @@ class FreakWAN:
         # from low battery deep sleep. We will just flash the led to
         # report we are actaully sleeping for low battery.
         #################################################################
-
-        # Init battery voltage pin
-        self.battery_adc = ADC(Pin(35))
-
-        # Voltage is divided by 2 befor reaching PID 32. Since normally
-        # a 3.7V battery is used, to sample it we need the full 3.3
-        # volts range.
-        self.battery_adc.atten(ADC.ATTN_11DB)
+        DeviceConfig.power_up()
 
         # Init TX led
         if self.config['tx_led']:
             self.tx_led = Pin(self.config['tx_led']['pin'],Pin.OUT)
         else:
             self.tx_led = None
-
-        # Init the AXP192
-        if self.config['axp192']:
-            axp_i2c = SoftI2C(sda=Pin(self.config['axp192']['sda_pin']), scl=Pin(self.config['axp192']['scl_pin']))
-            self.axp192 = AXP192(axp_i2c)
-        else:
-            self.axp192 = None
 
         # We can be resumed from deep sleep for two reasons:
         # 1. We went in deep sleep for low battery.
@@ -106,36 +93,63 @@ class FreakWAN:
         self.load_settings()
 
         # Init display
-        if self.config['ssd1306']:
-            i2c = SoftI2C(sda=Pin(self.config['ssd1306']['sda_pin']),
-                          scl=Pin(self.config['ssd1306']['scl_pin']))
-            self.display = ssd1306.SSD1306_I2C(128, 64, i2c)
+        self.display = None
+
+        if 'sd1306' in self.config:
+            import sd1306
+            self.xres = self.config['ssd1306']['xres']
+            self.yres = self.config['ssd1306']['yres']
+
+            i2c = SoftI2C(sda=Pin(self.config['ssd1306']['sda']),
+                          scl=Pin(self.config['ssd1306']['scl']))
+            self.display = ssd1306.SSD1306_I2C(self.xres, self.yres, i2c)
             self.display.poweron()
             self.display.text('Starting...', 0, 0, 1)
             self.display.show()
+        elif 'st7789' in self.config:
+            import st7789
+            self.xres = self.config['st7789']['xres']
+            self.yres = self.config['st7789']['yres']
+
+            cfg = self.config['st7789']
+            spi = SPI(cfg['spi_channel'], baudrate=40000000, polarity=1, sck=cfg['sck'], mosi=cfg['mosi'], miso=cfg['miso'])
+            self.display = st7789.ST7789(
+                spi, cfg['xres'], cfg['yres'],
+                reset = False,
+                dc=Pin(cfg['dc'], Pin.OUT),
+                cs=Pin(cfg['cs'], Pin.OUT),
+                mono = True,
+            )
+            self.display.init()
         else:
             self.display = None
 
         # Views
         icons = StatusIcons(self.display,get_batt_perc=self.get_battery_perc)
-        self.scroller = Scroller(self.display,icons=icons)
-        self.scroller.select_font("small")
-        self.splashscreen = SplashScreen(self.display)
+        self.scroller = Scroller(self.display,icons=icons,xres=self.xres,yres=self.yres)
+        if self.yres <= 64: self.scroller.select_font("small")
+        self.splashscreen = SplashScreen(self.display,self.xres,self.yres)
         self.SplashScreenView = 0
         self.ScrollerView = 1
-        if self.config['sensor']['enabled']:
+        if 'sensor' in self.config:
             self.switch_view(self.ScrollerView)
         else:
             self.switch_view(self.SplashScreenView)
 
         # Init LoRa chip
-        self.lora = sx1276.SX1276(self.config['sx1276'],self.receive_lora_packet,self.lora_tx_done)
+        if 'sx1276' in self.config:
+            import sx1276
+            self.lora = sx1276.SX1276(self.config['sx1276'],self.receive_lora_packet,self.lora_tx_done)
+        elif 'sx1262' in self.config:
+            import sx1262
+            self.lora = sx1262.SX1262(self.config['sx1262'],self.receive_lora_packet,self.lora_tx_done)
         self.lora_reset_and_configure()
         
         # Init BLE chip
-        ble = bluetooth.BLE()
-        self.uart = BLEUART(ble, name="FW_%s" % self.config['nick'])
-        self.cmdctrl = CommandsController(self)
+        if False:
+            ble = bluetooth.BLE()
+            self.uart = BLEUART(ble, name="FW_%s" % self.config['nick'])
+            self.cmdctrl = CommandsController(self)
 
         # Queue of messages we should send ASAP. We append stuff here, so they
         # should be sent in reverse order, from index 0.
@@ -190,7 +204,7 @@ class FreakWAN:
 
         # Create the sensor instance if FreakWAN is configured to run
         # in sensor mode.
-        if self.config['sensor']['enabled']:
+        if 'sensor' in self.config:
             self.sensor = Sensor(self,self.config['sensor'])
         else:
             self.sensor = None
@@ -270,21 +284,10 @@ class FreakWAN:
         self.lora.configure(self.config['lora_fr'],self.config['lora_bw'],self.config['lora_cr'],self.config['lora_sp'],self.config['lora_pw'])
         if was_receiving: self.lora.receive()
 
-    # Return the battery voltage. Uses different ways depending on the
-    # configuration.
-    def get_battery_microvolts(self):
-        if self.axp192:
-            # If the AXP192 is available, query it via i2c.
-            return self.axp192.get_battery_volts()*1000000
-        else:
-            # On the T3, the battery voltage is divided by two and fed
-            # into the ADC at pin 35.
-            return self.battery_adc.read_uv()*2
-
     # Return the battery percentage using the equation of the
     # discharge curve of a typical lipo 3.7v battery.
     def get_battery_perc(self):
-        volts = self.get_battery_microvolts()/1000000
+        volts = DeviceConfig.get_battery_microvolts()/1000000
         perc = 123-(123/((1+((volts/3.7)**80))**0.165))
         return max(min(100,int(perc)),0)
 

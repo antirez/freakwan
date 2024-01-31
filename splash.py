@@ -8,10 +8,10 @@ import math
 
 # This class implements the view that shows the splash screen on startup.
 class SplashScreen:
-    def __init__(self, display):
+    def __init__(self, display, xres, yres):
         self.display = display  # Display driver
-        self.xres = 128
-        self.yres = 64
+        self.xres = xres
+        self.yres = yres
         self.anim_frame = 0     # Animation frame to show
 
     def next_frame(self):
@@ -47,7 +47,7 @@ class SplashScreen:
         self.draw_logo()
         self.display.show()
 
-# Only useful in order to test the animation quickly
+# Only useful in order to test the animation quickly in the SD1306
 if __name__ == "__main__":
     import ssd1306, time
     from machine import Pin, SoftI2C
