@@ -22,7 +22,7 @@ protocol are the following:
 * Local storage of messages in the device flash, with automatic deletion of old messages.
 * Simple home-made driver for the sx1276 LoRa chip. We will support SX126x too, very soon. In general, no external dependencies.
 * OLED terminal alike output. OLED burning pixels protection.
-* CLI interface via Bluetooth LE, with applications available for Android, iPhone, Linux, MacOS, Windows.
+* CLI interface via USB seria and Bluetooth LE.
 * IRC interface: the device can work as a bot over the IRC protocol.
 * Simple to understand, hackable code base.
 
@@ -82,7 +82,7 @@ Of course the name of the device is just an example. Try `ls /dev/tty*` to see t
 Once you connect, you will see the device logs, but you will also be able
 to send bang commands or messages to the chat (see below).
 
-## Bluetooth CLI
+## Bluetooth low energy CLI
 
 It is possible to use the device via Bluetooth LE, using one of the following applications:
 * Android: install one of the many BLE UART apps available. We recommend the [Serial Bluetooth Terminal app](https://play.google.com/store/apps/details?id=de.kai_morich.serial_bluetooth_terminal&hl=en&gl=US). It works great out of the box, but for the best experience open the settings, go to the *Send* tab, and select *clear input on send*. An alternative is [nRF Toolbox](https://www.nordicsemi.com/Products/Development-tools/nrf-toolbox), select the UART utility service, connect to the device and send a text message or just `!help`.
