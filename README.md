@@ -39,11 +39,19 @@ However changing the pins in the configuration, to adapt it to other ESP32 modul
 
 * Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device. **NOTE: MicroPython versions > 1.19.1 have buggy bluetooth stack with certain devices**, so before they fix it, it's better to stick to version 1.19.1. However your device may not have a working 1.19.1 version (it's the case with certain ESP32 S3 devices like the Lilygo t-watch S3): in this case you need to disable BLE manually, editing `wan_config.py` and setting `ble_enabled` to False.
 * Clone this repository, and edit `wan_config.py` to set your nickname and status message, set the frequency according to your device. **Warning**: make sure to set the right frequency based on the LoRa module you own, and make sure your antenna is already installed before using the software, or you **may damage your hardware**.
-* Transfer all the `.py` files in the root directory of this project in your device. To transfer the files, you can use [ampy](https://github.com/scientifichackers/ampy) (`pip3 install adafruit-ampy` should be enough), or an alternative tool that we wrote, and is conceptually part of the FreakWAN effort, called [talk32](https://github.com/antirez/talk32). Talk32 is much faster at transferring files, but is yet alpha quality code. If you use Talk32, you will need to run something like this:
+* Copy one of the files inside the `devices` folder in the main folder as `device_config.py`, for instance if I have a T3 v2 1.6 device, I will do:
 
-    talk32 /dev/tty.usbserial001 put *.py
+    cp devices/device_config.t3_v2_1.6.py ./device_config.py
 
-* Restart your device. If everything is fine you will see the splash screen and then the program version.
+* Transfer all the `.py` files in the root directory of this project in your device. To transfer the files, you can use **mpremote** (`pip3 install mpremote` should be enough), or an alternative tool that we wrote, and is conceptually part of the FreakWAN effort, called [talk32](https://github.com/antirez/talk32). Talk32 is not as fast as mpremote at transferring files, but sometimes mpremote does not work with certain devices and talk32 does (and the other way around).
+
+    mpremote cp *.py : # Using mpremote
+    talk32 /dev/tty.usbserial001 put *.py # Using Talk32
+
+Please note that you **don't need** both the command lines. Just one depending on the tool you use.
+
+* Restart your device: you can either power it off/on, or use `mpremote repl` and hit `Ctrl_D` to trigger a soft reset. Sometimes devices also have a reset button. If everything is fine you will see the splash screen and then the program version.
+* If you are using a T-WATCH S3, or other recent Lyligo devices based on ESP32-S3, and your splash screen freezes (the waves should move and then the splash screen should disappear, if everything works well), please try to disable BLE from `wan_config.py`.
 
 # Usage
 
