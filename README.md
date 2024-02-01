@@ -22,7 +22,7 @@ protocol are the following:
 * Local storage of messages in the device flash, with automatic deletion of old messages.
 * Simple home-made driver for the SX1276 and SX1262 LoRa chip. In general, no external dependencies. Runs with vanilla MicroPython installs.
 * OLED terminal alike output. OLED burning pixels protection.
-* CLI interface via USB seria and Bluetooth LE.
+* CLI interface via USB serial and Bluetooth LE.
 * IRC interface: the device can work as a bot over the IRC protocol.
 * Simple to understand, hackable code base.
 
