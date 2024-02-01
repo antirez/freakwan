@@ -46,11 +46,11 @@ However changing the pins in the configuration, to adapt it to other ESP32 modul
 
 * Transfer all the `.py` files in the root directory of this project in your device. To transfer the files, you can use **mpremote** (`pip3 install mpremote` should be enough), or an alternative tool that we wrote, and is conceptually part of the FreakWAN effort, called [talk32](https://github.com/antirez/talk32). Talk32 is not as fast as mpremote at transferring files, but sometimes mpremote does not work with certain devices and talk32 does (and the other way around).
 
-    mpremote cp *.py : # IMPORTANT! Don't forget the final ':'
+    mpremote cp *.py :
 
 or
 
-    talk32 /dev/tty.usbserial001 put *.py # Using Talk32
+    talk32 /dev/tty.usbserial001 put *.py
 
 Please note that you **don't need** both the command lines. Just one depending on the tool you use.
 
