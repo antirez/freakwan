@@ -1,6 +1,6 @@
 ### LILYGO T-BEAM T22 v1.1 hardware configuration
 
-from machine import Pin
+from machine import Pin, SoftI2C
 from axp192 import AXP192
 
 class DeviceConfig:
@@ -14,8 +14,8 @@ class DeviceConfig:
     }
 
     def power_up():
-        DeviceConfig.axp_i2c = SoftI2C(sda=Pin(21), scl=Pin(22))
-        DeviceConfig.axp192 = AXP192(axp_i2c)
+        i2c = SoftI2C(sda=Pin(21), scl=Pin(22))
+        DeviceConfig.axp192 = AXP192(i2c)
 
     def get_battery_microvolts():
         return DeviceConfig.axp192.get_battery_volts()*1000000
