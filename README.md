@@ -20,7 +20,7 @@ protocol are the following:
 * Bandwidth usage mitigation features.
 * Duty cycle tracking.
 * Local storage of messages in the device flash, with automatic deletion of old messages.
-* Simple home-made driver for the sx1276 LoRa chip. We will support SX126x too, very soon. In general, no external dependencies.
+* Simple home-made driver for the sx1276 and sx1262 LoRa chip. In general, no external dependencies. Runs with vanilla MicroPython installs.
 * OLED terminal alike output. OLED burning pixels protection.
 * CLI interface via USB seria and Bluetooth LE.
 * IRC interface: the device can work as a bot over the IRC protocol.
