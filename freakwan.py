@@ -152,7 +152,10 @@ class FreakWAN:
         
         # Init BLE chip
         ble = bluetooth.BLE()
-        self.uart = BLEUART(ble, name="FW_%s" % self.config['nick'])
+        if self.config['ble_enabled']:
+            self.bleuart = BLEUART(ble, name="FW_%s" % self.config['nick'])
+        else:
+            self.bleuart = None
 
         # Create our CLI commands controller.
         self.cmdctrl = CommandsController(self)
@@ -525,7 +528,7 @@ class FreakWAN:
                     if m.flags & MessageFlagsRelayed: user_msg += " [R]"
                     if m.flags & MessageFlagsBadCRC: user_msg += " [BADCRC]"
                     self.scroller.print(user_msg)
-                    self.uart.print(user_msg+" "+msg_info)
+                    if self.bleuart: self.bleuart.print(user_msg+" "+msg_info)
                     if self.irc: self.irc.reply(user_msg+" "+msg_info)
 
                 self.serial_log("\033[32m"+channel_name+user_msg+" "+msg_info+"\033[0m", force=True)
@@ -557,7 +560,7 @@ class FreakWAN:
                 if not m.sender in self.neighbors:
                     msg = "[net] New node sensed: "+m.sender_to_str()
                     self.serial_log(msg)
-                    self.uart.print(msg)
+                    if self.bleuart: self.bleuart.print(msg)
                 self.neighbors[m.sender] = m
                 if len(self.neighbors) > max_neighbors:
                     self.neighbors.popitem()
@@ -635,8 +638,8 @@ class FreakWAN:
     # 2. Create a our Message with the received text;
     # 3. Send asynchronously the message and display it.
     def ble_receive_callback(self):
-        cmd = self.uart.read().decode()
-        self.cmdctrl.exec_user_command(cmd,self.uart.print)
+        cmd = self.bleuart.read().decode()
+        self.cmdctrl.exec_user_command(cmd,self.bleuart.print)
 
     # Process commands from IRC.
     def irc_receive_callback(self,cmd):
