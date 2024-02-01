@@ -65,9 +65,13 @@ users, it is to use the USB or Bluetooth serial.
 To obtain a serial command line interface, make sure the device is connected
 via an USB cable with your computer. Than connect to the device serial with
 `talk32`, `minicom`, `screen` or whatever serial terminal you want to use.
-Normally the bound rate is 115200.
+Normally the bound rate is 115200. Example of command lines and tools you could use:
 
-    talk32 /dev/tty.usbserial001 repl # No need to specify bound rate.
+    mpremote repl
+
+or
+
+    talk32 /dev/tty.usbserial001 repl
 
 or
 
