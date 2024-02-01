@@ -37,7 +37,7 @@ However changing the pins in the configuration, to adapt it to other ESP32 modul
 
 # Installation
 
-* Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device. **NOTE: MicroPython versions > 1.19.1 have buggy bluetooth stack with certain devices**, so before they fix it, it's better to stick with 1.19.1.
+* Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device. **NOTE: MicroPython versions > 1.19.1 have buggy bluetooth stack with certain devices**, so before they fix it, it's better to stick to version 1.19.1. However your device may not have a working 1.19.1 version (it's the case with certain ESP32 S3 devices like the Lilygo t-watch S3): in this case you need to disable BLE manually, editing `wan_config.py` and setting `ble_enabled` to False.
 * Clone this repository, and edit `wan_config.py` to set your nickname and status message, set the frequency according to your device. **Warning**: make sure to set the right frequency based on the LoRa module you own, and make sure your antenna is already installed before using the software, or you **may damage your hardware**.
 * Transfer all the `.py` files in the root directory of this project in your device. To transfer the files, you can use [ampy](https://github.com/scientifichackers/ampy) (`pip3 install adafruit-ampy` should be enough), or an alternative tool that we wrote, and is conceptually part of the FreakWAN effort, called [talk32](https://github.com/antirez/talk32). Talk32 is much faster at transferring files, but is yet alpha quality code. If you use Talk32, you will need to run something like this:
 
