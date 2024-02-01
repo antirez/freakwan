@@ -20,7 +20,7 @@ protocol are the following:
 * Bandwidth usage mitigation features.
 * Duty cycle tracking.
 * Local storage of messages in the device flash, with automatic deletion of old messages.
-* Simple home-made driver for the sx1276 and sx1262 LoRa chip. In general, no external dependencies. Runs with vanilla MicroPython installs.
+* Simple home-made driver for the SX1276 and SX1262 LoRa chip. In general, no external dependencies. Runs with vanilla MicroPython installs.
 * OLED terminal alike output. OLED burning pixels protection.
 * CLI interface via USB seria and Bluetooth LE.
 * IRC interface: the device can work as a bot over the IRC protocol.
@@ -182,12 +182,12 @@ The rest of this document is useful for anybody wanting to understand the intern
 The goals of the design is:
 
 1. Allow far nodes to communicate using intermediate nodes.
-2. To employ techniques to mitigate missed messages due to the fact the SX1276 is half-duplex, so can't hear messages when transmitting.
+2. To employ techniques to mitigate missed messages due to the fact LoRa is inherently half-duplex, so can't hear messages when transmitting.
 3. Do 1 and 2 considering the available data rate, which is very low.
 
 ## Message formats
 
-The low level (layer 2) format is the one with the explicit header selected, so it is up to the chip to add a length, a CRC and so forth. This layer is not covered here, as from the SX1276 driver we directly get the *clean* bytes received. So this covers layer 3, that is the messages format implemented by FreakWAN.
+The low level (layer 2) format is the one with the explicit header selected, so it is up to the chip to add a length, a CRC and so forth. This layer is not covered here, as from the SX1276 / SX1262 driver we directly get the *clean* bytes received. So this covers layer 3, that is the messages format implemented by FreakWAN.
 
 The first byte is the message type byte. The following message types are defined:
 
