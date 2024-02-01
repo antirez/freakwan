@@ -18,7 +18,7 @@ class DeviceConfig:
     if False:
         config['ssd1306']= {
             'sda': 21,
-            'scl': 22
+            'scl': 22,
             'xres': 128,
             'yres': 64,
         }
@@ -83,7 +83,7 @@ class DeviceConfig:
             # volts range.
             DeviceConfig.battery_adc.atten(ADC.ATTN_11DB)
 
-        def get_battery_microvolts(self):
+        def get_battery_microvolts():
             return DeviceConfig.battery_adc.read_uv()*2
 
     ################################# TX LED ###############################

@@ -95,8 +95,8 @@ class FreakWAN:
         # Init display
         self.display = None
 
-        if 'sd1306' in self.config:
-            import sd1306
+        if 'ssd1306' in self.config:
+            import ssd1306
             self.xres = self.config['ssd1306']['xres']
             self.yres = self.config['ssd1306']['yres']
 
@@ -122,6 +122,11 @@ class FreakWAN:
             )
             self.display.init()
         else:
+            print("Headless mode (no display) selected")
+            # Set dummy values for display because they cold be
+            # still referenced to create objects.
+            self.xres = 64
+            self.yres = 64
             self.display = None
 
         # Views
