@@ -49,10 +49,11 @@ class DeviceConfig:
     # if not to get the battery charge level.
     if False:
         from axp192 import AXP192
+        from machine import SoftI2C
 
         def power_up():
-            DeviceConfig.axp_i2c = SoftI2C(sda=Pin(21), scl=Pin(22))
-            DeviceConfig.axp192 = AXP192(axp_i2c)
+            i2c = SoftI2C(sda=Pin(21), scl=Pin(22))
+            DeviceConfig.axp192 = AXP192(i2c)
 
         def get_battery_microvolts():
             return DeviceConfig.axp192.get_battery_volts()*1000000
