@@ -293,6 +293,10 @@ class FreakWAN:
         self.lora.configure(self.config['lora_fr'],self.config['lora_bw'],self.config['lora_cr'],self.config['lora_sp'],self.config['lora_pw'])
         if was_receiving: self.lora.receive()
 
+    # This is just a proxy for DeviceConfig hardware-specific method.
+    def get_battery_microvolts(self):
+        return DeviceConfig.get_battery_microvolts()
+
     # Return the battery percentage using the equation of the
     # discharge curve of a typical lipo 3.7v battery.
     def get_battery_perc(self):
