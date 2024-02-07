@@ -101,7 +101,7 @@ class Message:
             # we saved the packet, and we just need to encode the
             # plaintext header and concatenate the saved packet from the
             # IV field till the end.
-            encoded = struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.packet[7:]
+            return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ttl)+self.packet[7:]
         elif self.type == MessageTypeData:
             # Encode with the encryption flag set, if we are going to
             # encrypt the packet.
@@ -123,6 +123,9 @@ class Message:
             return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ack_type)+self.sender
         elif self.type == MessageTypeHello:
             return struct.pack("<BB6sBB",self.type,self.flags,self.sender,self.seen,len(self.nick))+self.nick+self.text
+        else:
+            print("WARNING Message.encode() unknown msg type",self.type)
+            return None
 
     # Fill the message with the data found in the binary representation
     # provided in 'msg'.

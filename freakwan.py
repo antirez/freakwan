@@ -383,10 +383,14 @@ class FreakWAN:
                 # Send the message and turn the green led on. This will
                 # be turned off later when the IRQ reports success.
                 if m.send_canceled == False:
-                    self.set_tx_led(True)
-                    self.duty_cycle.start_tx()
-                    self.lora.send(m.encode(keychain=self.keychain))
-                    time.sleep_ms(1)
+                    encoded = m.encode(keychain=self.keychain)
+                    if encoded != None:
+                        self.set_tx_led(True)
+                        self.duty_cycle.start_tx()
+                        self.lora.send(encoded)
+                        time.sleep_ms(1)
+                    else:
+                        m.send_canceled = True
 
                 # This message may be scheduled for multiple
                 # retransmissions. In this case decrement the count
@@ -542,7 +546,8 @@ class FreakWAN:
                 self.send_ack_if_needed(m)
 
                 # Save message on history DB
-                self.history.append(m.encode(keychain=self.keychain))
+                encoded = m.encode(keychain=self.keychain)
+                if encoded != None: self.history.append(encoded)
 
                 # Relay if needed.
                 self.relay_if_needed(m)
