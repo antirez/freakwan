@@ -54,7 +54,7 @@ if __name__ == "__main__":
     i2c = SoftI2C(sda=Pin(21),scl=Pin(22))
     display = ssd1306.SSD1306_I2C(128, 64, i2c)
     display.poweron()
-    splash = SplashScreen(display)
+    splash = SplashScreen(display,128,64)
     for i in range(30):
         splash.refresh()
         splash.next_frame()
