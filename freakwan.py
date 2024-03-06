@@ -74,16 +74,19 @@ class FreakWAN:
         # 1. We went in deep sleep for low battery.
         # 2. We are in "sensor mode" and went in deep sleep after
         #    transmitting the last sensor sample.
-        if machine.reset_cause() == machine.DEEPSLEEP_RESET:
+        if (hasattr(machine, 'DEEPSLEEP_RESET') and \
+            machine.reset_cause() == machine.DEEPSLEEP_RESET) or \
+            (hasattr(machine, 'WDT_RESET') and \
+            machine.reset_cause() == machine.WDT_RESET):
             # Check if we are in low battery mode, and if the battery
             # is still too low to restart, before powering up anything
             # else.
             if self.low_battery(try_awake = True):
                 for i in range(3):
                     self.set_tx_led(True)
-                    machine.sleep(50)
+                    time.sleep_ms(50)
                     self.set_tx_led(True)
-                    machine.sleep(50)
+                    time.sleep_ms(50)
                 machine.deepsleep(5000) # Will restart again after few sec.
 
         ################### NORMAL STARTUP FOLLOWS ##################
@@ -801,7 +804,7 @@ class FreakWAN:
                     self.scroller.print("")
                     self.scroller.print("Device frozen. Switching off in 15 seconds.")
                     self.refresh_view()
-                    machine.sleep(15000)
+                    time.sleep_ms(15000)
                     self.power_off(5000)
 
             self.send_messages_in_queue()
