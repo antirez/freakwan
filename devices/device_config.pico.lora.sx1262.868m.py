@@ -4,7 +4,7 @@ from machine import ADC, Pin
 class DeviceConfig:
     config = {}
 
-    def power_up():
+    def power_up(freakwan):
         DeviceConfig.battery_adc = ADC(Pin(26))
 
     config['tx_led'] = {

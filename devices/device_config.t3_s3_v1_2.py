@@ -12,7 +12,7 @@ class DeviceConfig:
         'yres': 64,
     }
 
-    def power_up():
+    def power_up(freakwan):
         # Init battery voltage pin
         DeviceConfig.battery_adc = ADC(Pin(1))
 
@@ -20,6 +20,11 @@ class DeviceConfig:
         # a 3.7V battery is used, to sample it we need the full 3.3
         # volts range.
         DeviceConfig.battery_adc.atten(ADC.ATTN_11DB)
+
+        # Bind the button present on the board. It is connected to
+        # Pin 0, and goes low when pressed.
+        button0 = Pin(0,Pin.IN)
+        button0.irq(freakwan.button_0_pressed,Pin.IRQ_FALLING)
 
     def get_battery_microvolts():
         return DeviceConfig.battery_adc.read_uv()*2

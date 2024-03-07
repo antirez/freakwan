@@ -12,7 +12,7 @@ class DeviceConfig:
         'yres': 64,
     }
 
-    def power_up():
+    def power_up(freakwan):
         # Init battery voltage pin
         DeviceConfig.battery_adc = ADC(Pin(35))
 

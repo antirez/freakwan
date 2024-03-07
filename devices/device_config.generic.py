@@ -42,7 +42,7 @@ class DeviceConfig:
     # otherwise this method will be override by some next
     # definition.
     def get_battery_microvolts(): return 0
-    def power_up(): pass # By default, nothing to do at power-up.
+    def power_up(freakwan): pass # By default, nothing to do at power-up.
 
     # Pin configuration for the AXP192. This PMU chip is found
     # in devices like the T-BEAM, however it is not essential

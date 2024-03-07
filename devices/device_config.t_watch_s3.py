@@ -20,7 +20,7 @@ class DeviceConfig:
 
     # AXP2101 PMU. In the T-WATCH S3 this chip handles the different
     # chips voltage, battery charging and so forth.
-    def power_up():
+    def power_up(freakwan):
         DeviceConfig.axp2101 = AXP2101(sda=10, scl=11)
         # That's too complex to stay inside a configuration, so
         # we have a method in the AXP2101 class.

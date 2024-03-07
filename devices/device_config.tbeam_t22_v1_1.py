@@ -13,7 +13,7 @@ class DeviceConfig:
         'yres': 64,
     }
 
-    def power_up():
+    def power_up(freakwan):
         i2c = SoftI2C(sda=Pin(21), scl=Pin(22))
         DeviceConfig.axp192 = AXP192(i2c)
 

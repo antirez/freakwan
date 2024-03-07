@@ -22,6 +22,7 @@ from fci import ImageFCI
 from keychain import Keychain
 from networking import IRC, WiFiConnection
 from sensor import Sensor
+from views import *
 
 Version="0.40"
 
@@ -62,7 +63,7 @@ class FreakWAN:
         # from low battery deep sleep. We will just flash the led to
         # report we are actaully sleeping for low battery.
         #################################################################
-        DeviceConfig.power_up()
+        DeviceConfig.power_up(self)
 
         # Init TX led
         if self.config['tx_led']:
@@ -137,6 +138,11 @@ class FreakWAN:
         self.scroller = Scroller(self.display,icons=icons,xres=self.xres,yres=self.yres)
         if self.yres <= 64: self.scroller.select_font("small")
         self.splashscreen = SplashScreen(self.display,self.xres,self.yres)
+        self.nodeslist_view = NodesListView(self,self.display)
+
+        # Order in which the views will be selected when the
+        # view switch button is pressed.
+        self.views_order = [self.scroller, self.nodeslist_view]
 
         # View IDs
         if 'sensor' in self.config:
@@ -751,6 +757,21 @@ class FreakWAN:
         self.irc = None
         self.config['irc']['enabled'] = False
 
+    # This callback can be configured during the device init
+    # in device_config.py. When pressed, button 0 switches to
+    # the next view on the device screen.
+    def button_0_pressed(self,pin):
+        if self.current_view not in self.views_order:
+            idx = 0
+        else:
+            # Switch to next view or wrap around.
+            idx = self.views_order.index(self.current_view)
+            if idx == len(self.views_order)-1:
+                idx = 0
+            else:
+                idx += 1
+        self.switch_view(self.views_order[idx])
+
     # This is the main control loop of the application, where we perform
     # periodic tasks, like sending messages in the queue. Other tasks
     # are handled by different tasks created at startup, at the end
@@ -785,8 +806,9 @@ class FreakWAN:
             # From time to time, refresh the current view so that
             # we can update the battery icon, turn off the ACK
             # and relay icon, and so forth.
-            rt = int(self.scroller.min_refresh_time() * 10)
-            if tick % rt == 0: self.refresh_view()
+            if hasattr(self.current_view,'min_refresh_time'):
+                rt = int(self.current_view.min_refresh_time() * 10)
+                if tick % rt == 0: self.refresh_view()
 
             # Periodically check the battery level, and if too low, protect
             # it shutting the device down.
