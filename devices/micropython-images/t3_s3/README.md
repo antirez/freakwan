@@ -12,4 +12,4 @@ First of all, erease the flash memory.
 
 Followed by:
 
-    esptool.py --chip esp32s3 --port /dev/tty.usbmodem1201 write_flash -z 0 ESP32_GENERIC_S3-SPIRAM_OCT-20240222-v1.22.2-4MB-resize=vfs.bin
+    esptool.py --chip esp32s3 --port /dev/tty.usbmodem1201 write_flash -z 0 ESP32_GENERIC_S3-20240222-v1.22.2-4MB-resize=vfs.bin
