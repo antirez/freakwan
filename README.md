@@ -29,6 +29,7 @@ protocol are the following:
 This code is currently a functional work in progress, designed to work with the following ESP32-based devices:
 
 1. LILYGO TTGO T3 v2 1.6 LoRa module.
+1. LILYGO TTGO T3-S3 v1.2 LoRa module (2.4 Ghz version not tested/supported).
 2. LILYGO TTGO T Beam LoRa module.
 3. LILYGO T-WATCH S3.
 
@@ -38,13 +39,19 @@ However changing the pins in the configuration, to adapt it to other ESP32 modul
 
 # Installation
 
-* Install [MicroPython](https://micropython.org/download/LILYGO_TTGO_LORA32/) on your device. **NOTE: MicroPython versions > 1.19.1 have buggy bluetooth stack with certain devices**, so before they fix it, it's better to stick to version 1.19.1. However your device may not have a working 1.19.1 version (it's the case with certain ESP32 S3 devices like the Lilygo t-watch S3): in this case you need to disable BLE manually, editing `wan_config.py` and setting `ble_enabled` to False.
-* Clone this repository, and edit `wan_config.py` to set your nickname and status message, set the frequency according to your device. **Warning**: make sure to set the right frequency based on the LoRa module you own, and make sure your antenna is already installed before using the software, or you **may damage your hardware**.
+* Install [MicroPython](https://micropython.org/download/) on your device. Follow this instructions to get the right MicroPython version:
+1. **MicroPython versions > 1.19.1 and < 1.22.2 have buggy bluetooth stack**, so make sure to use 1.22.2 (or greater) or if you want to stick with something old, use 1.19.1.
+2. Don't bother installing a MicroPython specific for the LILYGO devices. Just grab the standard ESP32 image (but not for the T3-S3, read more).
+3. The T3-S3 (and probably the T-BEAM S3, which we don't support at the moment, because we don't have the device) have a 4MB flash which is not compatible with the default MicroPython image for 8MB flash. You can find a working image directly inside this repository **under the `device` directory**.
+4. To flash your device, follow the MicroPython instructions in the download page of your device. For the T3-S3, don't forget to press the *boot* button while powering it up, otherwise you will not be able to flash it. Then, with `esptool.py`, perform the `erase_flash` command followed by the `write_flash` with the **parameters specified in the MicroPython download page**.
+* Clone this repository, and edit `wan_config.py` to set your nickname and status message, set the frequency according to your device. **Warning**: make sure to set the right frequency based on the LoRa module you own, and make sure your **antenna is already installed** before using the software, or you **may damage your hardware**, (but I would like to report that we started the device with the wrong freuqnecy several times and nothing happened: still, proceed at your own risk).
 * Copy one of the files inside the `devices` folder in the main folder as `device_config.py`, for instance if I have a T3 v2 1.6 device, I will do:
 
     cp devices/device_config.t3_v2_1.6.py ./device_config.py
 
-* Transfer all the `.py` files in the root directory of this project in your device. To transfer the files, you can use **mpremote** (`pip3 install mpremote` should be enough), or an alternative tool that we wrote, and is conceptually part of the FreakWAN effort, called [talk32](https://github.com/antirez/talk32). Talk32 is not as fast as mpremote at transferring files, but sometimes mpremote does not work with certain devices and talk32 does (and the other way around).
+* Transfer all the `.py` files in the root directory of this project in your device. To transfer the files, you can use **mpremote** (`pip3 install mpremote` should be enough), or an alternative (and slower, but sometimes more compatible) tool that we wrote, called [talk32](https://github.com/antirez/talk32). Talk32 is not as fast as mpremote at transferring files, but sometimes mpremote does not work with certain devices and talk32 does (and the other way around).
+
+(**NOTE**: you need the `:` below, is not an error)
 
     mpremote cp *.py :
 
