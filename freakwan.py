@@ -137,12 +137,12 @@ class FreakWAN:
         self.scroller = Scroller(self.display,icons=icons,xres=self.xres,yres=self.yres)
         if self.yres <= 64: self.scroller.select_font("small")
         self.splashscreen = SplashScreen(self.display,self.xres,self.yres)
-        self.SplashScreenView = 0
-        self.ScrollerView = 1
+
+        # View IDs
         if 'sensor' in self.config:
-            self.switch_view(self.ScrollerView)
+            self.switch_view(self.scroller)
         else:
-            self.switch_view(self.SplashScreenView)
+            self.switch_view(self.splashscreen)
 
         # Init LoRa chip
         if 'sx1276' in self.config:
@@ -276,14 +276,11 @@ class FreakWAN:
     # Call the current view refresh method, in order to draw the
     # representation of the view in the framebuffer.
     def refresh_view(self):
-        if self.current_view == self.SplashScreenView:
-            self.splashscreen.refresh()
-        elif self.current_view == self.ScrollerView:
-            self.scroller.refresh()
+        self.current_view.refresh()
 
     # Switch to the specified view
-    def switch_view(self,view_id):
-        self.current_view = view_id
+    def switch_view(self,view):
+        self.current_view = view
         self.refresh_view()
 
     # Reset the chip and configure with the required paramenters.
@@ -767,7 +764,7 @@ class FreakWAN:
             # Splash screen handling.
             if tick <= animation_ticks:
                 if tick == animation_ticks or self.low_battery() or self.sensor:
-                    self.switch_view(self.ScrollerView)
+                    self.switch_view(self.scroller)
                     self.scroller.print("FreakWAN v"+Version)
                     tick = animation_ticks+1
 
