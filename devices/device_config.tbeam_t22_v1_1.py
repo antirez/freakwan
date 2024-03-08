@@ -17,6 +17,11 @@ class DeviceConfig:
         i2c = SoftI2C(sda=Pin(21), scl=Pin(22))
         DeviceConfig.axp192 = AXP192(i2c)
 
+        # Bind the button present on the board. It is connected to
+        # Pin 0, and goes low when pressed.
+        button0 = Pin(38,Pin.IN)
+        button0.irq(freakwan.button_0_pressed,Pin.IRQ_FALLING)
+
     def get_battery_microvolts():
         return DeviceConfig.axp192.get_battery_volts()*1000000
 
