@@ -24,6 +24,7 @@ class NodesListView:
             self.display.text(m.nick,0,y,1)
             y += 8
             if y >= self.display.height: break
+        self.display.contrast(255)
         self.display.show()
 
     def min_refresh_time(self):
