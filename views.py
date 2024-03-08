@@ -27,8 +27,6 @@ class NodesListView:
         self.display.fill(0)
         self.display.text("Nodes seen",0,0,1)
         self.display.line(0,10,self.display.width-1,10,1)
-        y = 12
-        item_id = 0
         neigh = self.fw.neighbors
 
         # Select next page at each refresh. Wrap around when
@@ -39,8 +37,11 @@ class NodesListView:
             if self.page * self.items_per_page >= len(neigh):
                 self.page = 0
             self.page_change_time = time.ticks_ms()
+        print("page",self.page)
 
         # Render the list of nodes for this page.
+        y = 12
+        item_id = 0
         for node_id, m in neigh.items():
             # Only show items belonging to this page.
             if self.items_per_page == None or \
@@ -54,6 +55,9 @@ class NodesListView:
 
         # Set the items_per_page if this is the first refresh.
         if self.items_per_page == None:
+            while y+7 < self.display.height: # Virtually reach end of screen.
+                y += 8
+                item_id += 1
             self.items_per_page = item_id + 1
 
     def min_refresh_time(self):
