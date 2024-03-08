@@ -18,7 +18,7 @@ class DeviceConfig:
         DeviceConfig.axp192 = AXP192(i2c)
 
         # Bind the button present on the board. It is connected to
-        # Pin 0, and goes low when pressed.
+        # Pin 38, and goes low when pressed.
         button0 = Pin(38,Pin.IN)
         button0.irq(freakwan.button_0_pressed,Pin.IRQ_FALLING)
 
