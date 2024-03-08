@@ -401,3 +401,7 @@ class CommandsController:
     def cmd_log(self,argv,argc,send_reply):
         self.fw.serial_log_enabled = not self.fw.serial_log_enabled
         send_reply("Serial logging set to: "+str(self.fw.serial_log_enabled))
+
+    # This is the same as pressing button 0 on the device.
+    def cmd_b0(self,argv,argc,send_reply):
+        self.fw.button_0_pressed(None)

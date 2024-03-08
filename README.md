@@ -118,6 +118,7 @@ If you send a valid command starting with the `!` character, it will be executed
 * `!irc <stop|start>` starts or stops the IRC interface.
 * `!wifi help`, to see all the WiFi configuration subcommands. Using this command you can add and remove WiFi networks, connect or disconnect the WiFi (required for the IRC interface), and so forth.
 * `!quiet <yes|no>`, to enable quiet mode (default is off). In this mode, the device sends only the smallest amount of data needed, that is the data messages that we want to send. No ACKs are sent in reply to data messages, nor HELLO messages to advertise our presence in the network. Packets are not relayed in this mode, nor data is transmitted multiple times. Basically this mode is designed to save channel bandwidth, at the expense of advanced FreakWAN features, when there are many active devices and we want to make sure the LoRa channel is not continuously busy.
+* `!b0`, this is the same as pressing the button 0 on the devices (if they have one). Will switch the device screen to the next view.
 
 New bang commands are added constantly, so try `!help` to see what is available. We'll try to take this README in sync, especially after the first months of intense development will be finished.
 
