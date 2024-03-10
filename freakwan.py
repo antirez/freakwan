@@ -137,7 +137,7 @@ class FreakWAN:
             self.display.line = self.display.fb.line
             self.display.pixel = self.display.fb.pixel
             self.display.text = self.display.fb.text
-            self.display.fill_rect = self.display.fb.rect
+            self.display.fill_rect = self.display.fb.fill_rect
             self.display.fill = self.display.fb.fill
             self.display.contrast = lambda x: x
         else:
