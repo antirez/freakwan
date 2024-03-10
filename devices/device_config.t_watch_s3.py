@@ -8,14 +8,23 @@ class DeviceConfig:
 
     config['st7789'] = {
         'spi_channel': 1,
+        'polarity': 1,
+        'phase': 1,
+        'xstart': 0,
+        'ystart': 0,
         'sck': 18,
         'mosi': 13,
         'miso': 37,
         'reset': False,
         'dc': 38,
         'cs': 12,
+
         'xres': 240,
         'yres': 240,
+        'landscape': False,
+        'mirror_y': True,
+        'mirror_x': True,
+        'inversion': True
     }
 
     # AXP2101 PMU. In the T-WATCH S3 this chip handles the different

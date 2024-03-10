@@ -4,7 +4,9 @@
 # This code is released under the BSD 2 clause license.
 # See the LICENSE file for more information
 
-import machine, time, urandom, gc, bluetooth, sys, io
+Version="0.41"
+
+import machine, time, urandom, gc, sys, io
 import select
 from machine import Pin, SoftI2C, ADC, SPI
 import uasyncio as asyncio
@@ -17,14 +19,22 @@ from history import History
 from message import *
 from clictrl import CommandsController
 from dutycycle import DutyCycle
-from bt import BLEUART
 from fci import ImageFCI
 from keychain import Keychain
-from networking import IRC, WiFiConnection
-from sensor import Sensor
 from views import *
+from sensor import Sensor
 
-Version="0.40"
+### Bluetooth and networking may not be available.
+try:
+    import bluetooth
+    from bt import BLEUART
+except:
+    pass
+
+try:
+    from networking import IRC, WiFiConnection
+except:
+    pass
 
 # The application itself, including all the WAN routing logic.
 class FreakWAN:
@@ -116,15 +126,21 @@ class FreakWAN:
             self.yres = self.config['st7789']['yres']
 
             cfg = self.config['st7789']
-            spi = SPI(cfg['spi_channel'], baudrate=40000000, polarity=1, sck=cfg['sck'], mosi=cfg['mosi'], miso=cfg['miso'])
-            self.display = st7789.ST7789(
+            spi = SPI(cfg['spi_channel'], baudrate=40000000, polarity=cfg['polarity'], phase=cfg['phase'], sck=Pin(cfg['sck']), mosi=Pin(cfg['mosi']), miso=Pin(cfg['miso']))
+            self.display = st7789.ST7789_base (
                 spi, cfg['xres'], cfg['yres'],
-                reset = False,
+                reset = Pin(cfg['reset']) if cfg['reset'] else None,
                 dc=Pin(cfg['dc'], Pin.OUT),
-                cs=Pin(cfg['cs'], Pin.OUT),
-                mono = True,
+                cs=Pin(cfg['cs'], Pin.OUT) if cfg['cs'] else None
             )
-            self.display.init()
+            self.display.init(xstart=cfg['xstart'],ystart=cfg['ystart'],landscape=cfg['landscape'],mirror_y=cfg['mirror_y'],mirror_x=cfg['mirror_x'],inversion=cfg['inversion'])
+            self.display.enable_framebuffer(mono=True)
+            self.display.line = self.display.fb.line
+            self.display.pixel = self.display.fb.pixel
+            self.display.text = self.display.fb.text
+            self.display.fill_rect = self.display.fb.rect
+            self.display.fill = self.display.fb.fill
+            self.display.contrast = lambda x: x
         else:
             print("Headless mode (no display) selected")
             # Set dummy values for display because they cold be
@@ -160,11 +176,13 @@ class FreakWAN:
         self.lora_reset_and_configure()
         
         # Init BLE chip
-        ble = bluetooth.BLE()
-        if self.config['ble_enabled']:
-            self.bleuart = BLEUART(ble, name="FW_%s" % self.config['nick'])
-        else:
-            self.bleuart = None
+        self.bleuart = None
+        try:
+            ble = bluetooth.BLE()
+            if self.config['ble_enabled']:
+                self.bleuart = BLEUART(ble, name="FW_%s" % self.config['nick'])
+        except:
+            pass
 
         # Create our CLI commands controller.
         self.cmdctrl = CommandsController(self)
@@ -307,6 +325,7 @@ class FreakWAN:
     # discharge curve of a typical lipo 3.7v battery.
     def get_battery_perc(self):
         volts = DeviceConfig.get_battery_microvolts()/1000000
+        if volts == 0: return 100
         perc = 123-(123/((1+((volts/3.7)**80))**0.165))
         return max(min(100,int(perc)),0)
 
@@ -672,7 +691,8 @@ class FreakWAN:
 
     def power_off(self,offtime):
         self.lora.reset()
-        if self.display: self.display.poweroff()
+        if self.display and hasattr(self.display,'poweroff'):
+            self.display.poweroff()
         machine.deepsleep(offtime)
 
     # We want to reply to CLI inputs even if written directly in the
