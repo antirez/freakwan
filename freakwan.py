@@ -128,9 +128,9 @@ class FreakWAN:
             spi = SPI(cfg['spi_channel'], baudrate=40000000, polarity=cfg['polarity'], phase=cfg['phase'], sck=Pin(cfg['sck']), mosi=Pin(cfg['mosi']), miso=Pin(cfg['miso']))
             self.display = st7789.ST7789_base (
                 spi, cfg['xres'], cfg['yres'],
-                reset = Pin(cfg['reset'], Pin.OUT) if cfg['reset'] != False else None,
-                dc=Pin(cfg['dc'], Pin.OUT),
-                cs=Pin(cfg['cs'], Pin.OUT) if cfg['cs'] != False else None
+                reset = Pin(cfg['reset'], Pin.OUT) if isinstance(cfg['reset'],int) else None,
+                dc = Pin(cfg['dc'], Pin.OUT),
+                cs = Pin(cfg['cs'], Pin.OUT) if isinstance(cfg['cs'],int) else None
             )
             self.display.init(xstart=cfg['xstart'],ystart=cfg['ystart'],landscape=cfg['landscape'],mirror_y=cfg['mirror_y'],mirror_x=cfg['mirror_x'],inversion=cfg['inversion'])
             self.display.enable_framebuffer(mono=True)
