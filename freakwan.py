@@ -867,7 +867,14 @@ class FreakWAN:
 
             self.send_messages_in_queue()
             self.evict_processed_cache()
-            await asyncio.sleep(0.1)
+
+            # The tick time is randomized between 80 and 120
+            # milliseconds instead of being exactly 100. This is
+            # useful to always take the different nodes in desync:
+            # a simple but effective way to avoid an all-together start
+            # after listen-before-talk and other events.
+            sleeptime = urandom.randint(800,1200)/10000
+            await asyncio.sleep(sleeptime)
             tick += 1
 
     # Turn the exception into a proper stack trace.
