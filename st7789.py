@@ -145,7 +145,7 @@ class ST7789_base:
             self.ystart = 0
 
         if self.cs:
-            self.cs.off() # This this like that forever, much faster than
+            self.cs.off() # Take this like that forever, much faster than
                           # continuously setting it on/off and rarely the
                           # SPI is connected to any other hardware.
         self.hard_reset()

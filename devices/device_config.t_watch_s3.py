@@ -11,7 +11,7 @@ class DeviceConfig:
         'polarity': 1,
         'phase': 1,
         'xstart': 0,
-        'ystart': 0,
+        'ystart': 40,
         'sck': 18,
         'mosi': 13,
         'miso': 37,
