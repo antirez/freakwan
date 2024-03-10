@@ -6,6 +6,17 @@
 
 Version="0.41"
 
+SEND_MAX_DELAY = const(2000) # Random delay in milliseconds of asynchronous
+                             # packet transmission. From 0 to the specified
+                             # value. Choosen randomly.
+
+# When a message will be transmitted multiple times (num_tx > 1), there
+# following values, in milliseconds, will configure the minimum and maximum
+# random delay between retransmissions. The max is not guaranteed: we could
+# have many packets on the send queue, or the channel may be busy.
+TX_AGAIN_MIN_DELAY = const(3000)
+TX_AGAIN_MAX_DELAY = const(8000)
+
 import machine, time, urandom, gc, sys, io
 import select
 from machine import Pin, SoftI2C, ADC, SPI
@@ -359,7 +370,10 @@ class FreakWAN:
     # Put a packet in the send queue. Will be delivered ASAP.
     # The delay is in milliseconds, and is selected randomly
     # between 0 and the specified amount.
-    def send_asynchronously(self,m,max_delay=2000,num_tx=1,relay=False):
+    #
+    # Check the send_messages_in_queue() method for the function
+    # that actually transfers the messages to the LoRa radio.
+    def send_asynchronously(self,m,max_delay=SEND_MAX_DELAY,num_tx=1,relay=False):
         if len(self.send_queue) >= self.send_queue_max: return False
         m.send_time = time.ticks_add(time.ticks_ms(),urandom.randint(0,max_delay))
         m.num_tx = num_tx
@@ -421,9 +435,7 @@ class FreakWAN:
                 # of transmissions and queue it back again.
                 if m.num_tx > 1 and m.send_canceled == False and not self.config['quiet']:
                     m.num_tx -= 1
-                    next_tx_min_delay = 3000
-                    next_tx_max_delay = 8000
-                    m.send_time = time.ticks_add(time.ticks_ms(),urandom.randint(next_tx_min_delay,next_tx_max_delay))
+                    m.send_time = time.ticks_add(time.ticks_ms(),urandom.randint(TX_AGAIN_MIN_DELAY,TX_AGAIN_MAX_DELAY))
                     send_later.append(m)
             else:
                 # Time to send this message yet not reached, send later.
