@@ -118,7 +118,6 @@ class FreakWAN:
                           scl=Pin(self.config['ssd1306']['scl']))
             self.display = ssd1306.SSD1306_I2C(self.xres, self.yres, i2c)
             self.display.poweron()
-            self.display.text('Starting...', 0, 0, 1)
             self.display.show()
         elif 'st7789' in self.config:
             import st7789
@@ -129,7 +128,7 @@ class FreakWAN:
             spi = SPI(cfg['spi_channel'], baudrate=40000000, polarity=cfg['polarity'], phase=cfg['phase'], sck=Pin(cfg['sck']), mosi=Pin(cfg['mosi']), miso=Pin(cfg['miso']))
             self.display = st7789.ST7789_base (
                 spi, cfg['xres'], cfg['yres'],
-                reset = Pin(cfg['reset']) if cfg['reset'] else None,
+                reset = Pin(cfg['reset'], Pin.OUT) if cfg['reset'] else None,
                 dc=Pin(cfg['dc'], Pin.OUT),
                 cs=Pin(cfg['cs'], Pin.OUT) if cfg['cs'] else None
             )
