@@ -535,6 +535,14 @@ class FreakWAN:
                     self.serial_log("[<< net] Ignore duplicated message "+("%08x"%m.uid)+" <"+m.nick+"> "+m.text)
                     return
 
+                # If this message is not relayed by some other node, then
+                # it is a proof of recent node activity. We can update the
+                # last seen time from the HELLO message we have in memory
+                # for this node (if any).
+                if not m.flags & MessageFlagsRelayed:
+                    if m.sender in self.neighbors:
+                        self.neighbors[m.sender].ctime = time.ticks_ms()
+
                 # Report message to the user.
                 msg_info = \
                     "(rssi:%d, ttl:%d, flags:%s)" % \
