@@ -24,7 +24,7 @@ def HMAC_SHA256(key,msg):
     # But will perform less allocation.
     h = hashlib.sha256(opad)
     h2 = hashlib.sha256(ipad)
-    h2.update(msg.encode())
+    h2.update(msg)
     h.update(h2.digest())
     return h.digest()
 

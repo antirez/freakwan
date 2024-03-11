@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Salvatore Sanfilippo <antirez@gmail.com>
+# Copyright (C) 2023-2024 Salvatore Sanfilippo <antirez@gmail.com>
 # All Rights Reserved
 #
 # This code is released under the BSD 2 clause license.
@@ -6,6 +6,7 @@
 
 import cryptolib, hashlib, os, urandom
 from message import *
+from hmac import HMAC_SHA256
 
 # This class implements the packets encryption keychain. It loads and
 # saves keys from/to disk, and implements encryption and decryption.
@@ -49,6 +50,12 @@ class Keychain:
     def has_key(self,key_name):
         return self.keys.get(key_name) != None
 
+    # Given a key, derive two keys, one for AES and the other
+    # for the HMAC.
+    def derive_keys(self,key):
+        return HMAC_SHA256(key,"AES14159265358979323846")[:16], \
+               HMAC_SHA256(key,"MAC26433832795028841971")
+
     # Return the SHA256 digest truncated to 16 bytes
     def sha16(self,data):
         return hashlib.sha256(data).digest()[:16]
@@ -59,48 +66,85 @@ class Keychain:
         key = self.keys.get(key_name)
         if key == None:
             raise Exception("No key with the specified name: "+str(key_name))
-        # Compute the IV and digest with TTL set to 0, as it could
-        # change as the packet gets relayed by the network.
-        # In the next step we also add the IV field.
-        iv = bytes([urandom.getrandbits(8) for x in range(4)])
-        copy = bytes([packet[0]]) + bytes([packet[1]&(0xff^MessageFlagsRelayed)]) + packet[2:6] + b'\x00' + iv + packet[7:]
-        iv = self.sha16(copy[:11])
-        checksum = self.sha16(copy)[:9]
-        # Set the last byte of the checksum to 1, so that the padding
-        # will be always recognizable as the sequence of trailing zeros.
-        checksum = checksum[:8] + bytes([checksum[8]|1]) + checksum[9:]
-        payload = copy[11:] + checksum
-        if (len(payload) % 16): payload += b'\x00' * (16-(len(payload) % 16))
-        encr = cryptolib.aes(key,2,iv).encrypt(payload) # 2 = CBC mode.
-        # The final encrypted packet is the original header
-        # plus the IV field and the encrypted part.
-        return packet[:7] + copy[7:11] + encr
+
+        # Derive the encryption and HMAC keys.
+        aes_key,hmac_key = self.derive_keys(key)
+
+        # Create an empty bytearray that will contain the encrypted
+        # packet. The size is not the same as the original packet:
+        # we have the padding needed to encrypt the data section
+        # and the 10 bytes HMAC at the end
+        data_len = len(packet)-7 # 7 bytes plaintext header.
+        padding_len = (16 - data_len % 16) % 16
+        encr_len = 4+len(packet)+padding_len+10
+        encr = bytearray(encr_len)
+
+        # Copy header information.
+        encr[0] = packet[0] # Packet type.
+        encr[1] = packet[1] & (0xff^MessageFlagsRelayed) # Flags, but Relayed.
+        encr[2:6] = packet[2:6] # Sender ID
+        encr[6] = 0             # TTL. Set to zero for HMAC.
+
+        # Set the 4 IV bytes.
+        for i in range(7,11): encr[i] = urandom.getrandbits(8)
+
+        # Set plaintext data: here we will actually store the ciphertext
+        # but we use it as a buffer for zero-padding.
+        encr[11:11+data_len] = packet[7:7+data_len]
+
+        # The actual initialization fector includes all the first 11
+        # bytes, and is the truncated SHA256.
+        iv = self.sha16(encr[:11])
+
+        # Encrypt the payload. The 2 argument below means CBC mode.
+        encr_payload = cryptolib.aes(aes_key,2,iv).encrypt(encr[11:-10])
+        encr[11:-10] = encr_payload
+
+        # Compute HMAC and store the first 10 bytes at the end
+        # of the packet. Last 4 bits are used for padding length.
+        hm = HMAC_SHA256(hmac_key,encr[:-10])[:10]
+        encr[-10:] = hm
+        encr[-1] = (encr[-1] & 0xf0) | padding_len
+
+        # Fix header with right flags & TTL.
+        encr[1] = packet[1]
+        encr[6] = packet[6]
+        return encr
 
     # Try every possible key, trying to decrypt the packet. Is
     # no match is found, None is returned, otherwise the method returns
     # a two items array: [key_name, decripted_packet].
     def decrypt(self,encr):
+        if len(encr) < 11 + 1 + 10:
+            return None # Min length is 11 (header) + some data + 10 (HMAC).
+
+        copy = bytearray(encr)
+        copy[1] = copy[1] & (0xff^MessageFlagsRelayed) # Clear Relayed.
+        copy[6] = 0 # TTL. Set to zero for HMAC.
+        padlen = copy[-1] & 0x0f # Padding length.
+        copy[-1] = copy[-1] & 0xf0 # Clear padding len field.
+        hm = copy[-10:] # The HMAC part: we will check it against our HMAC.
+
+        # Test every key for a matching HMAC.
         for key_name in self.keys:
             key = self.keys[key_name]
-            header = encr[:11]
-            payload = encr[11:]
 
-            # Clear Relayed flag and set TTL to zero for the IV
-            copy = bytes([header[0]]) + bytes([header[1]&(0xff^MessageFlagsRelayed)]) + header[2:6] + b'\x00' + header[7:]
-            iv = self.sha16(copy)
+            # Derive the encryption and HMAC keys.
+            aes_key,hmac_key = self.derive_keys(key)
+            my_hm = bytearray(HMAC_SHA256(hmac_key,copy[:-10])[:10])
+            my_hm[-1] = my_hm[-1] & 0xf0
+            if hm != my_hm: continue # No match.
 
-            # Decrypt and see if checksum matches
-            plain = cryptolib.aes(key,2,iv).decrypt(payload)
-            idx = len(plain)-1
-            # Seek first non-zero byte, to discard the padding
-            while idx > 11 and plain[idx] == 0: idx -= 1
-            claimed_checksum = plain[idx+1-9:idx+1] # Last 9 bytes but padding
-            plain = plain[:idx+1-9] # Remove final 9 bytes of checksum
-            # Now recompute the checksum, and see if it's the same.
-            checksum = self.sha16(copy+plain)[:9]
-            checksum = checksum[:8] + bytes([checksum[8]|1]) + checksum[9:]
-            if checksum == claimed_checksum:
-                return [key_name,header[:7]+plain] # Discard IV field
+            # Decrypt the payload
+            iv = self.sha16(copy[:11])
+            plain = cryptolib.aes(aes_key,2,iv).decrypt(encr[11:-10])
+
+            # Compose the final decrypted packet removing the IV
+            # field, the padding and the HMAC.
+            orig = bytearray(7 + len(plain) - padlen)
+            orig[:7] = encr[:7]
+            orig[7:] = plain[:-padlen]
+            return (key_name,orig)
         return None
 
 if __name__ == "__main__":
@@ -113,9 +157,11 @@ if __name__ == "__main__":
     decr = kc.decrypt(encr)
     print("DECR: "+str(decr))
     if test_packet == decr[1]:
-        print("Packet encrypted and decrypred with success: got same bytes")
+        print("OK: Packet encrypted and decrypred with success: got same bytes")
+    else:
+        print("ERR: decrypted packet is not the same:", test_packet, decr[1])
     # Flipping a bit somewhere should no longer result in a valid packet
     corrupted = encr[:18] + bytes([encr[18]^1]) + encr[19:]
     decr = kc.decrypt(corrupted)
     if decr == None:
-        print("Corrupted packet correctly refused")
+        print("OK: Corrupted packet correctly refused")

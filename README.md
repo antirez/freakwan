@@ -421,16 +421,16 @@ flag is set and the packet is thus encrypted, a 4 bytes initialization
 vector (IV) follows. This is the unencrypted part of the packet. The
 encrypted part is as the usual data as found in the DATA packet type: 6 bytes
 of sender and the data payload itself. However, at the end of the packet,
-there is an additional (not encrypted) 10 bytes of checksum (truncated
+there is an additional (not encrypted) 10 bytes of HMAC (truncated
 HMAC-256), used to check integrity, and even to see if a given key is actually
 decrypting a given packet correctly. The checksum computation is specified later.
 
 This is the representation of the message described above:
 
 ```
-+--------+---------+-------+-------+-------+-----------+--//--+--------+
-| type:8 | flags:8 | ID:32 | TTL:8 | IV:32 | sender:48 | data | CKSUM |
-+--------+---------+-------+-------+-------+-----------+--//--+--------+
++--------+---------+-------+-------+-------+-----------+--//--+------+
+| type:8 | flags:8 | ID:32 | TTL:8 | IV:32 | sender:48 | data | HMAC |
++--------+---------+-------+-------+-------+-----------+--//--+------+
                                            |                  |
                                            `- Encrypted part -'
 ```
@@ -441,10 +441,9 @@ the unencrypted header part, from the type field, at byte 0, to the last byte
 of the IV. So the initialization vector used is a total 11 bytes, of which
 at least 64 bits of pseudorandom data.
 
-The final 10 bytes checksum is computed using HMAC-SHA256, truncated to 10 bytes, but **the last 4 bits are set to the padding length of the message**, so actually of the 80 bits HMAC, only the first 76 are used. The last byte least significant four bits tell us how many bytes to discard from the encrypted part because of AES padding.
+The final 10 bytes HMAC is computed using HMAC-SHA256, truncated to 10 bytes, but **the last 4 bits are set to the padding length of the message**, so actually of the 80 bits HMAC, only the first 76 are used. The last byte least significant four bits tell us how many bytes to discard from the decrypted payload, because of AES padding.
 
-The aes key and the HMAC key are different but derived from the same key.
-The derivation is performed as such. Given the unique key `k`, we derive the two keys with:
+The AES key and the HMAC key are different, but derived from the same master key. The derivation is performed as such: Given the unique key `k`, we derive the two keys with as:
 
     aes-key = first 16 bytes of HMAC-SHA256(k,"AES14159265358979323846")
     mac-key = HMAC-SHA256(k,"MAC26433832795028841971")
