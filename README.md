@@ -367,7 +367,7 @@ LBT is a fundamental improvement for the performance of this protocol, since a m
 
 # Encryption
 
-FreakWAN default mode of operation is as unencrypted anyone-can-talk
+FreakWAN default mode of operation is as unencrypted everybody-can-talk
 open network. In this mode, messages can be spoofed, and different
 persons (nicks) or nodes IDs can be impersonated by other devices
 very easily.
@@ -375,7 +375,7 @@ very easily.
 For this reason it is also possible to use encryption with pre-shared
 symmetric keys. Because of the device limitations and the standard library
 provided by MicroPython, we had to use an in-house encryption mode based
-on SHA256.
+on AES and SHA256.
 
 ## High level encryption scheme
 
@@ -421,9 +421,9 @@ flag is set and the packet is thus encrypted, a 4 bytes initialization
 vector (IV) follows. This is the unencrypted part of the packet. The
 encrypted part is as the usual data as found in the DATA packet type: 6 bytes
 of sender and the data payload itself. However, at the end of the packet,
-there is an additional (also encrypted with the payload) 9 bytes of checksum,
-used to check integrity and even to see if a given key is actually decrypting
-a given packet correctly. The checksum computation is specified later.
+there is an additional (not encrypted) 10 bytes of checksum (truncated
+HMAC-256), used to check integrity, and even to see if a given key is actually
+decrypting a given packet correctly. The checksum computation is specified later.
 
 This is the representation of the message described above:
 
@@ -431,8 +431,8 @@ This is the representation of the message described above:
 +--------+---------+-------+-------+-------+-----------+--//--+--------+
 | type:8 | flags:8 | ID:32 | TTL:8 | IV:32 | sender:48 | data | CKSUM |
 +--------+---------+-------+-------+-------+-----------+--//--+--------+
-                                           |                           |
-                                           `- Encrypted part ----------'
+                                           |                  |
+                                           `- Encrypted part -'
 ```
 
 The 'IV' is the initialization vector for the CBC mode of AES, that is
@@ -441,28 +441,37 @@ the unencrypted header part, from the type field, at byte 0, to the last byte
 of the IV. So the initialization vector used is a total 11 bytes, of which
 at least 64 bits of pseudorandom data.
 
-The final 9 bytes checksum is computed using SHA256, but **the last bit of the last byte of the 9 bytes is always set to 1**, to distinguish the last byte from the padding.
+The final 10 bytes checksum is computed using HMAC-SHA256, truncated to 10 bytes, but **the last 4 bits are set to the padding length of the message**, so actually of the 80 bits HMAC, only the first 76 are used. The last byte least significant four bits tell us how many bytes to discard from the encrypted part because of AES padding.
+
+The aes key and the HMAC key are different but derived from the same key.
+The derivation is performed as such. Given the unique key `k`, we derive the two keys with:
+
+    aes-key = first 16 bytes of HMAC-SHA256(k,"AES14159265358979323846")
+    mac-key = HMAC-SHA256(k,"MAC26433832795028841971")
 
 ## Encryption
 
-To encrypt, build the packet as described above, append the CHECKSUM part
-to the plain text packet, performing the SHA256 digest of the whole packet,
-without the checksum part, with the TTL set to 0 and the `Relayed` flag clear,
-and setting the LSB bit of the last byte to 1. Then pad the encrypted part,
-adding zero bytes after the checksum part, to make the encrypted payload a
-multiple of 16 bytes, and finally encrypt the payload part with AES, using as
-initialization vector the first 16 bytes of SHA256 digest of byte from 0 to
-the final byte of the IV (11 total bytes), with TTL set to 0, and as key the
-first 16 bytes of SHA256 of the key stored in the keychain as an utf-8 string.
+To encrypt:
 
-Decrypting is very similar. However we don't know what is the original
-length of the payload, since we padded it with zeroes. But we know
-that the last byte of the checksum can never be zero, as the last bit
-is always set as per the algorithm above. So, after decryption, we discard
-all the trailing zeroes, and we have the length of the payload. Then we
-subtract the length of the checksum (9 bytes), and can compute the
-SHA256 digest and check if it matches. Non matching packets are just
-silently discarded.
+1. Build the first four fields of the packet header as described above.
+2. Renerate a random 4 bytes IV and append it.
+3. Set TTL to 0 (but save the original value), and clear the `Relayed` flag bit, also saving the original flag value.
+3. Encrypt the payload with AES in CBC mode, using aes-key as key, and using as IV the first 11 bytes of the packet. Pad the packet with zeroes so that it is multiple of 16 bytes (AES block). Remember the padding used to reach the AES block size as "PADLEN". Append the encrypted payload to the packet.
+4. Perform HMAC-SHA256(mac-key,packet) of all the packet built so far.
+5. Append the first 10 bytes of the HMAC to the packet, but replace the last 4 bits with PADLEN as unsigned 4 bit integer.
+6. Restore TTL and `Relayed` flag.
+
+Decrypting is very similar. When a packet arrives, we clear the TTL and
+`Relayed` bit (saving the original values). We also store the last 4 bits
+of the HMAC as PADLEN, and clear those bits. Then, for all the all the keys
+we have in memory, one after the other, we see if we can find one for which
+we can recompute the HMAC of the message (minus the last 10 bytes), trucate
+it to 10 bytes, clearing the last 4 bits, and check if it matches with the
+final 10 bytes of the packet.
+
+If a match is found, we can decrpyt the message with AES in CBC mode,
+discard the final PADLEN zero bytes (checking they are actually zero
+as an additional check against implementation bugs), and process it.
 
 ## Relaying of encrypted messages
 
@@ -477,10 +486,9 @@ message just saving its UID in the messages cache.
 
 * The encryption scheme described here was designed in order to use few bytes of additional space and the only encryption primitive built-in in MicroPython that was stable enough: the SHA256 hash and AES.
 * Because of the device and LoRa packets size and bandwidth limitations, the IV is shorter than one would hope. However it is partially compensated by the fact that the message UID is also part of the set of bytes used as initialization vector (see the encryption algorithm above). So the IV is actually at least 64 bits of pseudorandom data. For the attacker, it will be very hard to find two messages with the same IV, and even so the information disclosed would be minimal.
-* The final digest of 64 bits looks short, however in the case of LoRa the bandwidth of the network is so small that a brute force attack sounds extremely hard to mount. It is very unlikely that a forged packet will be sensed as matching some key, and even so probably it will be discarded for other reasons (packet type, wrong data format, ...).
 * The `sender` field of the message is part of the encrypted part, thus encrypted messages don't discose nor the sender, that is encrypted, nor the received, that is implicit (has the key) of the message.
 
-# Packets fragmentation
+# Packets fragmentation (proposal not implemented)
 
 LoRa packets are limited to 256 bytes. There is no way to go over such
 limitation (it is hardcoded in the hardware), and it would also be useless,
