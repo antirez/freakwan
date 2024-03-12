@@ -76,7 +76,7 @@ class Keychain:
         # and the 10 bytes HMAC at the end
         data_len = len(packet)-7 # 7 bytes plaintext header.
         padding_len = (16 - data_len % 16) % 16
-        encr_len = 4+len(packet)+padding_len+10
+        encr_len = 4+len(packet)+padding_len+10 # 4 is the 32bit IV field
         encr = bytearray(encr_len)
 
         # Copy header information.
@@ -143,25 +143,27 @@ class Keychain:
             # field, the padding and the HMAC.
             orig = bytearray(7 + len(plain) - padlen)
             orig[:7] = encr[:7]
-            orig[7:] = plain[:-padlen]
+            orig[7:] = plain if padlen == 0 else plain[:-padlen]
             return (key_name,orig)
         return None
 
 if __name__ == "__main__":
     kc = Keychain()
     kc.add_key("freaknet","morte")
-    test_packet = b"TF" + "IDID" + "T" + "SENDER" + "foo: bar 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
-    #print(test_packet)
-    encr = kc.encrypt(test_packet,"freaknet")
-    print("ENCR: "+str(encr))
-    decr = kc.decrypt(encr)
-    print("DECR: "+str(decr))
-    if test_packet == decr[1]:
-        print("OK: Packet encrypted and decrypred with success: got same bytes")
-    else:
-        print("ERR: decrypted packet is not the same:", test_packet, decr[1])
-    # Flipping a bit somewhere should no longer result in a valid packet
-    corrupted = encr[:18] + bytes([encr[18]^1]) + encr[19:]
-    decr = kc.decrypt(corrupted)
-    if decr == None:
-        print("OK: Corrupted packet correctly refused")
+    test_packets = [
+        b"TF" + "IDID" + "T" + "SENDER" + "foo: bar 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+        b'\x00\x12\xc9~\xdb\x98\x0f\x0c\x8b\x95\xa9\xe70\x06ant433foo'
+    ]
+    for testnum,test_packet in enumerate(test_packets):
+        print("Packet",testnum+1)
+        encr = kc.encrypt(test_packet,"freaknet")
+        decr = kc.decrypt(encr)
+        if test_packet == decr[1]:
+            print("OK: Packet encrypted and decrypred with success: got same bytes")
+        else:
+            print("ERR: decrypted packet is not the same:", test_packet, decr[1])
+        # Flipping a bit somewhere should no longer result in a valid packet
+        corrupted = encr[:18] + bytes([encr[18]^1]) + encr[19:]
+        decr = kc.decrypt(corrupted)
+        if decr == None:
+            print("OK: Corrupted packet correctly refused")
