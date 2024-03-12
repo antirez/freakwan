@@ -223,10 +223,10 @@ class SX1276:
             spi_payload = bytes([regid|0x80,data])
         elif isinstance(data,str):
             spi_payload = bytes([regid|0x80]) + bytes(data, 'utf-8')
-        elif isinstance(data,bytes):
+        elif isinstance(data,bytes) or isinstance(data,bytearray):
             spi_payload = bytes([regid|0x80]) + data
         else:
-            raise Exception("spi_write can only handle integers and strings")
+            raise Exception("spi_write can only handle integers and strings. We got: ",repr(data))
         self.select_chip()
         self.spi.write(spi_payload)
         self.deselect_chip()
