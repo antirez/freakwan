@@ -1,6 +1,7 @@
 ### LILYGO T3 v2 1.6 hardware configuration
 
 from machine import Pin, ADC
+import time
 
 class DeviceConfig:
     config = {}
@@ -8,6 +9,7 @@ class DeviceConfig:
     config['ssd1306']= {
         'sda': 17,
         'scl': 18,
+        'rst': 21,
         'xres': 128,
         'yres': 64,
     }
@@ -29,17 +31,22 @@ class DeviceConfig:
         # Pin 0, and goes low when pressed.
         button0 = Pin(0,Pin.IN)
         button0.irq(freakwan.button_0_pressed,Pin.IRQ_FALLING)
-
-        DeviceConfig.vext_ctrl = Pin(36, Pin.OUT) # on heltec v3 there's another mosfet to enable power to OLED
+        DeviceConfig.vext_ctrl = Pin(DeviceConfig.config['vext_ctrl']['pin'], Pin.OUT) # on heltec v3 there's another mosfet to enable power to OLED
         # and possibile external devices, we need to pull this pin low to let current flow
         DeviceConfig.vext_ctrl.off()
+        oled_rst = Pin(DeviceConfig.config['ssd1306']['rst'], Pin.OUT)
+        oled_rst.off()
+        time.sleep_ms(50)
+        oled_rst.on()
+        time.sleep_ms(50)
+
 
     def get_battery_microvolts():
-        adc_ctrl.off() # switch mosfet low to read battery voltage
+        DeviceConfig.adc_ctrl.off() # switch mosfet low to read battery voltage
         battery_uv = DeviceConfig.battery_adc.read_uv()*4.9 # 390k - 100k voltage divider,
         # this value SHOULD be manually calibrated for your board to accomodate tolerances
         # we should also think on an efficient way to average out values and eliminate outliers
-        adc_ctrl.on()
+        DeviceConfig.adc_ctrl.on()
 
         return battery_uv
 
