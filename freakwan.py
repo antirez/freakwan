@@ -864,6 +864,8 @@ class FreakWAN:
                     self.scroller.print("")
                     self.scroller.print("Device frozen. Switching off in 15 seconds.")
                     self.refresh_view()
+                    if 'vext_ctrl' in self.config:
+                        self.config.vext_ctrl.on() #cut power to the OLED on Heltec V3 by pulling the vext mosfet gate up
                     time.sleep_ms(15000)
                     self.power_off(5000)
 
