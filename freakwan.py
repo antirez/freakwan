@@ -713,7 +713,7 @@ class FreakWAN:
         if self.display and hasattr(self.display,'poweroff'):
             self.display.poweroff()
         if 'vext_ctrl' in self.config:
-            self.config.vext_ctrl.on() #cut power to the OLED on Heltec V3 by pulling the gate up
+            self.config.vext_ctrl.on() #cut power to the OLED on Heltec V3 by pulling the vext mosfet gate up
         machine.deepsleep(offtime)
 
     # We want to reply to CLI inputs even if written directly in the
