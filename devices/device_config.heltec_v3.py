@@ -1,4 +1,4 @@
-### LILYGO T3 v2 1.6 hardware configuration
+### Heltec V3 hardware configuration
 
 from machine import Pin, ADC
 import time
