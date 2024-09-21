@@ -50,6 +50,10 @@ class DeviceConfig:
 
         return battery_uv
 
+    def set_vext_ctrl(status):
+        DeviceConfig.vext_ctrl.on() #invert the value (HIGH = power off, LOW = power on)
+
+
     config['tx_led'] = {
         'pin': 35,
         'inverted': False,      # Set to True if pin on = led off
