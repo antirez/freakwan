@@ -1,5 +1,8 @@
 font-4x6/convert.c
 font-4x6/font_to_py
 TODO
-wan_config.py.*
+wan_config.py
 device_config.py
+.micropico
+.vscode/settings.json
+.vscode/extensions.json

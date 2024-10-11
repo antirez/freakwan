@@ -4,7 +4,7 @@ from machine import ADC, Pin
 class DeviceConfig:
     config = {}
 
-    def power_up(freakwan):
+    def power_up(self, freakwan):
         DeviceConfig.battery_adc = ADC(Pin(26))
 
     config['tx_led'] = {
@@ -12,7 +12,7 @@ class DeviceConfig:
         'inverted': True,
     }
 
-    def get_battery_microvolts():
+    def get_battery_microvolts(self):
         # The voltage divider of the hat does not have coupled resistors, 
         # and the theoretical value of 3 needs to be calibrated. 
         # In my case, the value was approximately 3.12
