@@ -25,6 +25,11 @@ class UserConfig:
     config['lora_fr']=869500000     # Frequency
     config['lora_pw']=17            # TX power (dbm, range 2-20)
 
+    # Set a duty cycle limit %. This is the maximum percentage of time 
+    # the radio can be active depending on the frequency band and region 
+    # in which the device is operating.
+    config['duty_cycle_limit'] = 10
+
    # WiFi network, in order to use the IRC interface.
     config['wifi'] = {
         'mynetwork1': 'mypassword',

@@ -209,10 +209,9 @@ class FreakWAN:
         # encrypting / decrypting packets.
         self.keychain = Keychain()
 
-        # Configure the duty cycle tracker, use a period of 25 minutes
-        # with five 5min slots. We could extend it up to an hour, according
-        # to regulations.
-        self.duty_cycle = DutyCycle(slots_num=5,slots_dur=60*5)
+        # Configure the duty cycle tracker, use a period of 60 minutes
+        # with 12 5min slots. Adjust according to regulations.
+        self.duty_cycle = DutyCycle(slots_num=12,slots_dur=60*5)
 
         # Networking stuff. They are allocated only on demand in order
         # to save memory. Many users may not need such features.
@@ -393,11 +392,10 @@ class FreakWAN:
         self.duty_cycle.end_tx()
         self.set_tx_led(False)
 
-    # Send packets waiting in the send queue. This function, right now,
-    # will just send every packet in the queue. But later it should
-    # implement percentage of channel usage to be able to send only
-    # a given percentage of the time.
+    # Send packets waiting in the send queue if duty cycle is below limit. 
+    # TODO: Work out a better way to handle the duty cycle limit (currently can go over).
     def send_messages_in_queue(self):
+        if self.duty_cycle.get_duty_cycle() >= self.config['duty_cycle_limit']: return
         if self.lora.modem_is_receiving_packet(): return
         send_later = [] # List of messages we can't send, yet.
         while len(self.send_queue):
@@ -667,7 +665,7 @@ class FreakWAN:
             if self.config['automsg']:
                 msg = Message(nick=self.config['nick'],
                             text="Hi "+str(counter))
-                self.send_asynchronously(msg,max_delay=0,num_tx=3,relay=True)
+                self.send_asynchronously(msg,max_delay=15000,num_tx=1,relay=True)
                 self.scroller.print("you> "+msg.text)
                 self.refresh_view()
                 counter += 1
