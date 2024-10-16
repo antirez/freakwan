@@ -173,7 +173,9 @@ class CommandsController:
                 txpower = int(argv[1])
             except:
                 txpower = 0
-            if txpower < 2 or txpower > 20:
+            if 'sx1262' in self.fw.config and (txpower < 2 or txpower > 22) :
+                send_reply("-Invalid tx power (dbm). Use 2-22.")
+            elif 'sx1276' in self.fw.config and (txpower < 2 or txpower > 20) :
                 send_reply("-Invalid tx power (dbm). Use 2-20.")
             else:
                 self.fw.config['lora_pw'] = txpower
