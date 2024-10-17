@@ -243,7 +243,7 @@ class CommandsController:
         if argc == 1:
             settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi_default_network','quiet','check_crc']
             for s in settings:
-                send_reply("$%s: %s" % (s, repr(self.fw.config.get(s))))
+                send_reply("+%s: %s" % (s, repr(self.fw.config.get(s))))
             send_reply("+wifi_enabled: %s" % repr(self.fw.wifi and self.fw.wifi.is_connected()))
         elif argv[1] == "save":
             self.fw.save_settings()
