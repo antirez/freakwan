@@ -116,11 +116,30 @@ If you send a valid command starting with the `!` character, it will be executed
 * `!last [<count>]` show the last messages received, taking them from the local storage of the device.
 * `!config [save|reset]` to save (or reset) certain configuration parameters (LoRa radio parameters, automsg, irc, wifi, ...) that will be reloaded at startup.
 * `!irc <stop|start>` starts or stops the IRC interface.
-* `!wifi help`, to see all the WiFi configuration subcommands. Using this command you can add and remove WiFi networks, connect or disconnect the WiFi (required for the IRC interface), and so forth.
+* `!telegram <start|stop|token>` starts, stops and sets the token of the Telegram bot.
+* `!wifi help`, to see all the WiFi configuration subcommands. Using this command you can add and remove WiFi networks, connect or disconnect the WiFi (required for the IRC and Telegram interface), and so forth.
 * `!quiet <yes|no>`, to enable quiet mode (default is off). In this mode, the device sends only the smallest amount of data needed, that is the data messages that we want to send. No ACKs are sent in reply to data messages, nor HELLO messages to advertise our presence in the network. Packets are not relayed in this mode, nor data is transmitted multiple times. Basically this mode is designed to save channel bandwidth, at the expense of advanced FreakWAN features, when there are many active devices and we want to make sure the LoRa channel is not continuously busy.
 * `!b0`, this is the same as pressing the button 0 on the devices (if they have one). Will switch the device screen to the next view.
 
 New bang commands are added constantly, so try `!help` to see what is available. We'll try to take this README in sync, especially after the first months of intense development will be finished.
+
+## Using the device via Telegram
+
+When FreakWAN is located in some fixed location with WiFi access, it is possible to put it online as a Telegram bot. This way it is possible to receive the messages the device receives via LoRa as Telegram messages, and at the same time it is possible to send commands and messages writing to the bot.
+
+To use this feature, follow the instructions below:
+
+1. Create your bot using the Telegram [@BotFather](https://t.me/botfather).
+2. After obtaining your bot token (it's basically the bot API key) use the following commands in the FreakWAN cli (either via USB or BLE) or alternatively edit `wan_config.py` to set the same parameters.
+
+    !wifi add networkname password
+    !wifi start networkname
+    !telegram token <your-bot-token-here>
+    !telegram start
+
+Now use your Telegram application in order to sent `!help` to the bot, and wait for the reply. If you can receive the reply correclty, Freakwan will also set the *target* of your messages, that is, the account you used to talk with the bot the first time. Now you are ready to save your configuration with:
+
+    !config save
 
 ## Using the device via IRC
 

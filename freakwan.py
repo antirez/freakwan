@@ -44,6 +44,7 @@ except:
 
 try:
     from networking import IRC, WiFiConnection
+    from telegram import TelegramBot
 except:
     pass
 
@@ -72,6 +73,8 @@ class FreakWAN:
             # So no ACKs, relayed packets, HELLO messages, no repeated messages.
             'quiet': False,
             'check_crc': True, # Discard packets with wrong CRC if False.
+            'irc': {'enabled':False},
+            'telegram': {'enabled':False, 'token':None, 'chat_id':0},
         }
         self.config.update(UserConfig.config)
         self.config.update(DeviceConfig.config)
@@ -219,6 +222,8 @@ class FreakWAN:
         self.irc = None
         self.irc_task = None
         self.wifi = None
+        self.telegram = None
+        self.telegram_task = None
 
         # The 'processed' dictionary contains messages IDs of messages already
         # received/processed. We save the ID and the associated message
@@ -286,7 +291,7 @@ class FreakWAN:
     # band commands. We just save things that we want likely to be
     # reloaded on startup.
     def save_settings(self):
-        settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi','wifi_default_network','quiet','check_crc']
+        settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','telegram','wifi','wifi_default_network','quiet','check_crc']
         try:
             f = open("settings.txt","wb")
             code = ""
@@ -582,6 +587,7 @@ class FreakWAN:
                     self.scroller.print(user_msg)
                     if self.bleuart: self.bleuart.print(user_msg+" "+msg_info)
                     if self.irc: self.irc.reply(user_msg+" "+msg_info)
+                    if self.telegram: self.telegram_send(user_msg+" "+msg_info)
 
                 self.serial_log("\033[32m"+channel_name+user_msg+" "+msg_info+"\033[0m", force=True)
                 self.refresh_view()
@@ -698,6 +704,16 @@ class FreakWAN:
     def irc_receive_callback(self,cmd):
         self.cmdctrl.exec_user_command(cmd,self.irc.reply)
 
+    # Process commands from Telegram:
+    def telegram_receive_callback(self,bot,msg_type,chat_name,sender_name,chat_id,text,entry):
+        self.config['telegram']['chat_id'] = chat_id
+        self.cmdctrl.exec_user_command(text,self.telegram_send)
+
+    # Reply to Telegram.
+    def telegram_send(self,msg):
+        if self.telegram and self.config['telegram']['chat_id'] != 0:
+            self.telegram.send(self.config['telegram']['chat_id'],msg,True)
+
     # Return if the battery is under the low battery threshould.
     # If 'try_awake' is true, it means we are asking from the point
     # of view of awaking back the device after we did an emergency
@@ -795,6 +811,22 @@ class FreakWAN:
         self.irc_task = None
         self.irc = None
         self.config['irc']['enabled'] = False
+
+    # Start the Telegram bot.
+    def start_telegram(self):
+        if not self.telegram:
+            self.telegram = TelegramBot(self.config['telegram']['token'], self.telegram_receive_callback)
+        if not self.telegram_task:
+            self.telegram_task = asyncio.create_task(self.telegram.run())
+            self.config['telegram']['enabled'] = True
+
+    # Stop the Telegram bot handling.
+    def stop_telegram(self):
+        self.telegram_send("Telegram subsystem is shutting down")
+        self.telegram.stop()
+        self.telegram_task = None
+        self.telegram = None
+        self.config['telegram']['enabled'] = False
 
     # This callback can be configured during the device init
     # in device_config.py. When pressed, button 0 switches to

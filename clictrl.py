@@ -241,7 +241,7 @@ class CommandsController:
     def cmd_config(self,argv,argc,send_reply):
         if argc > 2: return False
         if argc == 1:
-            settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi_default_network','quiet','check_crc']
+            settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','telegram','wifi_default_network','quiet','check_crc']
             for s in settings:
                 send_reply("%s: %s" % (s, repr(self.fw.config.get(s))))
             send_reply("wifi_enabled: %s" % repr(self.fw.wifi and self.fw.wifi.is_connected()))
@@ -380,6 +380,25 @@ class CommandsController:
             send_reply("IRC started")
         else:
             send_reply("Usage: irc start | stop")
+        return True
+
+    def cmd_telegram(self,argv,argc,send_reply):
+        if argc == 2 and argv[1] == 'stop':
+            if send_reply == self.fw.telegram_send:
+                send_reply("Telegram can't be stopped from within Telegram.")
+            else:
+                self.fw.stop_telegram()
+                send_reply("Telegram stopped")
+        elif argc == 2 and argv[1] == 'start':
+            if self.fw.config['telegram']['token']:
+                self.fw.start_telegram()
+                send_reply("Telegram started")
+            else:
+                send_reply("Telegram token not set. Can't start the bot.")
+        elif argc == 3 and argv[1] == 'token':
+            self.fw.config['telegram']['token'] = argv[2]
+        else:
+            send_reply("Usage: telegram start | stop | token <token>")
         return True
 
     def cmd_image(self,argv,argc,send_reply):

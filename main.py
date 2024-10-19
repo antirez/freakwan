@@ -21,6 +21,7 @@ asyncio.create_task(fw.send_hello_message())
 asyncio.create_task(fw.send_periodic_message())
 asyncio.create_task(fw.receive_from_serial())
 if fw.config.get('irc') and fw.config['irc']['enabled']: fw.start_irc()
+if fw.config.get('telegram') and fw.config['telegram']['enabled']: fw.start_telegram()
 if fw.bleuart: fw.bleuart.set_callback(fw.ble_receive_callback)
 
 loop = asyncio.get_event_loop()

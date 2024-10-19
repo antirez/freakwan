@@ -40,6 +40,17 @@ class UserConfig:
         'enabled': False
     }
 
+    # Telegram configuration. The token is provided by the Bot God when
+    # the bot is created (it's the bot API key).
+    #
+    # Leave chat_id to the value of 0, this will be set automatically
+    # by FreakWAN. See the README.
+    config['telegram'] = {
+        'enabled': False,
+        'token': None,
+        'chat_id': 0,
+    }
+
     # Bluetooth. Please note that certain combinations of
     # MicroPython versions and ESP32 chips models have
     # issues. If you see the device crashing on startup try
