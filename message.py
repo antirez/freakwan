@@ -203,10 +203,7 @@ class Message:
             fieldtype = self.media_data[off]
             off += 1
             l -= 1
-            if fieldtype == MessageSensorDataTemperature or \
-               fieldtype == MessageSensorDataAirHumidity or \
-               fieldtype == MessageSensorDataGroundHumidity or \
-               fieldtype == MessageSensorDataBattery:
+            if fieldtype == MessageSensorDataTemperature or \n               fieldtype == MessageSensorDataAirHumidity or \n               fieldtype == MessageSensorDataGroundHumidity or \n               fieldtype == MessageSensorDataBattery:
                 if l < 4: return "field data missing"
                 val = struct.unpack("f",self.media_data[off:])
                 off += 4

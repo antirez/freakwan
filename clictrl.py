@@ -7,7 +7,6 @@
 import time
 
 from message import *
-from fci import ImageFCI
 
 LoRaPresets = {
     'superfast': {
@@ -341,61 +340,6 @@ class CommandsController:
     def cmd_reset(self,argv,argc,send_reply):
         if argc != 1: return False
         self.fw.reset()
-        return True
-
-    def cmd_wifi(self,argv,argc,send_reply):
-        if argc == 1:
-            defnet = self.fw.config.get('wifi_default_network')
-            send_reply("Configured wifi networks:")
-            for ssid in self.fw.config['wifi']:
-                if ssid == defnet: ssid += " (default)"
-                send_reply(ssid)
-        elif argc == 4 and argv[1] == 'add':
-            self.fw.config['wifi'][argv[2]] = argv[3]
-            send_reply("Network added.")
-        elif argc == 3 and (argv[1] == 'del' or argv[1] == 'rm'):
-            del(self.fw.config['wifi'][argv[2]])
-            send_reply("Network removed.")
-        elif argc == 3 and argv[1] == 'start':
-            netname = argv[2]
-            netpass = self.fw.config['wifi'].get(netname)
-            if not netpass:
-                send_reply("No such network: %s" % netname)
-            else:
-                self.fw.start_wifi(netname,netpass)
-                send_reply("Connecting to %s" % netname)
-        elif argc == 2 and argv[1] == 'stop':
-            self.fw.stop_wifi()
-            send_reply("WiFi turned off")
-        else:
-            send_reply("Usage: wifi | wifi add <net> <pass> | wifi del <net> | wifi start <net> | wifi <stop>")
-        return True
-
-    def cmd_irc(self,argv,argc,send_reply):
-        if argc == 2 and argv[1] == 'stop':
-            self.fw.stop_irc()
-            send_reply("IRC stopped")
-        elif argc == 2 and argv[1] == 'start':
-            self.fw.start_irc()
-            send_reply("IRC started")
-        else:
-            send_reply("Usage: irc start | stop")
-        return True
-
-    def cmd_image(self,argv,argc,send_reply):
-        if argc != 2: return False
-        try:
-            img = ImageFCI(filename="images/"+argv[1])
-            if len(img.encoded) > 200:
-                send_reply("Image must be <= 200 bytes.")
-            else:
-                msg = Message(flags=MessageFlagsMedia,nick=self.fw.config['nick'],media_type=MessageMediaTypeImageFCI,media_data=img.encoded)
-                self.fw.send_asynchronously(msg,max_delay=0,num_tx=1,relay=True)
-                self.fw.scroller.print("you> image:")
-                self.fw.scroller.print(img)
-                self.fw.refresh_view()
-        except Exception as e:
-            send_reply("Error loading the image: "+str(e))
         return True
 
     def cmd_log(self,argv,argc,send_reply):

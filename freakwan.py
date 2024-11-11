@@ -17,35 +17,17 @@ SEND_MAX_DELAY = const(2000) # Random delay in milliseconds of asynchronous
 TX_AGAIN_MIN_DELAY = const(3000)
 TX_AGAIN_MAX_DELAY = const(8000)
 
-import machine, time, urandom, gc, sys, io
+import machine, time, random, gc, sys, io
 import select
 from machine import Pin, SoftI2C, ADC, SPI
-import uasyncio as asyncio
+import asyncio
 from wan_config import *
 from device_config import *
-from scroller import Scroller
-from icons import StatusIcons
-from splash import SplashScreen
 from history import History
 from message import *
 from clictrl import CommandsController
 from dutycycle import DutyCycle
-from fci import ImageFCI
 from keychain import Keychain
-from views import *
-from sensor import Sensor
-
-### Bluetooth and networking may not be available.
-try:
-    import bluetooth
-    from bt import BLEUART
-except:
-    pass
-
-try:
-    from networking import IRC, WiFiConnection
-except:
-    pass
 
 # The application itself, including all the WAN routing logic.
 class FreakWAN:
@@ -96,10 +78,7 @@ class FreakWAN:
         # 1. We went in deep sleep for low battery.
         # 2. We are in "sensor mode" and went in deep sleep after
         #    transmitting the last sensor sample.
-        if (hasattr(machine, 'DEEPSLEEP_RESET') and \
-            machine.reset_cause() == machine.DEEPSLEEP_RESET) or \
-            (hasattr(machine, 'WDT_RESET') and \
-            machine.reset_cause() == machine.WDT_RESET):
+        if (hasattr(machine, 'DEEPSLEEP_RESET') and machine.reset_cause() == machine.DEEPSLEEP_RESET) or (hasattr(machine, 'WDT_RESET') and machine.reset_cause() == machine.WDT_RESET):
             # Check if we are in low battery mode, and if the battery
             # is still too low to restart, before powering up anything
             # else.
@@ -117,65 +96,6 @@ class FreakWAN:
         # using bang-commands.
         self.load_settings()
 
-        # Init display
-        self.display = None
-
-        if 'ssd1306' in self.config:
-            import ssd1306
-            self.xres = self.config['ssd1306']['xres']
-            self.yres = self.config['ssd1306']['yres']
-
-            i2c = SoftI2C(sda=Pin(self.config['ssd1306']['sda']),
-                          scl=Pin(self.config['ssd1306']['scl']))
-            self.display = ssd1306.SSD1306_I2C(self.xres, self.yres, i2c)
-            self.display.poweron()
-            self.display.show()
-        elif 'st7789' in self.config:
-            import st7789
-            self.xres = self.config['st7789']['xres']
-            self.yres = self.config['st7789']['yres']
-
-            cfg = self.config['st7789']
-            spi = SPI(cfg['spi_channel'], baudrate=40000000, polarity=cfg['polarity'], phase=cfg['phase'], sck=Pin(cfg['sck']), mosi=Pin(cfg['mosi']), miso=Pin(cfg['miso']))
-            self.display = st7789.ST7789_base (
-                spi, cfg['xres'], cfg['yres'],
-                reset = Pin(cfg['reset'], Pin.OUT) if isinstance(cfg['reset'],int) else None,
-                dc = Pin(cfg['dc'], Pin.OUT),
-                cs = Pin(cfg['cs'], Pin.OUT) if isinstance(cfg['cs'],int) else None
-            )
-            self.display.init(xstart=cfg['xstart'],ystart=cfg['ystart'],landscape=cfg['landscape'],mirror_y=cfg['mirror_y'],mirror_x=cfg['mirror_x'],inversion=cfg['inversion'])
-            self.display.enable_framebuffer(mono=True)
-            self.display.line = self.display.fb.line
-            self.display.pixel = self.display.fb.pixel
-            self.display.text = self.display.fb.text
-            self.display.fill_rect = self.display.fb.fill_rect
-            self.display.fill = self.display.fb.fill
-            self.display.contrast = lambda x: x
-        else:
-            print("Headless mode (no display) selected")
-            # Set dummy values for display because they cold be
-            # still referenced to create objects.
-            self.xres = 64
-            self.yres = 64
-            self.display = None
-
-        # Views
-        icons = StatusIcons(self.display,get_batt_perc=self.get_battery_perc)
-        self.scroller = Scroller(self.display,icons=icons,xres=self.xres,yres=self.yres)
-        if self.yres <= 64: self.scroller.select_font("small")
-        self.splashscreen = SplashScreen(self.display,self.xres,self.yres)
-        self.nodeslist_view = NodesListView(self,self.display)
-
-        # Order in which the views will be selected when the
-        # view switch button is pressed.
-        self.views_order = [self.scroller, self.nodeslist_view]
-
-        # View IDs
-        if 'sensor' in self.config:
-            self.switch_view(self.scroller)
-        else:
-            self.switch_view(self.splashscreen)
-
         # Init LoRa chip
         if 'sx1276' in self.config:
             import sx1276
@@ -184,15 +104,6 @@ class FreakWAN:
             import sx1262
             self.lora = sx1262.SX1262(self.config['sx1262'],self.receive_lora_packet,self.lora_tx_done)
         self.lora_reset_and_configure()
-        
-        # Init BLE chip
-        self.bleuart = None
-        try:
-            ble = bluetooth.BLE()
-            if self.config['ble_enabled']:
-                self.bleuart = BLEUART(ble, name="FW_%s" % self.config['nick'])
-        except:
-            pass
 
         # Create our CLI commands controller.
         self.cmdctrl = CommandsController(self)
@@ -212,12 +123,6 @@ class FreakWAN:
         # Configure the duty cycle tracker, use a period of 60 minutes
         # with 12 5min slots. Adjust according to regulations.
         self.duty_cycle = DutyCycle(slots_num=12,slots_dur=60*5)
-
-        # Networking stuff. They are allocated only on demand in order
-        # to save memory. Many users may not need such features.
-        self.irc = None
-        self.irc_task = None
-        self.wifi = None
 
         # The 'processed' dictionary contains messages IDs of messages already
         # received/processed. We save the ID and the associated message
@@ -246,13 +151,6 @@ class FreakWAN:
         # Start receiving. This will just install the IRQ
         # handler, without blocking the program.
         self.lora.receive()
-
-        # Create the sensor instance if FreakWAN is configured to run
-        # in sensor mode.
-        if 'sensor' in self.config:
-            self.sensor = Sensor(self,self.config['sensor'])
-        else:
-            self.sensor = None
 
         # This is the buffer used in order to accumulate the
         # command the user is typing directly in the MicroPython
@@ -285,7 +183,7 @@ class FreakWAN:
     # band commands. We just save things that we want likely to be
     # reloaded on startup.
     def save_settings(self):
-        settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','irc','wifi','wifi_default_network','quiet','check_crc']
+        settings = ['nick', 'lora_sp','lora_bw','lora_cr','lora_pw','automsg','quiet','check_crc']
         try:
             f = open("settings.txt","wb")
             code = ""
@@ -305,16 +203,6 @@ class FreakWAN:
             os.unlink("settings.txt")
         except:
             pass
-
-    # Call the current view refresh method, in order to draw the
-    # representation of the view in the framebuffer.
-    def refresh_view(self):
-        self.current_view.refresh()
-
-    # Switch to the specified view
-    def switch_view(self,view):
-        self.current_view = view
-        self.refresh_view()
 
     # Reset the chip and configure with the required paramenters.
     # Used during initialization and also in the TX watchdog if
@@ -554,35 +442,18 @@ class FreakWAN:
                         self.neighbors[m.sender].ctime = time.ticks_ms()
 
                 # Report message to the user.
-                msg_info = \
-                    "(rssi:%d, ttl:%d, flags:%s)" % \
-                    (m.rssi,m.ttl,"{0:b}".format(m.flags))
+                msg_info = "(rssi:%d, ttl:%d, flags:%s)" % (m.rssi,m.ttl,"{0:b}".format(m.flags))
                 channel_name = "" if not m.key_name else "#"+str(m.key_name)+" "
 
                 if m.flags & MessageFlagsMedia:
-                    if m.media_type == MessageMediaTypeImageFCI:
-                        img = ImageFCI(data=m.media_data)
-                        self.scroller.print(channel_name+m.nick+"> image:")
-                        self.scroller.print(img)
-                        user_msg = channel_name+m.nick+"> image"
-                    elif m.media_type == MessageMediaTypeSensorData:
-                        sensor_data = m.sensor_data_to_str()
-                        self.serial_log("[SENSOR-DATA] channel:%s sensor_id:%s %s" % (channel_name.strip(),m.nick,sensor_data))
-                        user_msg = channel_name+m.nick+"> "+sensor_data
-                        self.scroller.print(user_msg)
-                    else:
-                        self.serial_log("[<<< net] Unknown media type %d" % m.media_type)
-                        user_msg = channel_name+m.nick+"> unknown media"
+                    self.serial_log("[<<< net] Unknown media type %d" % m.media_type)
+                    user_msg = channel_name+m.nick+"> unknown media"
                 else:
                     user_msg = channel_name+m.nick+"> "+m.text
                     if m.flags & MessageFlagsRelayed: user_msg += " [R]"
                     if m.flags & MessageFlagsBadCRC: user_msg += " [BADCRC]"
-                    self.scroller.print(user_msg)
-                    if self.bleuart: self.bleuart.print(user_msg+" "+msg_info)
-                    if self.irc: self.irc.reply(user_msg+" "+msg_info)
 
                 self.serial_log("\033[32m"+channel_name+user_msg+" "+msg_info+"\033[0m", force=True)
-                self.refresh_view()
 
                 # Reply with ACK if needed.
                 self.send_ack_if_needed(m)
@@ -611,7 +482,6 @@ class FreakWAN:
                 if not m.sender in self.neighbors:
                     msg = "[net] New node sensed: "+m.sender_to_str()
                     self.serial_log(msg)
-                    if self.bleuart: self.bleuart.print(msg)
                 self.neighbors[m.sender] = m
                 if len(self.neighbors) > max_neighbors:
                     self.neighbors.popitem()
@@ -666,8 +536,6 @@ class FreakWAN:
                 msg = Message(nick=self.config['nick'],
                             text="Hi "+str(counter))
                 self.send_asynchronously(msg,max_delay=15000,num_tx=1,relay=True)
-                self.scroller.print("you> "+msg.text)
-                self.refresh_view()
                 counter += 1
             await asyncio.sleep(urandom.randint(15000,20000)/1000) 
 
@@ -682,19 +550,6 @@ class FreakWAN:
         msg += " FreeMem:"+str(gc.mem_free())
         msg += " DutyCycle: %.2f%%" % self.duty_cycle.get_duty_cycle()
         self.serial_log(msg)
-    
-    # This is the default callback that handle a message received from BLE.
-    # It will:
-    # 1. Get the text from BLE message;
-    # 2. Create a our Message with the received text;
-    # 3. Send asynchronously the message and display it.
-    def ble_receive_callback(self):
-        cmd = self.bleuart.read().decode()
-        self.cmdctrl.exec_user_command(cmd,self.bleuart.print)
-
-    # Process commands from IRC.
-    def irc_receive_callback(self,cmd):
-        self.cmdctrl.exec_user_command(cmd,self.irc.reply)
 
     # Return if the battery is under the low battery threshould.
     # If 'try_awake' is true, it means we are asking from the point
@@ -754,61 +609,6 @@ class FreakWAN:
     def reply_to_serial(self,msg):
         self.serial_log(msg,force=True)
 
-    # Start the WiFi subsystem, using an already configured network
-    # (if password is None) or a new network.
-    def start_wifi(self,network,password=None):
-        if password == None:
-            password = self.config['wifi'].get(network)
-            if not password: return False
-        if not self.wifi: self.wifi = WiFiConnection()
-        self.serial_log("[WiFi] Connecting to %s" % network)
-        self.wifi.connect(network,password)
-        self.config['wifi_default_network'] = network
-        return True
-
-    # Disconenct WiFi network
-    def stop_wifi(self):
-        # WiFi may be enabled even if we didn't start it in the lifespan
-        # of the application: after a soft reset, the ESP32 will keep
-        # the state of the WiFi network.
-        if not self.wifi: self.wifi = WiFiConnection()
-        self.serial_log("[WiFi] Stopping Wifi (if active)")
-        self.wifi.stop()
-        self.config['wifi_default_network'] = False
-
-    # Start the IRC subsystem.
-    def start_irc(self):
-        if not self.irc:
-            self.irc = IRC(self.config['nick'],self.irc_receive_callback)
-        if not self.irc.active:
-            self.irc_task = asyncio.create_task(self.irc.run())
-        self.config['irc']['enabled'] = True
-        return self.irc_task
-
-    # Stop the IRC subsystem
-    def stop_irc(self):
-        if not self.irc: return
-        self.irc.reply("IRC subsystem is shutting down")
-        self.irc.stop()
-        self.irc_task = None
-        self.irc = None
-        self.config['irc']['enabled'] = False
-
-    # This callback can be configured during the device init
-    # in device_config.py. When pressed, button 0 switches to
-    # the next view on the device screen.
-    def button_0_pressed(self,pin):
-        if self.current_view not in self.views_order:
-            idx = 0
-        else:
-            # Switch to next view or wrap around.
-            idx = self.views_order.index(self.current_view)
-            if idx == len(self.views_order)-1:
-                idx = 0
-            else:
-                idx += 1
-        self.switch_view(self.views_order[idx])
-
     # This is the main control loop of the application, where we perform
     # periodic tasks, like sending messages in the queue. Other tasks
     # are handled by different tasks created at startup, at the end
@@ -819,47 +619,15 @@ class FreakWAN:
         sensor_state = "start"
 
         while True:
-            # Splash screen handling.
-            if tick <= animation_ticks:
-                if tick == animation_ticks or self.low_battery() or self.sensor:
-                    self.switch_view(self.scroller)
-                    self.scroller.print("FreakWAN v"+Version)
-                    tick = animation_ticks+1
-
-                self.splashscreen.next_frame()
-                self.refresh_view()
-                tick += 1
-                continue
-
-            ### SENSOR MODE HANDLING ###
-            if self.sensor:
-                self.sensor.exec_state_machine(tick)
-            ############################
-
-            # Normal loop, entered after the splah screen.
             if tick % 10 == 0: gc.collect()
             if tick % 50 == 0: self.show_status_log()
-
-            # From time to time, refresh the current view so that
-            # we can update the battery icon, turn off the ACK
-            # and relay icon, and so forth.
-            if hasattr(self.current_view,'min_refresh_time'):
-                rt = int(self.current_view.min_refresh_time() * 10)
-                if tick % rt == 0: self.refresh_view()
 
             # Periodically check the battery level, and if too low, protect
             # it shutting the device down.
             if tick % 100 == 0:
                 if self.low_battery():
-                    self.scroller.print("")
-                    self.scroller.print("*******************")
-                    self.scroller.print("***             ***")
-                    self.scroller.print("*** LOW BATTERY ***")
-                    self.scroller.print("***             ***")
-                    self.scroller.print("*******************")
-                    self.scroller.print("")
-                    self.scroller.print("Device frozen. Switching off in 15 seconds.")
-                    self.refresh_view()
+                    self.serial_log("Low battery, shutting down")
+                    # TODO: print something to the display to signal the low battery.
                     time.sleep_ms(15000)
                     self.power_off(5000)
 
@@ -898,8 +666,8 @@ class FreakWAN:
         # Print errors on the OLED, too. We want to immediately
         # recognized a crashed device.
         for stline in stacktrace.split("\n"):
-            self.scroller.print(stline)
-        self.scroller.refresh()
+            # TODO: print something to the display to signal the crash.
+            pass
 
         # Let's log the stack trace on the filesystem, too.
         f = open('crash.txt','w')

@@ -53,8 +53,7 @@ class Keychain:
     # Given a key, derive two keys, one for AES and the other
     # for the HMAC.
     def derive_keys(self,key):
-        return HMAC_SHA256(key,"AES14159265358979323846")[:16], \
-               HMAC_SHA256(key,"MAC26433832795028841971")
+        return HMAC_SHA256(key,"AES14159265358979323846")[:16], \n               HMAC_SHA256(key,"MAC26433832795028841971")
 
     # Return the SHA256 digest truncated to 16 bytes
     def sha16(self,data):

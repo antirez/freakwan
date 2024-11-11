@@ -8,7 +8,7 @@
 # TODO:
 # - Improve modem_is_receiving_packet() if possible at all with the SX1262.
 
-from machine import Pin, SoftSPI
+from machine import Pin, SoftSPI, SPI
 from micropython import const
 import time, struct, urandom
 
@@ -88,7 +88,8 @@ class SX1262:
         self.mosi_pin = Pin(pinset['mosi'])
         self.miso_pin = Pin(pinset['miso'])
         self.dio_pin = Pin(pinset['dio'], Pin.IN)
-        self.spi = SoftSPI(baudrate=10000000, polarity=0, phase=0, sck=self.clock_pin, mosi=self.mosi_pin, miso=self.miso_pin)
+        # self.spi = SoftSPI(baudrate=10000000, polarity=0, phase=0, sck=self.clock_pin, mosi=self.mosi_pin, miso=self.miso_pin)
+        self.spi = SPI(0, baudrate=10_000_000, polarity=0, phase=0, sck=self.clock_pin, mosi=self.mosi_pin, miso=self.miso_pin)
         self.bw = 0 # Currently set bandwidth. Saved to compute freq error.
          
     def reset(self):
@@ -402,14 +403,24 @@ class SX1262:
 
 # Example usage.
 if  __name__ == "__main__":
+    # pinset = {
+    #     'busy': 7,
+    #     'reset': 8,
+    #     'chipselect': 5,
+    #     'clock': 3,
+    #     'mosi': 1,
+    #     'miso': 4,
+    #     'dio': 9
+    # }
+
     pinset = {
-        'busy': 7,
-        'reset': 8,
-        'chipselect': 5,
-        'clock': 3,
-        'mosi': 1,
-        'miso': 4,
-        'dio': 9
+        'busy': 22,
+        'miso': 16,
+        'mosi': 19,
+        'clock': 18,
+        'chipselect': 17,
+        'reset': 21,
+        'dio': 20,
     }
 
     # The callback will be called every time a packet was
