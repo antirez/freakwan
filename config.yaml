@@ -1,0 +1,58 @@
+#$ group
+freakwan:
+  #$ tag:input type:text placeholder:nickname
+  nick: Frodo
+  #$ tag:input type:text placeholder:status
+  status: "Hi, I'm Pico!"
+  #$ tag:input type:range min:0 max:100 step:1 unit:%
+  sleep_battery_perc: 10
+  #$ tag:input type:range min:0 max:10 step:1
+  relay_num_tx: 3
+  #$ tag:input type:range min:0 max:60000 step:1000
+  relay_max_delay: 10000
+  #$ tag:input type:range min:-100 max:0 step:1
+  relay_rssi_limit: -60
+  #$ tag:input type:range min:0 max:100 step:1 unit:%
+  duty_cycle_limit: 10
+  #$ tag:input type:checkbox
+  automsg: true
+  #$ tag:input type:checkbox
+  tx_led: true
+  #$ tag:input type:checkbox
+  prom: false
+  #$ tag:input type:checkbox
+  quiet: false
+  #$ tag:input type:checkbox
+  check_crc: true
+
+#$ group
+lora:
+  #$ tag:input type:range min:-9 max:22 step:1 unit:dBm
+  tx_power: 2
+  #$ tag:input type:range min:6 max:12 step:1
+  spread_factor: 12
+  #$ tag:input type:range min:5 max:8 step:1 unit:4/n
+  coding_rate: 8
+  #$ tag:input type:number min:430000000 max:928000000 step:10000 unit:Hz
+  frequency: 868500000
+  #$ tag:select options:7800,10400,15600,20800,31250,41700,62500,125000,250000,500000 unit:Hz
+  bandwidth: 125000
+  #$ tag:input type:checkbox
+  boost_gain: false
+
+ap:
+  ssid: pico_ap11
+  pw: picopico
+
+sx1262:
+  busy: 22
+  reset: 16
+  mosi: 19
+  chipselect: 17
+  clock: 18
+  miso: 16
+  dio: 20
+
+tx_led:
+  pin: WL_GPIO0
+  inverted: True

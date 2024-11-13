@@ -6,3 +6,5 @@ device_config.py
 .micropico
 .vscode/settings.json
 .vscode/extensions.json
+keys/
+crash.txt

@@ -8,7 +8,7 @@
 # TODO:
 # - Improve modem_is_receiving_packet() if possible at all with the SX1262.
 
-from machine import Pin, SoftSPI, SPI
+from machine import Pin, SPI
 from micropython import const
 import time, struct, urandom
 
@@ -132,7 +132,12 @@ class SX1262:
         self.deselect_chip()
 
         # Enable this for debugging.
-        if False: print(f"Reply for {hex(opcode)} is {repr(reply)}")
+        if False: 
+            print(f"Reply for {hex(opcode)} is {repr(reply)}")
+            print("Chip mode  = ", (reply[1] >> 4) & 7)
+            print("Cmd status = ", (reply[1] >> 1) & 7)
+
+        time.sleep_us(4000) # Wait for the chip to be ready for the next command.
 
         return reply
 
