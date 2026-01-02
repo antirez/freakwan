@@ -111,6 +111,7 @@ If you send a valid command starting with the `!` character, it will be executed
 * `!sp`, `!bw`, `!cr` to change the spreading, bandwidth and coding rate independently, if you wish.
 * `!pw` changes the TX power. Valid values are from 2 to 20 (dbms). Default is 17dbms.
 * `!ls` shows nodes around. This is the list of nodes that your node is able to *sense*, via HELLO messages.
+* `!ping [<text>]` sends a ping to test connectivity with nearby nodes. Only nodes within direct radio range will respond (unless in quiet mode). If no text is provided, defaults to "ping". Responses show the responder's nickname, original text, round-trip time (RTT), and bidirectional signal strength (outbound RSSI when they received your ping, inbound RSSI when you received their pong). This is a fire-and-forget operation, pings are never relayed. Works even in quiet mode (you can send pings, but won't reply to pings from others).
 * `!font big|small` will change between an 8x8 and a 5x7 (4x6 usable area) font.
 * `!image <image-file-name>` send an FCI image (see later about images).
 * `!last [<count>]` show the last messages received, taking them from the local storage of the device.
@@ -228,6 +229,8 @@ The first byte is the message type byte. The following message types are defined
 * MessageTypeBulkData = 4
 * MessageTypeBulkEND = 5
 * MessageTypeBulkReply = 6
+* MessageTypePing = 7
+* MessageTypePong = 8
 
 The second byte of messages of all the message types is the flag byte.
 Bits have the following meaning:
@@ -361,6 +364,81 @@ Format:
 * The status message is exactly like in the DATA message format: a string composed of one byte length of the nickname, and then the nickname of the owner and the message that was set as status message. Like:
 
     "\x07antirezHi there! I'm part of FreakWAN."
+
+## PING message
+
+This message is used to test connectivity and measure round-trip time with nearby nodes. When a node receives a PING message, it responds with a PONG message (unless in quiet mode) containing the original ping text, the responder's nickname, and timing information.
+
+PING messages are always local and never relayed. The `PleaseRelay` flag is ignored if present. This is a simple fire-and-forget mechanism to test direct radio connectivity without flooding the network.
+
+Format:
+
+```
++--------+---------+---------------+-------+-----------+
+| type:8 | flags:8 | message ID:32 | TTL:8 | sender:48 |
++--------+---------+---------------+-------+-----------+
+```
+
+The payload after the header is structured as follows:
+
+```
++----------+--------+-------------//-----------//
+| t0_ms:32 | nlen:8 | nick bytes    | ping_text
++----------+--------+-------------//-----------//
+```
+
+* The type id is set to the PING message type (7).
+* Flags are ignored. PING messages are never relayed regardless of flag values.
+* The 32 bit message ID is randomly generated.
+* TTL field is present but currently ignored. Reserved for possible future "super-pings" that may be relayed.
+* Sender is the device ID of the node that originated the ping.
+* `t0_ms` is a 32-bit little-endian unsigned integer timestamp from `time.ticks_ms()`, used to calculate RTT.
+* `nlen` is the length of the sender's nickname as an unsigned 8 bit integer.
+* `nick` bytes is the nickname of the sender.
+* `ping_text` is a string provided by the user (defaults to "ping" if not specified).
+
+## PONG message
+
+This message is sent in response to a PING message. It contains the responder's nickname, the original ping text, the PING's RSSI and timestamp (for bidirectional signal measurement and RTT calculation), and is addressed to the specific node that sent the ping. PONG messages are always local, never relayed, and use a fire-and-forget approach.
+
+Format:
+
+```
++--------+---------+---------------+-------+-----------+-----------+---//
+| type:8 | flags:8 | message ID:32 | TTL:8 | sender:48 | pinger:48 |...
++--------+---------+---------------+-------+-----------+-----------+---//
+```
+
+The payload after the header is structured as follows:
+
+```
++-------------+----------+--------+------+----------//
+| ping_rssi:8 | t0_ms:32 | nlen:8 | nick | ping_text
++-------------+----------+--------+------+----------//
+```
+
+* The type id is set to the PONG message type (8).
+* Flags are ignored. PONG messages are never relayed regardless of flag values.
+* The 32 bit message ID matches the original PING message ID.
+* TTL field is present but currently ignored. Reserved for possible future use.
+* Sender is the device ID of the node responding to the ping.
+* Pinger is the device ID of the node that sent the original ping (the target of this pong).
+* `ping_rssi` is the RSSI of the original PING as received by the responder (signed 8-bit integer, typically negative dBm).
+* `t0_ms` is the timestamp from the original PING, copied verbatim for RTT calculation (32-bit little-endian unsigned integer).
+* `nlen` is the length of the responder's nickname as an unsigned 8 bit integer.
+* `nick` is the nickname of the responder.
+* `ping_text` is the original text from the PING message, echoed back for user correlation.
+
+When a node receives a PONG message, it checks if the `pinger` field matches its own device ID. If it does, the pong is displayed with:
+- The responder's nickname
+- The original ping text
+- Round-trip time (RTT) calculated as `time.ticks_diff(time.ticks_ms(), t0_ms)`
+- Outbound RSSI (from `ping_rssi` field - how strong the ping was at the remote node)
+- Inbound RSSI (from the PONG packet itself - how strong the pong is at the local node)
+
+If the pinger doesn't match, the pong is silently ignored.
+
+**Quiet Mode Behavior:** Nodes in quiet mode will NOT respond to PINGs with PONGs, but can still send PINGs themselves.
 
 ## Messages relay
 

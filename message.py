@@ -15,6 +15,8 @@ MessageTypeBulkStart = const(3)
 MessageTypeBulkData = const(4)
 MessageTypeBulkEND = const(5)
 MessageTypeBulkReply = const(6)
+MessageTypePing = const(7)
+MessageTypePong = const(8)
 
 # Message flags
 MessageFlagsNone = const(0)               # No flags
@@ -42,7 +44,7 @@ MessageSensorDataBattery = const(3)
 # The message object represents a FreakWAN message, and is also responsible
 # of the decoding and encoding of the messages to be sent to the "wire".
 class Message:
-    def __init__(self, nick="", text="", media_type=255, media_data=False, uid=False, ttl=15, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type=0, seen=0, key_name=None):
+    def __init__(self, nick="", text="", media_type=255, media_data=False, uid=False, ttl=15, mtype=MessageTypeData, sender=False, flags=0, rssi=0, ack_type=0, seen=0, key_name=None, pinger=None, ping_rssi=0, ping_t0_ms=0):
         self.ctime = time.ticks_ms() # To evict old messages
 
         # send_time is only useful for sending, to introduce a random delay.
@@ -64,6 +66,9 @@ class Message:
         self.ttl = ttl              # Only DATA
         self.ack_type = ack_type    # Only ACK
         self.seen = seen            # Only HELLO
+        self.pinger = pinger        # Only PONG (target of the pong)
+        self.ping_rssi = ping_rssi  # Only PONG (RSSI of original PING)
+        self.ping_t0_ms = ping_t0_ms # PING/PONG (timestamp for RTT)
         self.rssi = rssi
         self.key_name = key_name
         self.no_key = False         # True if it was not possible to decrypt.
@@ -123,6 +128,10 @@ class Message:
             return struct.pack("<BBLB",self.type,self.flags,self.uid,self.ack_type)+self.sender
         elif self.type == MessageTypeHello:
             return struct.pack("<BB6sBB",self.type,self.flags,self.sender,self.seen,len(self.nick))+self.nick+self.text
+        elif self.type == MessageTypePing:
+            return struct.pack("<BBLB6sLB",self.type,self.flags,self.uid,self.ttl,self.sender,self.ping_t0_ms,len(self.nick))+self.nick+self.text
+        elif self.type == MessageTypePong:
+            return struct.pack("<BBLB6s6sbLB",self.type,self.flags,self.uid,self.ttl,self.sender,self.pinger,int(self.ping_rssi),self.ping_t0_ms,len(self.nick))+self.nick+self.text
         else:
             print("WARNING Message.encode() unknown msg type",self.type)
             return None
@@ -177,6 +186,16 @@ class Message:
                 self.type,self.flags,self.sender,self.seen,nick_len = struct.unpack("<BB6sBB",msg)
                 self.nick = msg[10:10+nick_len].decode("utf-8")
                 self.text = msg[10+nick_len:].decode("utf-8")
+                return True
+            elif mtype == MessageTypePing:
+                self.type,self.flags,self.uid,self.ttl,self.sender,self.ping_t0_ms,nick_len = struct.unpack("<BBLB6sLB",msg)
+                self.nick = msg[18:18+nick_len].decode("utf-8")
+                self.text = msg[18+nick_len:].decode("utf-8")
+                return True
+            elif mtype == MessageTypePong:
+                self.type,self.flags,self.uid,self.ttl,self.sender,self.pinger,self.ping_rssi,self.ping_t0_ms,nick_len = struct.unpack("<BBLB6s6sbLB",msg)
+                self.nick = msg[25:25+nick_len].decode("utf-8")
+                self.text = msg[25+nick_len:].decode("utf-8")
                 return True
             else:
                 print("!!! Decoding message: wrong message type %d" % mtype)

@@ -424,3 +424,12 @@ class CommandsController:
     # This is the same as pressing button 0 on the device.
     def cmd_b0(self,argv,argc,send_reply):
         self.fw.button_0_pressed(None)
+
+    def cmd_ping(self,argv,argc,send_reply):
+        if argc > 2: return False
+        ping_text = argv[1] if argc == 2 else "ping"
+        # ping_t0_ms set to 0, will be set to actual time just before transmission
+        msg = Message(mtype=MessageTypePing, nick=self.fw.config['nick'], text=ping_text, ping_t0_ms=0)
+        self.fw.send_asynchronously(msg, max_delay=0, num_tx=1, relay=False)
+        send_reply("Ping sent...")
+        return True

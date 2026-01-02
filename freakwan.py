@@ -426,6 +426,9 @@ class FreakWAN:
                 # Send the message and turn the green led on. This will
                 # be turned off later when the IRQ reports success.
                 if m.send_canceled == False:
+                    # For PING messages, set timestamp just before transmission
+                    if m.type == MessageTypePing and m.ping_t0_ms == 0:
+                        m.ping_t0_ms = time.ticks_ms()
                     encoded = m.encode(keychain=self.keychain)
                     if encoded != None:
                         self.set_tx_led(True)
@@ -484,7 +487,8 @@ class FreakWAN:
         m.flags |= MessageFlagsRelayed  # This is a relay. No ACKs, please.
         self.send_asynchronously(m,num_tx=self.config['relay_num_tx'],max_delay=self.config['relay_max_delay'])
         self.scroller.icons.set_relay_visibility(True)
-        self.serial_log("[>> net] Relaying "+("%08x"%m.uid)+" from "+m.nick)
+        nick = m.nick if hasattr(m,'nick') and m.nick else m.sender_to_str()
+        self.serial_log("[>> net] Relaying "+("%08x"%m.uid)+" from "+nick)
 
     # Return the message if it was already marked as processed, otherwise
     # None is returned.
@@ -623,6 +627,31 @@ class FreakWAN:
                 self.neighbors[m.sender] = m
                 if len(self.neighbors) > max_neighbors:
                     self.neighbors.popitem()
+            elif m.type == MessageTypePing:
+                # Received a Ping from sender with nick
+                self.serial_log("[<< net] Ping from "+m.nick+" ("+m.sender_to_str()+"): '"+m.text+"' (RSSI: "+str(m.rssi)+")")
+                # In quiet mode, don't reply with PONG
+                if self.config['quiet']:
+                    self.serial_log("[<< net] Quiet mode: not replying with PONG")
+                else:
+                    # Send back a Pong with PING's RSSI and
+                    # timestamp (fire and forget, no caching).
+                    pong = Message(mtype=MessageTypePong, nick=self.config['nick'], text=m.text, uid=m.uid, pinger=m.sender, ping_rssi=m.rssi, ping_t0_ms=m.ping_t0_ms)
+                    self.send_asynchronously(pong, max_delay=0, num_tx=1, relay=False)
+            elif m.type == MessageTypePong:
+                # Only display Pongs meant for us (fire and forget, no caching)
+                my_sender = Message().get_this_sender()
+                if m.pinger == my_sender:
+                    # Calculate RTT and display with both outbound (PING)
+                    # and inbound (PONG) RSSI.
+                    rtt_ms = time.ticks_diff(time.ticks_ms(), m.ping_t0_ms)
+                    pong_msg = "Pong from "+m.nick+": '"+m.text+"' (rtt: "+str(rtt_ms)+" ms, out: "+str(m.ping_rssi)+" dBm, in: "+str(m.rssi)+" dBm)"
+                    self.scroller.print(pong_msg)
+                    self.serial_log("\033[32m"+pong_msg+"\033[0m", force=True)
+                    if self.bleuart: self.bleuart.print(pong_msg)
+                    if self.irc: self.irc.reply(pong_msg)
+                    if self.telegram: self.telegram_send(pong_msg)
+                    self.refresh_view()
             else:
                 self.serial_log("receive_lora_packet(): message type not implemented: %d" % m.type)
         else:
