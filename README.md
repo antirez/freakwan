@@ -33,7 +33,7 @@ This code is currently a functional work in progress, designed to work with the 
 2. LILYGO TTGO T Beam LoRa module.
 3. LILYGO T-WATCH S3.
 
-However changing the pins in the configuration, to adapt it to other ESP32 modules that have an SX1276, SX1262 LoRa chips, and an SSD1306 or ST7789 display (or no dislay, in headless mode), should be very little work. T-ECHO devices are also supported, even if with less features, in the C port of FreanWAN, under the `techo-port` directory, but the T-ECHO port is still alpha quality software.
+However changing the pins in the configuration, to adapt it to other ESP32 modules that have an SX1276, SX1262 LoRa chips, and an SSD1306 or ST7789 display (or no dislay, in headless mode), should be very little work. T-ECHO devices are also supported, even if with less features, in the C port of FreakWAN, under the `techo-port` directory, but the T-ECHO port is still alpha quality software.
 
 **FreakWAN is implemented in MicroPython**, making use only of default libraries.
 
