@@ -4,7 +4,7 @@ class AXP192:
     def __init__(self, i2c):
         self.i2c = i2c
         self.i2c_addr = 0x34
-        self.write(0x84,int("0b11110010")) # ADC sampling rate: 200hz
+        self.write(0x84,0b11110010) # ADC sampling rate: 200hz
         self.write(0x82,0xff) # All ADCs enabled.
 
     def read_12bit(self,reg):
